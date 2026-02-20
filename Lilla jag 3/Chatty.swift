@@ -12,8 +12,8 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseDatabase
 
-// MARK: – Hårdkodad API-nyckel (enligt önskemål)
-fileprivate let OPENAI_API_KEY = "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"
+// MARK: – API-nyckel (hämtas från Config.swift)
+fileprivate let OPENAI_API_KEY = Config.openAIAPIKey
 
 // MARK: – Root
 struct ChattyView: View {
