@@ -12,9 +12,9 @@ import SwiftUI
 import AVKit
 import Foundation
 
-// MARK: - 1  OpenAI‑inställningar
+// MARK: - 1  OpenAI‑inställningar (från Config)
 enum OpenAIConfig {
-    static let apiKey = "REMOVED_SECRET"
+    static var apiKey: String { Config.openAIAPIKey }
     static let model  = "gpt-4o-mini"
     static let temp: Double = 0.7
 }

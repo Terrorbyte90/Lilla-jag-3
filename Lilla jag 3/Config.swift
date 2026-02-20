@@ -9,14 +9,14 @@ import Foundation
 
 enum Config {
     static var elevenLabsAPIKey: String {
-        return "" // TODO: Lägg till din ElevenLabs API Key här
+        return "REMOVED_SECRET"
     }
     
     static var elevenLabsAgentID: String {
-        return "" // TODO: Lägg till din ElevenLabs Agent ID här
+        return "sX23zF6gtG6GdRB8ndmK"
     }
 
     static var openAIAPIKey: String {
-        return "" // TODO: Lägg till din OpenAI API Key här
+        return "REMOVED_SECRET"
     }
 }

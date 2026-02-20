@@ -17,20 +17,7 @@ import Combine
 
 // MARK: ‑ Övergripande Dashboard‑vy
 struct Dashboard: View {
-    // Citat
-    @State private var affirmation: String = AffirmationManager.random()
-    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
-    
-    // Chatty
-    @State private var showChatty = false
-    // Numbers
-    @State private var showNumbers = false
-    // Krisplan
-    @State private var showCrisisPlan = false
-    // Donation
-    @State private var showDonation = false
-    // Forum
-    @State private var showForum = false
+    @StateObject private var viewModel = DashboardViewModel()
     
     var body: some View {
         ZStack {
@@ -38,118 +25,163 @@ struct Dashboard: View {
             LoopingVideoBackground(videoName: "bloop", fileExtension: "mp4")
                 .ignoresSafeArea()
             
-            VStack(alignment: .leading, spacing: 32) {
-                header
-                videoBox
-                quickActions
-                affirmationBox
-                Spacer(minLength: 0)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 32) {
+                    header
+                    videoBox
+                    quickActions
+                    affirmationBox
+                    ukraineBanner
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 100) // Plats för navbar
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 80)
-            .padding(.bottom, 20)
-          //  .offset(y: -UIScreen.main.bounds.height * 0.04)
         }
         .preferredColorScheme(.dark)
-        // uppdatera citat
-        .onReceive(timer) { _ in affirmation = AffirmationManager.random() }
         // chatty‑sheet
-        .fullScreenCover(isPresented: $showChatty) { ChattyView() }
+        .fullScreenCover(isPresented: $viewModel.showChatty) { ChattyView() }
         // numbers‑sheet
-        .fullScreenCover(isPresented: $showNumbers) { NumbersView() }
+        .fullScreenCover(isPresented: $viewModel.showNumbers) { NumbersView() }
         // krisplan‑sheet
-        .fullScreenCover(isPresented: $showCrisisPlan) { KrisplanView() }
+        .fullScreenCover(isPresented: $viewModel.showCrisisPlan) { KrisplanView() }
         // donation‑sheet
-        .fullScreenCover(isPresented: $showDonation) { DonationView() }
+        .fullScreenCover(isPresented: $viewModel.showDonation) { DonationView() }
         // forum‑sheet
-        .fullScreenCover(isPresented: $showForum) { ForumView() }
+        .fullScreenCover(isPresented: $viewModel.showForum) { ForumView() }
+        // psykolog-sheet
+        .fullScreenCover(isPresented: $viewModel.showPsykolog) { PsykologView() }
+        // ukraine-sheet
+        .fullScreenCover(isPresented: $viewModel.showUkraine) { UkraineView() }
+        // social-sheet
+        .fullScreenCover(isPresented: $viewModel.showSocial) { SocialView() }
     }
 }
 
 // MARK: ‑ Delvyer
 private extension Dashboard {
     
+    var ukraineBanner: some View {
+        HStack(spacing: 12) {
+            Button {
+                viewModel.showUkraine = true
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(.white.opacity(0.1))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(LinearGradient(colors: [.blue, .yellow], startPoint: .top, endPoint: .bottom))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Stöd Ukraina")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text("Gör skillnad")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .ljGlassCard(radius: 18)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                viewModel.showSocial = true
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(.white.opacity(0.1))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.white)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Socialt")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text("Hitta vänner")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .ljGlassCard(radius: 18)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
     // Rubriker
     var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Lilla Jag")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(DesignSystem.Typography.titleMain)
+                    .minimumScaleFactor(0.8)
                     .foregroundStyle(.white)
                     .shadow(radius: 10)
 
                 Text("Välkommen in i värmen!")
-                    .font(.title3)
+                    .font(.subheadline)
+                    .minimumScaleFactor(0.8)
                     .foregroundStyle(.white.opacity(0.85))
             }
             Spacer()
-            HStack(spacing: 12) {
-                Button(action: { showDonation = true }) {
-                    Image(systemName: "heart.fill")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial.opacity(0.25),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                
-                // Krisplan‑knapp
-                Button(action: { showCrisisPlan = true }) {
-                    Image(systemName: "cross.case")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial.opacity(0.25),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                
-                // Telefon‑knapp
-                Button(action: { showNumbers = true }) {
-                    Image(systemName: "phone")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial.opacity(0.25),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
+            HStack(spacing: 8) {
+                DashboardHeaderButton(icon: "heart.fill", action: { viewModel.showDonation = true })
+                DashboardHeaderButton(icon: "cross.case", action: { viewModel.showCrisisPlan = true })
+                DashboardHeaderButton(icon: "phone", action: { viewModel.showNumbers = true })
             }
         }
-        .padding(16)
-        .background(.ultraThinMaterial.opacity(0.25),
-                    in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-        )
+        .padding(12)
+        .ljGlassCard(radius: 18)
         .shadow(radius: 4, y: 2)
-        .padding(.top, -40)
     }
+}
+
+// MARK: - Hjälpkomponent för header-knappar
+struct DashboardHeaderButton: View {
+    let icon: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .ljGlassCard(radius: 10)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension Dashboard {
     
     // Stora videorutan
     var videoBox: some View {
-        LoopingVideoBackground(videoName: "bipolar", fileExtension: "mp4")
-            .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 36, style: .continuous)
-                    .stroke(.white.opacity(0.25), lineWidth: 1)
-            )
-            .shadow(radius: 10)
-            .frame(height: 250)
+        GeometryReader { geo in
+            LoopingVideoBackground(videoName: "bipolar", fileExtension: "mp4")
+                .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 36, style: .continuous)
+                        .stroke(.white.opacity(0.25), lineWidth: 1)
+                )
+                .shadow(radius: 10)
+        }
+        .frame(height: 250)
     }
     
     // Snabba åtgärder
@@ -157,27 +189,26 @@ private extension Dashboard {
         HStack(spacing: 16) {
             DashboardActionButton(icon: "bubble.left.and.bubble.right",
                                   label: "Chatt") {
-                showChatty = true
+                viewModel.showChatty = true
             }
             DashboardActionButton(icon: "person.3", label: "Forum") {
-                showForum = true
+                viewModel.showForum = true
             }
-            DashboardActionButton(icon: "book.closed", label: "Dagbok") { }
+            DashboardActionButton(icon: "video.bubble.left", label: "Psykolog") {
+                viewModel.showPsykolog = true
+            }
         }
     }
     
     // Citatbox
     var affirmationBox: some View {
-        Text(affirmation)
-            .font(.headline.weight(.medium))
+        Text(viewModel.affirmation)
+            .font(DesignSystem.Typography.headline)
             .foregroundStyle(.white)
             .padding(.vertical, 14)
             .padding(.horizontal, 20)
             .frame(maxWidth: .infinity, alignment: .center)
-            .background(.ultraThinMaterial,
-                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1))
+            .ljGlassCard(radius: 18)
             .shadow(radius: 4, y: 2)
     }
 }
@@ -199,12 +230,7 @@ struct DashboardActionButton: View {
             .foregroundStyle(.white)
             .padding(12)
             .frame(maxWidth: .infinity)
-            .background(.ultraThinMaterial.opacity(0.25),
-                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(.white.opacity(0.15), lineWidth: 0.5)
-            )
+            .ljGlassCard(radius: 16)
         }
         .buttonStyle(.plain)
     }

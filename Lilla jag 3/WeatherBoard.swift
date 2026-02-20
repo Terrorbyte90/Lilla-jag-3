@@ -10,9 +10,9 @@ import SwiftUI
 import Charts
 import Combine
 
-// MARK: - OpenAI‑inställningar
+// MARK: - OpenAI‑inställningar (från Config)
 private enum WeatherAIConfig {
-    static let apiKey = "REMOVED_SECRET"
+    static var apiKey: String { Config.openAIAPIKey }
     static let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     static let model = "gpt-4o-mini"
 }

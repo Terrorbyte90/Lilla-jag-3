@@ -201,23 +201,37 @@ final class SocialModel: ObservableObject {
 
 struct SocialView: View {
     @StateObject private var model = SocialModel()
-    private let gradient = LinearGradient(colors: [.purple, .blue],
+    @Environment(\.dismiss) private var dismiss
+    private let gradient = LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
                                           startPoint: .topLeading, endPoint: .bottomTrailing)
     var body: some View {
-        TabView {
-            SocialProfileView().environmentObject(model)
-                .tabItem { Label("Profil", systemImage: "person.crop.circle") }
-            SocialMessageHub().environmentObject(model)
-                .tabItem { Label("Medd.", systemImage: "bubble.left.and.bubble.right") }
-            SocialFeedView().environmentObject(model)
-                .tabItem { Label("Flöde", systemImage: "sparkles") }
-            SocialExploreView().environmentObject(model)
-                .tabItem { Label("Utforska", systemImage: "magnifyingglass.circle") }
-            SocialMoodView().environmentObject(model)
-                .tabItem { Label("Humör", systemImage: "face.smiling") }
+        ZStack(alignment: .topLeading) {
+            TabView {
+                SocialFeedView().environmentObject(model)
+                    .tabItem { Label("Flöde", systemImage: "sparkles") }
+                SocialExploreView().environmentObject(model)
+                    .tabItem { Label("Utforska", systemImage: "magnifyingglass.circle") }
+                SocialMessageHub().environmentObject(model)
+                    .tabItem { Label("Medd.", systemImage: "bubble.left.and.bubble.right") }
+                SocialMoodView().environmentObject(model)
+                    .tabItem { Label("Humör", systemImage: "face.smiling") }
+                SocialProfileView().environmentObject(model)
+                    .tabItem { Label("Profil", systemImage: "person.crop.circle") }
+            }
+            .background(gradient.ignoresSafeArea())
+            .tint(.white)
+            
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.top, 60) // Extra padding för att inte krocka med Dynamic Island/Notch
+                    .padding(.horizontal)
+            }
+            .zIndex(1)
         }
-        .background(gradient.ignoresSafeArea())
-        .tint(.white)
     }
 }
 
@@ -229,13 +243,35 @@ struct SocialFeedView: View {
     @EnvironmentObject var model: SocialModel
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(model.globalFeed) { SocialStatusCard(status: $0) }
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(model.globalFeed) { SocialStatusCard(status: $0) }
+                        
+                        if model.globalFeed.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(.white.opacity(0.3))
+                                Text("Flödet är tomt")
+                                    .font(.headline)
+                                Text("Bli den första att dela något!")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.top, 100)
+                        }
+                    }
+                    .padding()
+                    .padding(.top, 40) // Plats för stäng-knapp
                 }
-                .padding()
             }
-            .navigationTitle("Senaste inlägg")
+            .navigationTitle("Gemenskap")
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 }
@@ -249,20 +285,44 @@ struct SocialStatusCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 SocialAvatar(data: author?.avatarData)
-                    .frame(width: 40, height: 40)
-                VStack(alignment: .leading) {
-                    Text(author?.name ?? "Okänd").bold()
-                    Text(status.created.formatted(date: .numeric, time: .shortened))
-                        .font(.caption).foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(author?.name ?? "Anonym").font(.headline).foregroundStyle(.white)
+                    Text(status.created.relativeSV())
+                        .font(.caption).foregroundStyle(.white.opacity(0.5))
                 }
+                Spacer()
             }
+            
             Text(status.text)
+                .foregroundStyle(.white.opacity(0.9))
+            
             if let d = status.imageData, let img = UIImage(data: d) {
-                Image(uiImage: img).resizable().scaledToFill()
-                    .frame(maxHeight: 300).clipShape(RoundedRectangle(cornerRadius: 12))
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
-        .padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding()
+        .background(.white.opacity(0.05))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+fileprivate extension Date {
+    func relativeSV() -> String {
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "sv_SE")
+        f.unitsStyle = .short
+        return f.localizedString(for: self, relativeTo: .now)
     }
 }
 
@@ -283,69 +343,156 @@ struct SocialProfileView: View {
     ]
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                SocialAvatar(data: draft.avatarData, placeholder: "person.crop.circle.badge.plus")
-                    .frame(width: 120, height: 120)
-                    .onTapGesture { showPicker = true }
+        NavigationStack {
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
                 
-                Group {
-                    TextField("Namn", text: $draft.name)
-                    Stepper("Ålder: \(draft.age)", value: $draft.age, in: 10...100)
-                    TextField("Ort", text: $draft.location)
-                    TextField("Beskriv din erfarenhet", text: $draft.experience)
-                    Toggle("Kan vara mentor", isOn: $draft.isMentor)
-                    // Diagnoser
-                    VStack(alignment: .leading) {
-                        Text("Diagnoser").bold()
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack {
-                                ForEach(diagnoses, id: \.self) { d in
-                                    Capsule()
-                                        .fill(
-                                            draft.diagnoses.contains(d)
-                                            ? Color.accentColor
-                                            : Color(.secondarySystemBackground)
-                                        )
-                                        .overlay(
-                                            Text(d).font(.caption)
-                                                .foregroundStyle(
-                                                    draft.diagnoses.contains(d) ? .white : .primary
-                                                )
-                                        )
-                                        .onTapGesture {
-                                            if draft.diagnoses.contains(d) {
-                                                draft.diagnoses.removeAll { $0 == d }
-                                            } else { draft.diagnoses.append(d) }
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Avatar-sektion
+                        VStack(spacing: 16) {
+                            SocialAvatar(data: draft.avatarData, placeholder: "person.crop.circle.badge.plus")
+                                .frame(width: 100, height: 100)
+                                .background(.white.opacity(0.1), in: Circle())
+                                .onTapGesture { showPicker = true }
+                            
+                            Text(draft.name.isEmpty ? "Din Profil" : draft.name)
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.top, 40)
+                        
+                        // Formulär
+                        VStack(spacing: 20) {
+                            ProfileField(label: "Namn", text: $draft.name, placeholder: "Ditt namn")
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Ålder: \(draft.age)")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.white.opacity(0.7))
+                                Stepper("", value: $draft.age, in: 10...100)
+                                    .labelsHidden()
+                                    .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            ProfileField(label: "Ort", text: $draft.location, placeholder: "Var bor du?")
+                            ProfileField(label: "Erfarenhet", text: $draft.experience, placeholder: "Kort om dig...")
+                            
+                            Toggle("Kan vara mentor", isOn: $draft.isMentor)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.white.opacity(0.7))
+                                .padding()
+                                .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+                            
+                            // Diagnoser
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Mina utmaningar")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.white.opacity(0.7))
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        ForEach(diagnoses, id: \.self) { d in
+                                            let isSelected = draft.diagnoses.contains(d)
+                                            Text(d)
+                                                .font(.caption.bold())
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 8)
+                                                .background(isSelected ? Color.blue : Color.white.opacity(0.1), in: Capsule())
+                                                .foregroundStyle(.white)
+                                                .onTapGesture {
+                                                    if isSelected {
+                                                        draft.diagnoses.removeAll { $0 == d }
+                                                    } else {
+                                                        draft.diagnoses.append(d)
+                                                    }
+                                                }
                                         }
+                                    }
                                 }
                             }
                         }
+                        .padding()
+                        .background(.white.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .padding(.horizontal)
+                        
+                        Button {
+                            if draft.avatarData == nil, let img = pickedImage {
+                                draft.avatarData = img.jpegData(compressionQuality: 0.8)
+                            }
+                            model.save(profile: draft)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        } label: {
+                            Text("Spara profil")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue, in: Capsule())
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal)
+                        
+                        Divider().background(.white.opacity(0.1)).padding()
+                        
+                        // Status Composer
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Dela en tanke")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                            
+                            SocialStatusComposer { txt, img in
+                                model.postStatus(text: txt, image: img)
+                            }
+                        }
+                        .padding()
+                        .background(.white.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .padding(.horizontal)
+                        
+                        // Egna inlägg
+                        VStack(alignment: .leading, spacing: 16) {
+                            if let myStatuses = model.me()?.statuses, !myStatuses.isEmpty {
+                                Text("Mina inlägg")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal)
+                                
+                                ForEach(myStatuses) { SocialStatusCard(status: $0) }
+                                    .padding(.horizontal)
+                            }
+                        }
+                        
+                        Spacer(minLength: 100)
                     }
                 }
-                .textFieldStyle(.roundedBorder)
-                
-                Button("Spara profil") {
-                    if draft.avatarData == nil, let img = pickedImage {
-                        draft.avatarData = img.jpegData(compressionQuality: 0.8)
-                    }
-                    model.save(profile: draft)
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Divider()
-                
-                // Skriva inlägg
-                SocialStatusComposer { txt, img in
-                    model.postStatus(text: txt, image: img)
-                }
-                
-                ForEach(model.me()?.statuses ?? []) { SocialStatusCard(status: $0) }
             }
-            .padding()
+            .navigationTitle("Profil")
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
         .onAppear { if let me = model.me() { draft = me } }
         .sheet(isPresented: $showPicker) { SocialPhotoPicker(image: $pickedImage) }
+    }
+}
+
+struct ProfileField: View {
+    let label: String
+    @Binding var text: String
+    let placeholder: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.subheadline.bold())
+                .foregroundStyle(.white.opacity(0.7))
+            TextField(placeholder, text: $text)
+                .padding()
+                .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(.white)
+        }
     }
 }
 
@@ -368,46 +515,186 @@ struct SocialExploreView: View {
     
     var body: some View {
         NavigationStack {
-            List {
-                Toggle("Visa bara mentorer", isOn: $showMentorsOnly)
-                ForEach(filtered) { u in
-                    NavigationLink {
-                        SocialPublicProfile(user: u)
-                    } label: {
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Filter-sektion
+                    VStack(spacing: 16) {
                         HStack {
-                            SocialAvatar(data: u.avatarData).frame(width: 40, height: 40)
-                            VStack(alignment: .leading) {
-                                Text(u.name.isEmpty ? "Namnlös" : u.name)
-                                if u.isMentor { Text("Mentor").font(.caption).foregroundStyle(.secondary) }
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.white.opacity(0.5))
+                            TextField("Sök efter medlemmar...", text: $query)
+                                .foregroundStyle(.white)
+                        }
+                        .padding()
+                        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+                        
+                        Toggle("Visa endast mentorer", isOn: $showMentorsOnly)
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(.horizontal, 4)
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(filtered) { u in
+                                NavigationLink {
+                                    SocialPublicProfile(user: u)
+                                } label: {
+                                    HStack(spacing: 16) {
+                                        SocialAvatar(data: u.avatarData)
+                                            .frame(width: 50, height: 50)
+                                            .background(.white.opacity(0.1), in: Circle())
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack {
+                                                Text(u.name.isEmpty ? "Anonym" : u.name)
+                                                    .font(.headline)
+                                                    .foregroundStyle(.white)
+                                                
+                                                if u.isMentor {
+                                                    Image(systemName: "star.fill")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.yellow)
+                                                }
+                                            }
+                                            
+                                            if !u.diagnoses.isEmpty {
+                                                Text(u.diagnoses.joined(separator: ", "))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.white.opacity(0.5))
+                                                    .lineLimit(1)
+                                            }
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(.white.opacity(0.3))
+                                    }
+                                    .padding()
+                                    .background(.white.opacity(0.05))
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            if filtered.isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "person.3.fill")
+                                        .font(.system(size: 40))
+                                        .foregroundStyle(.white.opacity(0.2))
+                                    Text("Inga medlemmar hittades")
+                                        .font(.headline)
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                                .padding(.top, 100)
                             }
                         }
+                        .padding()
                     }
                 }
             }
             .navigationTitle("Utforska")
-            .searchable(text: $query, prompt: "Sök användare")
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 }
 
 struct SocialPublicProfile: View {
     let user: SocialUser
+    @EnvironmentObject var model: SocialModel
+    @Environment(\.dismiss) private var dismiss
+    
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                SocialAvatar(data: user.avatarData).frame(width: 120, height: 120)
-                Text(user.name.isEmpty ? "Namnlös" : user.name).font(.title2).bold()
-                if !user.diagnoses.isEmpty {
-                    Text("Diagnoser: " + user.diagnoses.joined(separator: ", "))
+        ZStack {
+            LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    VStack(spacing: 16) {
+                        SocialAvatar(data: user.avatarData)
+                            .frame(width: 100, height: 100)
+                            .background(.white.opacity(0.1), in: Circle())
+                        
+                        VStack(spacing: 4) {
+                            Text(user.name.isEmpty ? "Anonym" : user.name)
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                            
+                            if user.isMentor {
+                                Label("Mentor", systemImage: "star.fill")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.yellow)
+                            }
+                        }
+                    }
+                    .padding(.top, 20)
+                    
+                    VStack(alignment: .leading, spacing: 20) {
+                        if !user.diagnoses.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Utmaningar")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.white.opacity(0.5))
+                                Text(user.diagnoses.joined(separator: ", "))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        
+                        if !user.experience.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Erfarenhet")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.white.opacity(0.5))
+                                Text(user.experience)
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        
+                        Button {
+                            model.send(to: user.id, text: "Hej! Jag såg din profil och ville säga hej.")
+                            // Här skulle vi kunna navigera till meddelanden
+                        } label: {
+                            Label("Skicka meddelande", systemImage: "bubble.left.fill")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue, in: Capsule())
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .padding()
+                    .background(.white.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 24))
+                    .padding(.horizontal)
+                    
+                    if !user.statuses.isEmpty {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Inlägg")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal)
+                            
+                            ForEach(user.statuses) { SocialStatusCard(status: $0) }
+                                .padding(.horizontal)
+                        }
+                    }
+                    
+                    Spacer(minLength: 50)
                 }
-                if user.isMentor { Text("🌟 Mentor").bold() }
-                
-                Divider()
-                ForEach(user.statuses) { SocialStatusCard(status: $0) }
             }
-            .padding()
         }
         .navigationTitle("Profil")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -419,32 +706,81 @@ struct SocialMessageHub: View {
     @EnvironmentObject var model: SocialModel
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(model.conversations) { c in
-                    if let other = c.participantIDs.first(where: { $0 != model.currentUserID }),
-                       let user = model.users.first(where: { $0.id == other }) {
-                        NavigationLink {
-                            SocialConversationView(convID: c.id, otherID: other)
-                        } label: {
-                            HStack {
-                                SocialAvatar(data: user.avatarData).frame(width: 40, height: 40)
-                                VStack(alignment: .leading) {
-                                    Text(user.name.isEmpty ? "Namnlös" : user.name)
-                                    if let last = c.messages.last {
-                                        Text(last.content).font(.caption)
-                                            .lineLimit(1).foregroundStyle(.secondary)
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(model.conversations) { c in
+                            if let otherID = c.participantIDs.first(where: { $0 != model.currentUserID }),
+                               let otherUser = model.users.first(where: { $0.id == otherID }) {
+                                NavigationLink {
+                                    SocialConversationView(convID: c.id, otherID: otherID)
+                                } label: {
+                                    HStack(spacing: 16) {
+                                        SocialAvatar(data: otherUser.avatarData)
+                                            .frame(width: 50, height: 50)
+                                            .background(.white.opacity(0.1), in: Circle())
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(otherUser.name.isEmpty ? "Anonym" : otherUser.name)
+                                                .font(.headline)
+                                                .foregroundStyle(.white)
+                                            
+                                            if let lastMsg = c.messages.last {
+                                                Text(lastMsg.content)
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(.white.opacity(0.6))
+                                                    .lineLimit(1)
+                                            } else {
+                                                Text("Inga meddelanden ännu")
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(.white.opacity(0.4))
+                                                    .italic()
+                                            }
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        if !c.recipientHasAccepted && c.messages.last?.senderID != model.currentUserID {
+                                            Text("Ny förfrågan")
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.orange, in: Capsule())
+                                                .foregroundStyle(.white)
+                                        }
                                     }
+                                    .padding()
+                                    .background(.white.opacity(0.05))
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
                                 }
-                                Spacer()
-                                if !c.recipientHasAccepted {
-                                    Text("Väntar").font(.caption2).foregroundStyle(.orange)
-                                }
+                                .buttonStyle(.plain)
                             }
                         }
+                        
+                        if model.conversations.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "bubble.left.and.bubble.right.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(.white.opacity(0.2))
+                                Text("Inga konversationer")
+                                    .font(.headline)
+                                    .foregroundStyle(.white.opacity(0.5))
+                                Text("Hitta vänner under Utforska!")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.white.opacity(0.3))
+                            }
+                            .padding(.top, 100)
+                        }
                     }
+                    .padding()
                 }
             }
             .navigationTitle("Meddelanden")
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 }
@@ -454,40 +790,100 @@ struct SocialConversationView: View {
     let convID: UUID
     let otherID: UUID
     @State private var draft = ""
+    @Environment(\.dismiss) private var dismiss
     
     var conv: SocialConversation? {
         model.conversations.first { $0.id == convID }
     }
+    
+    var otherUser: SocialUser? {
+        model.users.first { $0.id == otherID }
+    }
+    
     var body: some View {
-        VStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(conv?.messages ?? []) { SocialBubble(msg: $0) }
-                    }
-                    .onChange(of: conv?.messages.count) { _ in
-                        if let last = conv?.messages.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
+        ZStack {
+            LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(conv?.messages ?? []) { msg in
+                                SocialBubble(msg: msg)
+                                    .id(msg.id)
+                            }
+                        }
+                        .padding()
+                        .onAppear {
+                            if let last = conv?.messages.last {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
+                        }
+                        .onChange(of: conv?.messages.count) { _ in
+                            if let last = conv?.messages.last {
+                                withAnimation {
+                                    proxy.scrollTo(last.id, anchor: .bottom)
+                                }
+                            }
                         }
                     }
                 }
-            }
-            if conv?.recipientHasAccepted == true {
-                HStack {
-                    TextField("Skriv...", text: $draft)
-                    Button("Skicka") {
-                        model.send(to: otherID, text: draft)
-                        draft = ""
+                
+                if conv?.recipientHasAccepted == true || conv?.messages.last?.senderID == model.currentUserID {
+                    HStack(spacing: 12) {
+                        TextField("Skriv ett meddelande...", text: $draft)
+                            .padding(12)
+                            .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 20))
+                            .foregroundStyle(.white)
+                        
+                        Button {
+                            guard !draft.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                            model.send(to: otherID, text: draft)
+                            draft = ""
+                        } label: {
+                            Image(systemName: "paperplane.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(draft.isEmpty ? Color.gray : Color.blue, in: Circle())
+                        }
+                        .disabled(draft.isEmpty)
                     }
-                }
-                .padding().background(.ultraThinMaterial)
-            } else {
-                Button("Godkänn & svara") { if let c = conv { model.accept(c) } }
                     .padding()
+                    .background(.ultraThinMaterial)
+                } else {
+                    VStack(spacing: 16) {
+                        Text("Vill du prata med \(otherUser?.name ?? "denna person")?")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                        
+                        HStack(spacing: 20) {
+                            Button("Avböj") {
+                                dismiss()
+                            }
+                            .font(.headline)
+                            .foregroundStyle(.red)
+                            
+                            Button("Godkänn & Svara") {
+                                if let c = conv { model.accept(c) }
+                            }
+                            .font(.headline)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Color.blue, in: Capsule())
+                            .foregroundStyle(.white)
+                        }
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(.ultraThinMaterial)
+                }
             }
         }
-        .navigationTitle("Samtal")
-        .padding(.horizontal)
+        .navigationTitle(otherUser?.name ?? "Samtal")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -498,13 +894,22 @@ struct SocialBubble: View {
     
     var body: some View {
         HStack {
-            if isMe { Spacer() }
-            Text(msg.content)
-                .padding(8)
-                .background(isMe ? Color.blue.opacity(0.8) : Color.gray.opacity(0.3))
-                .foregroundStyle(isMe ? .white : .primary)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            if !isMe { Spacer() }
+            if isMe { Spacer(minLength: 60) }
+            
+            VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
+                Text(msg.content)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(isMe ? Color.blue : Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 18))
+                    .foregroundStyle(.white)
+                
+                Text(msg.created.formatted(date: .omitted, time: .shortened))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .padding(.horizontal, 4)
+            }
+            
+            if !isMe { Spacer(minLength: 60) }
         }
     }
 }
@@ -526,44 +931,135 @@ struct SocialMoodView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // Lägg till nytt humör
-                VStack(spacing: 8) {
-                    Stepper("Humör: \(rating)", value: $rating, in: 1...10)
-                    TextField("Kommentar (frivilligt)", text: $note)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Spara") {
-                        model.addMood(rating: rating, note: note)
-                        note = ""
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding()
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x0F1123), Color(hex: 0x171C38)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
                 
-                Divider()
-                
-                if !moods.isEmpty {
-                    Text("Genomsnitt: \(average, specifier: "%.1f")").bold()
-                    List {
-                        ForEach(moods) { m in
-                            VStack(alignment: .leading) {
-                                Text("Humör: \(m.rating)")
-                                if !m.note.isEmpty { Text(m.note).font(.caption) }
-                                Text(m.date.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption2).foregroundStyle(.secondary)
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Logga nytt humör
+                        VStack(spacing: 20) {
+                            Text("Hur mår du just nu?")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                            
+                            HStack(spacing: 15) {
+                                ForEach(1...5, id: \.self) { i in
+                                    let val = i * 2
+                                    Button {
+                                        rating = val
+                                    } label: {
+                                        VStack(spacing: 8) {
+                                            Text(emojiFor(val))
+                                                .font(.system(size: 30))
+                                            Text("\(val)")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(rating == val ? .white : .white.opacity(0.5))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(rating == val ? Color.blue.opacity(0.3) : Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(rating == val ? Color.blue : Color.clear, lineWidth: 2))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            
+                            TextField("Skriv en kort notering...", text: $note)
+                                .padding()
+                                .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(.white)
+                            
+                            Button {
+                                model.addMood(rating: rating, note: note)
+                                note = ""
+                                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            } label: {
+                                Text("Spara mående")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.blue, in: Capsule())
+                                    .foregroundStyle(.white)
                             }
                         }
+                        .padding()
+                        .background(.white.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .padding(.horizontal)
+                        .padding(.top, 20)
+                        
+                        if !moods.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Text("Historik")
+                                        .font(.headline)
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    Text("Snitt: \(average, specifier: "%.1f")")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.blue)
+                                }
+                                .padding(.horizontal)
+                                
+                                ForEach(moods) { m in
+                                    HStack(spacing: 16) {
+                                        Text(emojiFor(m.rating))
+                                            .font(.title2)
+                                            .frame(width: 44, height: 44)
+                                            .background(.white.opacity(0.1), in: Circle())
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            if !m.note.isEmpty {
+                                                Text(m.note)
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(.white)
+                                            }
+                                            Text(m.date.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.caption)
+                                                .foregroundStyle(.white.opacity(0.5))
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text("\(m.rating)")
+                                            .font(.headline)
+                                            .foregroundStyle(.blue)
+                                    }
+                                    .padding()
+                                    .background(.white.opacity(0.05))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .padding(.horizontal)
+                                }
+                            }
+                        } else {
+                            VStack(spacing: 12) {
+                                Image(systemName: "face.smiling")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(.white.opacity(0.2))
+                                Text("Ingen historik ännu")
+                                    .font(.headline)
+                                    .foregroundStyle(.white.opacity(0.5))
+                            }
+                            .padding(.top, 40)
+                        }
+                        
+                        Spacer(minLength: 100)
                     }
-                    .listStyle(.plain)
-                } else {
-                    Text("Ingen humördata ännu.")
-                        .foregroundStyle(.secondary)
                 }
             }
-            .padding()
-            .navigationTitle("Humör")
+            .navigationTitle("Mitt Mående")
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
+    }
+    
+    private func emojiFor(_ val: Int) -> String {
+        if val <= 2 { return "😔" }
+        if val <= 4 { return "😐" }
+        if val <= 6 { return "🙂" }
+        if val <= 8 { return "😊" }
+        return "😁"
     }
 }
 
@@ -592,18 +1088,70 @@ struct SocialStatusComposer: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextEditor(text: $text).frame(height: 100)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary))
-            if let ui = img {
-                Image(uiImage: ui).resizable().scaledToFill()
-                    .frame(height: 150)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $text)
+                    .frame(height: 100)
+                    .scrollContentBackground(.hidden)
+                    .padding(8)
+                    .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(.white)
+                
+                if text.isEmpty {
+                    Text("Vad tänker du på?")
+                        .foregroundStyle(.white.opacity(0.3))
+                        .padding(.top, 16)
+                        .padding(.leading, 12)
+                        .allowsHitTesting(false)
+                }
             }
+            
+            if let ui = img {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: ui)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    
+                    Button {
+                        img = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.white)
+                            .background(Color.black.opacity(0.5), in: Circle())
+                    }
+                    .padding(8)
+                }
+            }
+            
             HStack {
-                Button("Bild") { show = true }
+                Button {
+                    show = true
+                } label: {
+                    HStack {
+                        Image(systemName: "photo")
+                        Text("Bild")
+                    }
+                    .font(.subheadline.bold())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.white.opacity(0.1), in: Capsule())
+                    .foregroundStyle(.white)
+                }
+                
                 Spacer()
-                Button("Publicera") {
-                    submit(text, img); text = ""; img = nil
+                
+                Button {
+                    submit(text, img)
+                    text = ""
+                    img = nil
+                } label: {
+                    Text("Publicera")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(text.isEmpty && img == nil ? Color.gray : Color.blue, in: Capsule())
+                        .foregroundStyle(.white)
                 }
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && img == nil)
             }

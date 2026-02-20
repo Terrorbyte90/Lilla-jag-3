@@ -28,13 +28,11 @@ fileprivate extension View {
     }
 }
 
-// MARK: - Nycklar (hårdkodade)
+// MARK: - Nycklar (från Config)
 fileprivate enum Secrets {
-    static let openAIKey =
-    "REMOVED_SECRET"
+    static var openAIKey: String { Config.openAIAPIKey }
     static let openAIModel = "gpt-4o-mini"
-    static let elevenKey =
-    "REMOVED_SECRET"
+    static var elevenKey: String { Config.elevenLabsAPIKey }
     static let elevenVoiceID = "sX23zF6gtG6GdRB8ndmK"
 }
 
@@ -1175,14 +1173,17 @@ struct MeditationView: View {
     var body: some View {
         ZStack {
             MedBackground()
-            VStack(spacing: 16) {
-                headerTitle
-                MedMainPanel(vm: vm,
-                             onTapName: openNameSheet,
-                             onTogglePlay: togglePlayAction,
-                             onRegenerate: regenerateAction)
-                Spacer(minLength: 8)
-                homeButton
+            ScrollView {
+                VStack(spacing: 16) {
+                    headerTitle
+                    MedMainPanel(vm: vm,
+                                 onTapName: openNameSheet,
+                                 onTogglePlay: togglePlayAction,
+                                 onRegenerate: regenerateAction)
+                    Spacer(minLength: 8)
+                    homeButton
+                    Spacer(minLength: 100) // Plats för navbar/luft
+                }
             }
             generatingOverlay
             miniPlayer
