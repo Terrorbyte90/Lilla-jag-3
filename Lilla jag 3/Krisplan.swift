@@ -19,7 +19,7 @@ struct KrisplanView: View {
     @State private var alertText         = ""
     @State private var visaAlert         = false
     @State private var visaHem           = false
-    private let assistant                = GPTAssistant()
+    @State private var visaFörslag       = false
 
     // Centrala mått
     private let knappHöjd: CGFloat       = 52
@@ -60,6 +60,9 @@ struct KrisplanView: View {
         }
         .foregroundStyle(.white)
         .onAppear { store.startMolnInit() }
+        .sheet(isPresented: $visaFörslag) {
+            AIAdviceView(text: alertText)
+        }
         .overlay(
             Group {
                 if visaAlert {
@@ -69,23 +72,19 @@ struct KrisplanView: View {
                         .zIndex(1)
                     VStack(spacing: 0) {
                         VStack(spacing: 18) {
-                            Text("Tips från ChatGPT")
+                            Text("Systemmeddelande")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            ScrollView {
-                                Text(alertText)
-                                    .font(.body)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.bottom, 2)
-                            }
-                            .frame(maxHeight: 380)
+                            Text(alertText)
+                                .font(.body)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .padding(.top, 22)
                         .padding(.horizontal, 22)
                         Button(action: { withAnimation { visaAlert = false } }) {
-                            Text("Stäng")
+                            Text("Okej")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -164,6 +163,34 @@ struct KrisplanView: View {
             Text("En trygg väg ut ur krisen.")
                 .font(.headline)
                 .foregroundStyle(.white.opacity(0.8))
+            
+            Button {
+                Task {
+                    laddar = true
+                    do {
+                        let assistant = GPTAssistant()
+                        let tips = try await assistant.förslag(från: store.plan)
+                        alertText = tips
+                        visaFörslag = true
+                    } catch {
+                        alertText = "Kunde inte hämta förslag."
+                        visaAlert = true
+                    }
+                    laddar = false
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "sparkles")
+                    Text("Få AI-förslag")
+                }
+                .font(.subheadline.bold())
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.white.opacity(0.15), in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.3), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
         .padding(.vertical, 20)
         .frame(maxWidth: .infinity)
@@ -242,12 +269,12 @@ struct KrisplanView: View {
     private var nederPanel: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                knapp(titel: "Spara i molnet", system: "icloud.and.arrow.up") {
+                knapp(titel: "Spara", system: "icloud.and.arrow.up") {
                     Task {
                         do {
                             try store.sparaLokalt()
                             try await store.sparaTillFirebase()
-                            alertText = "Krisplanen sparades lokalt och i Firebase."
+                            alertText = "Krisplanen sparades."
                             UINotificationFeedbackGenerator().notificationOccurred(.success)
                         } catch {
                             alertText = "Kunde inte spara: \(error.localizedDescription)"
@@ -306,6 +333,46 @@ struct KrisplanView: View {
                 .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: – AI Advice View
+struct AIAdviceView: View {
+    let text: String
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AuroraBackground().ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack {
+                            Image(systemName: "sparkles")
+                                .font(.title)
+                                .foregroundStyle(.yellow)
+                            Text("AI-förslag")
+                                .font(.title.bold())
+                        }
+                        .padding(.top)
+                        
+                        Text(text)
+                            .font(.body)
+                            .lineSpacing(6)
+                        
+                        Spacer(minLength: 40)
+                    }
+                    .padding()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Klar") { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -470,10 +537,6 @@ actor KrisplanRemote {
 
 // MARK: – GPT-4o-mini
 actor GPTAssistant {
-    // Låt dina API-nycklar vara kvar här
-    private let apiKey = "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"
-    private let url    = URL(string: "https://api.openai.com/v1/chat/completions")!
-
     func förslag(från plan: KrisplanEntry) async throws -> String {
         let sammanfattning = """
         Tidiga varningssignaler: \(plan.tidiga)
@@ -504,6 +567,8 @@ actor GPTAssistant {
                        messages: [.init(role: "user",
                                         content: "Du är psykolog. Ge max åtta konkreta förbättringsförslag, punktlista:\n\(sammanfattning)")])
 
+        let apiKey = Config.openAIAPIKey
+        let url    = URL(string: "https://api.openai.com/v1/chat/completions")!
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")

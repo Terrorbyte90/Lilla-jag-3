@@ -28,13 +28,11 @@ fileprivate extension View {
     }
 }
 
-// MARK: - Nycklar (hårdkodade)
+// MARK: - Nycklar (från Config)
 fileprivate enum Secrets {
-    static let openAIKey =
-    "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"
+    static var openAIKey: String { Config.openAIAPIKey }
     static let openAIModel = "gpt-4o-mini"
-    static let elevenKey =
-    "sk_64b296789f8b47a7daf5e26bbf42e2c7dd7ee553663f7e99"
+    static var elevenKey: String { Config.elevenLabsAPIKey }
     static let elevenVoiceID = "sX23zF6gtG6GdRB8ndmK"
 }
 
@@ -1175,14 +1173,17 @@ struct MeditationView: View {
     var body: some View {
         ZStack {
             MedBackground()
-            VStack(spacing: 16) {
-                headerTitle
-                MedMainPanel(vm: vm,
-                             onTapName: openNameSheet,
-                             onTogglePlay: togglePlayAction,
-                             onRegenerate: regenerateAction)
-                Spacer(minLength: 8)
-                homeButton
+            ScrollView {
+                VStack(spacing: 16) {
+                    headerTitle
+                    MedMainPanel(vm: vm,
+                                 onTapName: openNameSheet,
+                                 onTogglePlay: togglePlayAction,
+                                 onRegenerate: regenerateAction)
+                    Spacer(minLength: 8)
+                    homeButton
+                    Spacer(minLength: 100) // Plats för navbar/luft
+                }
             }
             generatingOverlay
             miniPlayer

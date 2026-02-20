@@ -13,14 +13,15 @@ import FirebaseFirestore
 import FirebaseDatabase
 
 // MARK: – API-nyckel (hämtas från Config.swift)
-fileprivate let OPENAI_API_KEY = Config.openAIAPIKey
+fileprivate var OPENAI_API_KEY: String { Config.openAIAPIKey }
 
 // MARK: – Root
 struct ChattyView: View {
     @StateObject private var vm = ChattyViewModel()
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
             AnimatedAuroraBackground()
                 .ignoresSafeArea()
             
@@ -43,6 +44,17 @@ struct ChattyView: View {
                 UserChatView(roomId: roomId, myUID: uid)
                     .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
             }
+            
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.top, 60)
+                    .padding(.horizontal)
+            }
+            .zIndex(1)
         }
         .navigationBarTitleDisplayMode(.inline)
     }

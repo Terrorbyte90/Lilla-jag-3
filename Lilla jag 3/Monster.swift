@@ -12,9 +12,9 @@ import SwiftUI
 import AVKit
 import Foundation
 
-// MARK: - 1  OpenAI‑inställningar
+// MARK: - 1  OpenAI‑inställningar (från Config)
 enum OpenAIConfig {
-    static let apiKey = "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"
+    static var apiKey: String { Config.openAIAPIKey }
     static let model  = "gpt-4o-mini"
     static let temp: Double = 0.7
 }

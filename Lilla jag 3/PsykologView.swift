@@ -59,17 +59,16 @@ struct PsykologView: View {
     // MARK: – State
     @State private var showBooking = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     // MARK: – Body
     var body: some View {
         ZStack {
-            // Samma skogs‑/ljusbakgrund som dina andra vyer
-            Image("dashboardBackground")
-                .resizable()
-                .scaledToFill()
+            // Bakgrundsvideon
+            LoopingVideoBackground(videoName: "bloop", fileExtension: "mp4")
                 .ignoresSafeArea()
 
-            Color.black.opacity(colorScheme == .dark ? 0.35 : 0)
+            Color.black.opacity(0.4)
                 .ignoresSafeArea()
 
             ScrollView {
@@ -79,9 +78,26 @@ struct PsykologView: View {
                     bokaKnapp
                 }
                 .padding(.horizontal, 24)
-                .padding(.vertical, 40)
+                .padding(.vertical, 60)
+            }
+            
+            // Stäng-knapp
+            VStack {
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    Spacer()
+                }
+                .padding()
+                Spacer()
             }
         }
+        .preferredColorScheme(.dark)
         // Fullskärms‑modal med inbäddad webb
         .fullScreenCover(isPresented: $showBooking) {
             BookingWebContainer {

@@ -82,9 +82,9 @@ final class DagbokStore: ObservableObject {
 
 // MARK: ‑ ElevenLabs‑TTS
 struct ElevenLabsTjänst {
-    private static let apiKey  = "sk_d2f47d257b333b5c851363dd2f17c25babaa63b873d7dd0d"
-    private static let voiceID = "4WpEoB5wO1r9MAJoD3s0"
     static func ljudData(för text: String) async throws -> Data {
+        let apiKey  = Config.elevenLabsAPIKey
+        let voiceID = "4WpEoB5wO1r9MAJoD3s0"
         let url = URL(string:"https://api.elevenlabs.io/v1/text-to-speech/\(voiceID)")!
         let body:[String:Any] = ["text":text,"model_id":"eleven_multilingual_v2","output_format":"mp3_44100_128"]
         var req = URLRequest(url:url)
@@ -256,6 +256,7 @@ struct DagbokDashboardView: View {
                         humörFilter
                         inläggLista
                     }
+                    .padding(.bottom, 100) // Plats för navbar
                 }
             }
             .background(Color.black.ignoresSafeArea())

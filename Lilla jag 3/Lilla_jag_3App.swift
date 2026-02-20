@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
-        // Initiera Firebase (kräver att GoogleService-Info.plist finns i target)
         FirebaseApp.configure()
         return true
     }
@@ -51,7 +50,7 @@ struct Lilla_jag_3App: App {
                 if authVM.isLoggedIn {
                     ContentView()
                 } else {
-                    ContentView() // Ändra detta till "Inlogg" när inlogg funkar!
+                    Inlogg()
                 }
             }
             .onAppear {

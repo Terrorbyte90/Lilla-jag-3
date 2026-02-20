@@ -208,9 +208,9 @@ struct AssistantView: View {
         ZStack {
             AssistantBackground()
             // Centrera innehåll vertikalt; bakgrunden ignorerar safe area
-            VStack {
-                Spacer(minLength: 0)
+            ScrollView {
                 VStack(spacing: 16) {
+                    Spacer(minLength: 40)
                     // Ersatt video → FramedHalo med pulserande cirkel
                     FramedHalo(active: vm.isActive && vm.agentConnected)
 
@@ -225,6 +225,7 @@ struct AssistantView: View {
                                     Text( (vm.isActive && vm.agentConnected) ? "Redo – samtal igång" :
                                           (vm.isActive ? "Startar samtal…" : "Nio är redo") )
                                         .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                        .minimumScaleFactor(0.8)
                                         .foregroundStyle(.white)
                                     Text( vm.isActive ? (vm.agentConnected ? "Lyssnar och svarar i realtid" : "Ansluter…")
                                           : "Tryck för att börja prata" )
@@ -244,11 +245,10 @@ struct AssistantView: View {
                             }
                         }
                     }
+                    Spacer(minLength: 100) // Plats för navbar
                 }
                 .frame(maxWidth: 380)
                 .padding(.horizontal, 20)
-
-                Spacer(minLength: 0)
             }
         }
         .onAppear { vm.onAppear() }

@@ -95,7 +95,7 @@ final class MoodStore: ObservableObject {
         entries = e
     }
 
-    // Statistik
+    // MARK: - Statistik
     struct ActivityCount: Identifiable { let id = UUID(); let name: String; let count: Int }
     func activityFrequencies(window: [MoodEntry]? = nil) -> [ActivityCount] {
         let data = window ?? last30
@@ -108,7 +108,7 @@ final class MoodStore: ObservableObject {
             .sorted { $0.count > $1.count }
     }
 
-    struct Correlation: Identifiable, Hashable {
+    struct MoodCorrelation: Identifiable, Hashable {
         let id = UUID()
         let name: String
         let delta: Double
@@ -116,7 +116,7 @@ final class MoodStore: ObservableObject {
         let total: Int
     }
 
-    func correlations(window: [MoodEntry]? = nil) -> [Correlation] {
+    func correlations(window: [MoodEntry]? = nil) -> [MoodCorrelation] {
         let data = window ?? last90
         guard !data.isEmpty else { return [] }
         var factors = Set<String>()
@@ -137,7 +137,7 @@ final class MoodStore: ObservableObject {
             if f.hasPrefix("Träning: ")   { return e.trainingType == String(f.dropFirst(9)) }
             return false
         }
-        var result: [Correlation] = []
+        var result: [MoodCorrelation] = []
         for f in factors {
             var presentVals: [Double] = []; var absentVals: [Double] = []
             for e in data { factorPresent(f, e) ? presentVals.append(e.moodQuality) : absentVals.append(e.moodQuality) }
@@ -201,15 +201,8 @@ struct AppBackground: View {
 
 // MARK: - Dashboard
 struct Mood1View: View {
-    @StateObject private var store = MoodStore()
-    @State private var showLogger = false
-    @State private var selectedMetric = Metric.mood
-    @State private var calendarExpanded = true
-    @State private var calendarMonth = Date()
-    @State private var popupEntry: MoodEntry?
-    // AI – veckorapport
-    @State private var weeklyReportText: String = ""
-    @State private var generatingWeekly = false
+    @StateObject private var viewModel = MoodViewModel()
+    @StateObject private var store = MoodStore() // Behövs för att skicka till logger och andra vyer om de inte använder VM än
 
     var body: some View {
         ZStack {
@@ -223,18 +216,17 @@ struct Mood1View: View {
                     statsSection
                     insightsSection
                     weeklyAISection
-                    Button("Logga mående") { showLogger = true }
+                    Button("Logga mående") { viewModel.showLogger = true }
                         .buttonStyle(GradientButtonStyle())
                 }
                 .frame(maxWidth: 640)
                 .padding(.vertical, 24)
                 .padding(.horizontal, 16)
+                .padding(.bottom, 100) // Plats för navbar
             }
             .scrollIndicators(.hidden)
-            .safeAreaPadding([.horizontal, .bottom], 16)
-            .modifier(ScrollContentMargins())
         }
-        .fullScreenCover(isPresented: $showLogger) {
+        .fullScreenCover(isPresented: $viewModel.showLogger) {
             MoodLogFlowView { newEntry in store.add(newEntry) }
         }
     }
@@ -246,14 +238,14 @@ struct Mood1View: View {
                 .font(.system(size: 54, weight: .semibold))
                 .foregroundStyle(.green)
                 .shadow(radius: 6)
-            Text("Välkommen tillbaka").font(.title2.bold()).foregroundStyle(.white)
+            Text("Välkommen tillbaka").font(DesignSystem.Typography.titleMain).foregroundStyle(.white)
             Text("Redo att logga hur du mår idag? Dina insikter uppdateras direkt.")
                 .font(.subheadline).foregroundColor(.white.opacity(0.8))
                 .multilineTextAlignment(.center)
-            Button("Börja logga") { showLogger = true }
+            Button("Börja logga") { viewModel.showLogger = true }
                 .buttonStyle(GradientButtonStyle())
         }
-        .glass()
+        .ljGlassCard()
     }
 
     private var kpiRow: some View {
@@ -273,10 +265,9 @@ struct Mood1View: View {
                 }.lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
             }
             .padding(8)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 0.5))
+            .ljGlassCard(radius: 12)
         }
-        .glass()
+        .ljGlassCard()
     }
     private func kpi(_ title: String, _ value: Double) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -289,36 +280,35 @@ struct Mood1View: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 0.5))
+        .ljGlassCard(radius: 12)
     }
 
     // MARK: Linjediagram
     private var metricChart: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Kortare etiketter så allt ryms
-            Picker("", selection: $selectedMetric) {
+            Picker("", selection: $viewModel.selectedMetric) {
                 ForEach(Metric.allCases) { Text($0.shortLabel).tag($0) }
             }
             .pickerStyle(.segmented)
             .tint(.pink)
-            .glass()
+            .ljGlassCard()
 
             Chart(store.last30) { entry in
                 LineMark(
                     x: .value("Datum", entry.date, unit: .day),
-                    y: .value(selectedMetric.label, selectedMetric.value(entry))
+                    y: .value(viewModel.selectedMetric.label, viewModel.selectedMetric.value(entry))
                 )
                 PointMark(
                     x: .value("Datum", entry.date, unit: .day),
-                    y: .value(selectedMetric.label, selectedMetric.value(entry))
+                    y: .value(viewModel.selectedMetric.label, viewModel.selectedMetric.value(entry))
                 )
             }
             .chartYScale(domain: 0...1)
             .frame(height: 160)
         }
         .foregroundColor(.white)
-        .glass()
+        .ljGlassCard()
     }
 
     // MARK: AI-insikter
@@ -328,7 +318,7 @@ struct Mood1View: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("AI-sammanfattning").font(.title3.bold())
                     if !latest.summary.isEmpty {
-                        Text(latest.summary).foregroundColor(.white).glass()
+                        Text(latest.summary).foregroundColor(.white).ljGlassCard()
                     }
                     if !latest.insights.isEmpty {
                         Divider().background(.white.opacity(0.25))
@@ -341,7 +331,7 @@ struct Mood1View: View {
                         ForEach(latest.advice, id: \.self) { Text("→ \($0)").foregroundColor(.white) }
                     }
                 }
-                .glass()
+                .ljGlassCard()
             )
         }
         return AnyView(EmptyView())
@@ -350,20 +340,20 @@ struct Mood1View: View {
     // MARK: Kalender
     private var calendarSection: some View {
         VStack(spacing: 8) {
-            Text(monthTitle(for: calendarMonth))
+            Text(monthTitle(for: viewModel.calendarMonth))
                 .font(.headline).foregroundStyle(.white)
                 .frame(maxWidth: .infinity, alignment: .center)
-            if calendarExpanded {
-                CalendarGridView(entries: store.entries, currentMonth: $calendarMonth) { tapped in
-                    popupEntry = tapped
+            if viewModel.calendarExpanded {
+                CalendarGridView(entries: store.entries, currentMonth: $viewModel.calendarMonth) { tapped in
+                    viewModel.popupEntry = tapped
                 }
                 .frame(maxHeight: 360)
                 .padding(.horizontal, 2) // gör plats för pilarna även på smala skärmar
             }
         }
-        .onTapGesture { withAnimation { calendarExpanded.toggle() } }
-        .glass()
-        .fullScreenCover(item: $popupEntry) { entry in SummaryPopup(entry: entry) }
+        .onTapGesture { withAnimation { viewModel.calendarExpanded.toggle() } }
+        .ljGlassCard()
+        .fullScreenCover(item: $viewModel.popupEntry) { entry in SummaryPopup(entry: entry) }
     }
 
     // MARK: Statistik
@@ -379,7 +369,7 @@ struct Mood1View: View {
                     }
                     .frame(height: CGFloat(24 * max(4, topCounts.count)))
                 }
-                .glass()
+                .ljGlassCard()
             }
             if !store.last90.isEmpty {
                 let corrs = store.correlations()
@@ -415,32 +405,30 @@ struct Mood1View: View {
                             .font(.footnote).foregroundColor(.secondary)
                     }
                 }
-                .glass()
+                .ljGlassCard()
             }
         }
-        .glass()
+        .ljGlassCard()
     }
 
     // MARK: Vecko-AI
     private var weeklyAISection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("AI-Veckorapport").font(.title3.bold()).foregroundStyle(.white)
-            if !weeklyReportText.isEmpty {
-                Text(weeklyReportText).foregroundColor(.white).glass()
+            if !viewModel.weeklyReportText.isEmpty {
+                Text(viewModel.weeklyReportText).foregroundColor(.white).ljGlassCard()
             }
             HStack {
-                if generatingWeekly { ProgressView().progressViewStyle(.circular) }
+                if viewModel.generatingWeekly { ProgressView().progressViewStyle(.circular) }
                 Button("Generera veckorapport") {
                     Task {
-                        generatingWeekly = true; defer { generatingWeekly = false }
-                        let corrs = store.correlations()
-                        weeklyReportText = (try? await OpenAIService.weeklyReport(entries: store.last7(), correlations: corrs)) ?? "Kunde inte generera rapport."
+                        await viewModel.generateWeeklyReport()
                     }
                 }
                 .buttonStyle(GradientButtonStyle())
             }
         }
-        .glass()
+        .ljGlassCard()
     }
 
     private func monthTitle(for date: Date) -> String {
@@ -1010,9 +998,9 @@ struct MoodLogFlowView: View {
     private func scale(_ dict:[String:Double], key:String)->Double { dict[key] ?? 0.5 }
 }
 
-// MARK: - GPT-service (nyckel oförändrad)
+// MARK: - GPT-service (från Config)
 struct OpenAIService {
-    private static let apiKey = "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"
+    private static var apiKey: String { Config.openAIAPIKey }
 
     static func summarise(entry: MoodEntry) async throws -> (String,[String],[String]) {
         let prompt = """
@@ -1048,7 +1036,7 @@ struct OpenAIService {
 
     struct CorrDTO: Codable { let name: String; let delta: Double; let present: Int; let total: Int }
 
-    static func weeklyReport(entries: [MoodEntry], correlations: [MoodStore.Correlation]) async throws -> String {
+    static func weeklyReport(entries: [MoodEntry], correlations: [MoodStore.MoodCorrelation]) async throws -> String {
         let enc = JSONEncoder()
         enc.outputFormatting = [.sortedKeys]; enc.dateEncodingStrategy = .iso8601
         let entriesJSON = String(data: try enc.encode(entries), encoding: .utf8) ?? "[]"

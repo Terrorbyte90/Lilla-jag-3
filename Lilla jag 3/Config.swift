@@ -9,14 +9,14 @@ import Foundation
 
 enum Config {
     static var elevenLabsAPIKey: String {
-        return "" // TODO: Lägg till din ElevenLabs API Key här
+        return "sk_64b296789f8b47a7daf5e26bbf42e2c7dd7ee553663f7e99"
     }
     
     static var elevenLabsAgentID: String {
-        return "" // TODO: Lägg till din ElevenLabs Agent ID här
+        return "sX23zF6gtG6GdRB8ndmK"
     }
 
     static var openAIAPIKey: String {
-        return "" // TODO: Lägg till din OpenAI API Key här
+        return "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"
     }
 }

@@ -13,26 +13,19 @@ import AVFoundation
 
 // MARK: – Layout helper: reservera bottenutrymme för framtida navbar
 struct ReserveBottomSpace: ViewModifier {
-    let fraction: CGFloat
-    let minHeight: CGFloat
     func body(content: Content) -> some View {
-        GeometryReader { geo in
-            content
-                .safeAreaInset(edge: .bottom) {
-                    Color.clear
-                        .frame(height: max(minHeight, geo.size.height * fraction))
-                }
-        }
+        content
+            .safeAreaInset(edge: .bottom) {
+                Color.clear
+                    .frame(height: 100) // Fast höjd för navbar
+            }
     }
 }
 
 extension View {
     /// Lägger ett transparent inlägg i nederkant som tar upp plats (t.ex. för navbar)
-    /// - Parameters:
-    ///   - fraction: andel av höjden att reservera (standard 0.2 = 20%)
-    ///   - minHeight: minsta höjd i punkter (standard 120)
-    func reserveBottomSpace(fraction: CGFloat = 0.2, minHeight: CGFloat = 120) -> some View {
-        modifier(ReserveBottomSpace(fraction: fraction, minHeight: minHeight))
+    func reserveBottomSpace() -> some View {
+        modifier(ReserveBottomSpace())
     }
 }
 
@@ -335,342 +328,6 @@ let diagnoses: [Diagnosis] = [
     )
 ]
 
-// MARK: – API‑nycklar (demo) --------------------------------------------------
-
-private let elevenLabsAPIKey  = "sk_d2f47d257b333b5c851363dd2f17c25babaa63b873d7dd0d"
-private let elevenLabsVoiceID = "4WpEoB5wO1r9MAJoD3s0"
-
-private let openAIAPIKey = "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"
-private let openAIModel   = "gpt-4o-mini"
-
-// MARK: – Huvudvy -------------------------------------------------------------
-
-struct DiagnoserView: View {
-    @State private var search = ""
-    @State private var showFavoritesOnly = false
-    @State private var favorites: Set<Diagnosis> = []
-    
-    private var filtered: [Diagnosis] {
-        var list = diagnoses
-        if !search.isEmpty {
-            list = list.filter { $0.name.localizedCaseInsensitiveContains(search) }
-        }
-        if showFavoritesOnly {
-            list = list.filter { favorites.contains($0) }
-        }
-        return list
-    }
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(filtered) { diag in
-                            NavigationLink {
-                                DiagnosisDetailView(
-                                    diagnosis: diag,
-                                    isFavorite: favorites.contains(diag)
-                                ) { fav, set in
-                                    if set { favorites.insert(fav) } else { favorites.remove(fav) }
-                                }
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(diag.name)
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                        Text(diag.description)
-                                            .font(.subheadline)
-                                            .foregroundColor(.white.opacity(0.7))
-                                            .lineLimit(2)
-                                    }
-                                    Spacer(minLength: 12)
-                                    Image(systemName: favorites.contains(diag) ? "heart.fill" : "heart")
-                                        .foregroundColor(.pink)
-                                }
-                                .padding()
-                                .glass()
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)        // litet & jämnt topp‑avstånd
-                }
-                .searchable(text: $search, prompt: "Sök diagnos")
-            }
-            .navigationTitle("Diagnoser")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showFavoritesOnly.toggle()
-                    } label: {
-                        Label("Favoriter", systemImage: showFavoritesOnly ? "heart.fill" : "heart")
-                    }
-                }
-            }
-        }
-        .reserveBottomSpace() // ← reservera ~20% i nederkant
-    }
-}
-
-// MARK: – Detaljvy ------------------------------------------------------------
-
-struct DiagnosisDetailView: View {
-    let diagnosis: Diagnosis
-    @State private var player = AVPlayer()
-    @State private var isSpeaking = false
-    @State private var showChat = false
-    @State private var favorite: Bool
-    let onFavoriteChange: (Diagnosis, Bool) -> Void
-    
-    init(diagnosis: Diagnosis, isFavorite: Bool,
-         onFavoriteChange: @escaping (Diagnosis, Bool) -> Void) {
-        self.diagnosis = diagnosis
-        _favorite = State(initialValue: isFavorite)
-        self.onFavoriteChange = onFavoriteChange
-    }
-    
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
-            ScrollView {
-                VStack(spacing: 24) {
-                    videoHeader
-                    infoSection
-                    // knapparna – under "Vad kan hjälpa"
-                    HStack(spacing: 16) {
-                        Button {
-                            Task { await speak(diagnosis.description) }
-                        } label: {
-                            Label(isSpeaking ? "Spelar…" : "Lyssna", systemImage: "ear")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(PrimaryButton())
-                        .disabled(isSpeaking)
-                        
-                        Button {
-                            showChat = true
-                        } label: {
-                            Label("Fråga ChatGPT", systemImage: "bubble.left.and.bubble.right")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(PrimaryButton())
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-            .navigationTitle(diagnosis.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                Button {
-                    favorite.toggle()
-                    onFavoriteChange(diagnosis, favorite)
-                } label: {
-                    Image(systemName: favorite ? "heart.fill" : "heart")
-                        .foregroundColor(.pink)
-                }
-            }
-        }
-        .reserveBottomSpace() // ← reservera ~20% i nederkant
-        .sheet(isPresented: $showChat) {
-            ChatView(prompt: "Vilken evidensbaserad behandling rekommenderas för \(diagnosis.name.lowercased())?")
-        }
-        .onDisappear { player.pause() }
-    }
-    
-    // MARK: – Delvyer
-    
-    private var videoHeader: some View {
-        VideoPlayer(player: player)
-            .frame(height: 220)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .overlay(alignment: .bottomTrailing) {
-                Button {
-                    player.isMuted.toggle()
-                } label: {
-                    Image(systemName: player.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .padding(8)
-                        .background(.ultraThinMaterial, in: Circle())
-                }
-                .padding(12)
-            }
-            .onAppear {
-                if let url = Bundle.main.url(forResource: diagnosis.videoFile, withExtension: "mp4") {
-                    player.replaceCurrentItem(with: AVPlayerItem(url: url))
-                    player.play()
-                    player.isMuted = true
-                    player.actionAtItemEnd = .none
-                    NotificationCenter.default.addObserver(
-                        forName: .AVPlayerItemDidPlayToEndTime,
-                        object: player.currentItem,
-                        queue: .main
-                    ) { _ in
-                        player.seek(to: .zero)
-                        player.play()
-                    }
-                }
-            }
-    }
-    
-    private var infoSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(diagnosis.description)
-                .foregroundColor(.white)
-            Divider().background(.white.opacity(0.3))
-            bullet(title: "Vanliga kännetecken",
-                   icon: "exclamationmark.circle",
-                   items: diagnosis.symptoms)
-            Divider().background(.white.opacity(0.3))
-            bullet(title: "Vad kan hjälpa?",
-                   icon: "heart.text.square",
-                   items: diagnosis.help)
-        }
-        .glass()
-    }
-    
-    private func bullet(title: String, icon: String, items: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon)
-                .font(.headline)
-                .foregroundColor(.white)
-            ForEach(items, id: \.self) { i in
-                HStack(alignment: .top, spacing: 4) {
-                    Text("•").fontWeight(.bold)
-                    Text(i).foregroundColor(.white.opacity(0.9))
-                }
-            }
-        }
-    }
-    
-    // MARK: – TTS
-    
-    private func speak(_ text: String) async {
-        guard !isSpeaking else { return }
-        isSpeaking = true
-        defer { isSpeaking = false }
-        do {
-            if let d = try await ElevenLabsTTS.shared.generateAudio(text) {
-                try AudioPlayer.shared.play(data: d) { }
-            }
-        } catch { }
-    }
-}
-
-// MARK: – Chat (Chatty‑stil) --------------------------------------------------
-
-struct ChatView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var messages: [ChatMessage] = []
-    @State private var input = ""
-    let prompt: String?
-    
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(messages) { msg in
-                                ChatBubble(message: msg)
-                                    .id(msg.id)
-                            }
-                        }
-                        .padding(.vertical, 12)
-                    }
-                    .onChange(of: messages.count) { _ in
-                        if let last = messages.last?.id {
-                            withAnimation { proxy.scrollTo(last, anchor: .bottom) }
-                        }
-                    }
-                }
-                
-                HStack(spacing: 12) {
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $input)
-                            .frame(minHeight: 44, maxHeight: 100)
-                            .padding(6)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                            .foregroundColor(.white)
-                            .onSubmit(send)
-                        if input.isEmpty {
-                            Text("Skriv ett meddelande …")
-                                .foregroundColor(.white.opacity(0.5))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                        }
-                    }
-                    Button {
-                        send()
-                    } label: {
-                        Image(systemName: "paperplane.fill")
-                            .padding(12)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-                .padding()
-                .background(.ultraThinMaterial)
-            }
-        }
-        .onAppear {
-            if let prompt {
-                messages.append(ChatMessage(content: prompt, isUser: true))
-                Task { await ask(prompt) }
-            }
-        }
-    }
-    
-    private func send() {
-        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        input = ""
-        messages.append(ChatMessage(content: text, isUser: true))
-        Task { await ask(text) }
-    }
-    
-    private func ask(_ text: String) async {
-        do {
-            let reply = try await ChatGPT.shared.send(text)
-            messages.append(ChatMessage(content: reply, isUser: false))
-        } catch {
-            messages.append(ChatMessage(content: "❗️Kunde inte hämta svar.", isUser: false))
-        }
-    }
-}
-
-struct ChatBubble: View {
-    let message: ChatMessage
-    var body: some View {
-        HStack {
-            if message.isUser { Spacer(minLength: 50) }
-            Text(message.content)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    message.isUser
-                    ? Color.blue.opacity(0.85)
-                    : Color.white.opacity(0.15),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                )
-                .foregroundColor(.white)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.72, alignment: .leading)
-            if !message.isUser { Spacer(minLength: 50) }
-        }
-        .padding(message.isUser ? .leading : .trailing, 60)
-    }
-}
-
-struct ChatMessage: Identifiable {
-    let id = UUID(); let content: String; let isUser: Bool
-}
-
 // MARK: – ChatGPT‑klient ------------------------------------------------------
 
 final class ChatGPT {
@@ -679,10 +336,10 @@ final class ChatGPT {
     func send(_ prompt: String) async throws -> String {
         var r = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
         r.httpMethod = "POST"
-        r.addValue("Bearer \(openAIAPIKey)", forHTTPHeaderField: "Authorization")
+        r.addValue("Bearer \(Config.openAIAPIKey)", forHTTPHeaderField: "Authorization")
         r.addValue("application/json", forHTTPHeaderField: "Content-Type")
         r.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": openAIModel,
+            "model": "gpt-4o-mini",
             "temperature": 0.7,
             "messages": [
                 ["role":"system","content":"Du är en hjälpsam, empatisk svensk psykologassistent."],
@@ -707,10 +364,11 @@ final class ElevenLabsTTS {
     static let shared = ElevenLabsTTS(); private init() {}
     
     func generateAudio(_ text: String) async throws -> Data? {
+        let voiceID = "4WpEoB5wO1r9MAJoD3s0"
         var r = URLRequest(url: URL(string:
-            "https://api.elevenlabs.io/v1/text-to-speech/\(elevenLabsVoiceID)/stream")!)
+            "https://api.elevenlabs.io/v1/text-to-speech/\(voiceID)/stream")!)
         r.httpMethod = "POST"
-        r.addValue(elevenLabsAPIKey, forHTTPHeaderField: "xi-api-key")
+        r.addValue(Config.elevenLabsAPIKey, forHTTPHeaderField: "xi-api-key")
         r.addValue("application/json", forHTTPHeaderField: "Content-Type")
         r.httpBody = try JSONSerialization.data(withJSONObject: [
             "text": text,
@@ -739,6 +397,201 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
     }
 }
 
+// MARK: - DiagnoserView
+struct DiagnoserView: View {
+    @State private var selected: Diagnosis?
+    @State private var searchText = ""
+    
+    var filtered: [Diagnosis] {
+        if searchText.isEmpty { return diagnoses }
+        return diagnoses.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+    
+    var body: some View {
+        ZStack {
+            AppBackground()
+            
+            VStack(spacing: 0) {
+                HStack {
+                    LJTitle(text: "Diagnoser")
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 20)
+                
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("Sök diagnos...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(.white)
+                }
+                .padding()
+                .ljGlassCard(radius: 12)
+                .padding()
+                
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(filtered) { diag in
+                            Button {
+                                selected = diag
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(diag.name)
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                        Text(diag.description)
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .lineLimit(2)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding()
+                                .ljGlassCard()
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 120)
+                }
+            }
+        }
+        .fullScreenCover(item: $selected) { diag in
+            DiagnosisDetailView(diagnosis: diag)
+        }
+    }
+}
+
+struct DiagnosisDetailView: View {
+    let diagnosis: Diagnosis
+    @Environment(\.dismiss) private var dismiss
+    @State private var isPlaying = false
+    @State private var loadingAudio = false
+    
+    var body: some View {
+        ZStack {
+            AppBackground()
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title)
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                        Spacer()
+                        
+                        Button {
+                            speak()
+                        } label: {
+                            HStack {
+                                if loadingAudio {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: isPlaying ? "stop.fill" : "speaker.wave.2.fill")
+                                }
+                                Text(isPlaying ? "Stoppa" : "Lyssna")
+                            }
+                            .font(.subheadline.bold())
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.3), in: Capsule())
+                            .overlay(Capsule().stroke(Color.blue, lineWidth: 1))
+                        }
+                        .disabled(loadingAudio)
+                    }
+                    .padding(.top, 20)
+                    
+                    Text(diagnosis.name)
+                        .font(.largeTitle.bold())
+                        .foregroundColor(.white)
+                    
+                    if let url = Bundle.main.url(forResource: diagnosis.videoFile, withExtension: "mp4") {
+                        VideoPlayer(player: AVPlayer(url: url))
+                            .frame(height: 200)
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                            .ljGlassCard(radius: 20)
+                    }
+                    
+                    LJCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Om diagnosen")
+                                .font(.headline)
+                            Text(diagnosis.description)
+                                .font(.body)
+                                .lineSpacing(4)
+                        }
+                    }
+                    
+                    LJCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Vanliga symtom")
+                                .font(.headline)
+                            ForEach(diagnosis.symptoms, id: \.self) { symptom in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: "circle.fill")
+                                        .font(.system(size: 6))
+                                        .padding(.top, 6)
+                                    Text(symptom)
+                                }
+                            }
+                        }
+                    }
+                    
+                    LJCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Hjälp & Behandling")
+                                .font(.headline)
+                            ForEach(diagnosis.help, id: \.self) { item in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text(item)
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(minLength: 50)
+                }
+                .padding()
+            }
+        }
+    }
+    
+    private func speak() {
+        if isPlaying {
+            // Stoppa (ej implementerat i AudioPlayer.shared men för UI skull)
+            isPlaying = false
+            return
+        }
+        
+        loadingAudio = true
+        Task {
+            do {
+                let text = "\(diagnosis.name). \(diagnosis.description). Symtom inkluderar: \(diagnosis.symptoms.joined(separator: ", ")). Behandling inkluderar: \(diagnosis.help.joined(separator: ", "))"
+                if let data = try await ElevenLabsTTS.shared.generateAudio(text) {
+                    try AudioPlayer.shared.play(data: data) {
+                        isPlaying = false
+                    }
+                    isPlaying = true
+                }
+            } catch {
+                print("TTS error: \(error)")
+            }
+            loadingAudio = false
+        }
+    }
+}
 
 // MARK: – Preview -------------------------------------------------------------
 

@@ -119,7 +119,10 @@ private struct NavbarModifier: ViewModifier {
         Group {
             if router.current == dest {
                 content
-                    .safeAreaInset(edge: .bottom) { Navbar() }
+                    .safeAreaInset(edge: .bottom) { 
+                        Navbar()
+                            .padding(.bottom, 8) // Extra luft från botten
+                    }
                     .onAppear { router.current = dest }   // säkerställ rätt markering
             } else {
                 Color.clear     // inget visas om inte aktiv
