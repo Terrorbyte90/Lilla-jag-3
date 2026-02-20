@@ -1,0 +1,800 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9BD21CEE2E43EB4A00A39176 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BD21CED2E43EB4A00A39176 /* StoreKit.framework */; };
+		9BEE2D932E4D38F400F671E1 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D922E4D38F400F671E1 /* FirebaseAI */; };
+		9BEE2D952E4D38F400F671E1 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D942E4D38F400F671E1 /* FirebaseAnalytics */; };
+		9BEE2D972E4D38F400F671E1 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D962E4D38F400F671E1 /* FirebaseAnalyticsCore */; };
+		9BEE2D992E4D38F400F671E1 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D982E4D38F400F671E1 /* FirebaseAnalyticsIdentitySupport */; };
+		9BEE2D9B2E4D38F400F671E1 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D9A2E4D38F400F671E1 /* FirebaseAppCheck */; };
+		9BEE2DA12E4D3B7600F671E1 /* FirebaseAppDistribution-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA02E4D3B7600F671E1 /* FirebaseAppDistribution-Beta */; };
+		9BEE2DA32E4D3B7600F671E1 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA22E4D3B7600F671E1 /* FirebaseAuth */; };
+		9BEE2DA52E4D3B7600F671E1 /* FirebaseAuthCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA42E4D3B7600F671E1 /* FirebaseAuthCombine-Community */; };
+		9BEE2DA72E4D3B7600F671E1 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA62E4D3B7600F671E1 /* FirebaseCore */; };
+		9BEE2DA92E4D3B7600F671E1 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA82E4D3B7600F671E1 /* FirebaseCrashlytics */; };
+		9BEE2DAB2E4D3B7600F671E1 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DAA2E4D3B7600F671E1 /* FirebaseDatabase */; };
+		9BEE2DAD2E4D3B7600F671E1 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DAC2E4D3B7600F671E1 /* FirebaseFirestore */; };
+		9BEE2DAF2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DAE2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community */; };
+		9BEE2DB12E4D3B7600F671E1 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB02E4D3B7600F671E1 /* FirebaseFunctions */; };
+		9BEE2DB32E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB22E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community */; };
+		9BEE2DB52E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB42E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta */; };
+		9BEE2DB72E4D3B7600F671E1 /* FirebaseInstallations in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB62E4D3B7600F671E1 /* FirebaseInstallations */; };
+		9BEE2DB92E4D3B7600F671E1 /* FirebaseMLModelDownloader in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB82E4D3B7600F671E1 /* FirebaseMLModelDownloader */; };
+		9BEE2DBB2E4D3B7600F671E1 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DBA2E4D3B7600F671E1 /* FirebaseMessaging */; };
+		9BEE2DBD2E4D3B7600F671E1 /* FirebasePerformance in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DBC2E4D3B7600F671E1 /* FirebasePerformance */; };
+		9BEE2DBF2E4D3B7600F671E1 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DBE2E4D3B7600F671E1 /* FirebaseRemoteConfig */; };
+		9BEE2DC12E4D3B7600F671E1 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DC02E4D3B7600F671E1 /* FirebaseStorage */; };
+		9BEE2DC32E4D3B7600F671E1 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DC22E4D3B7600F671E1 /* FirebaseStorageCombine-Community */; };
+		9BF139832E247031009A0196 /* ElevenLabsSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 9BF139822E247031009A0196 /* ElevenLabsSDK */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9BF139572E232B15009A0196 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9BF139412E232B13009A0196 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9BF139482E232B13009A0196;
+			remoteInfo = "Lilla jag 3";
+		};
+		9BF139612E232B15009A0196 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9BF139412E232B13009A0196 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9BF139482E232B13009A0196;
+			remoteInfo = "Lilla jag 3";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		9BD21CED2E43EB4A00A39176 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		9BF139492E232B13009A0196 /* Lilla jag 3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Lilla jag 3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BF139562E232B15009A0196 /* Lilla jag 3Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Lilla jag 3Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BF139602E232B15009A0196 /* Lilla jag 3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Lilla jag 3UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9BF1394B2E232B13009A0196 /* Lilla jag 3 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Lilla jag 3";
+			sourceTree = "<group>";
+		};
+		9BF139592E232B15009A0196 /* Lilla jag 3Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Lilla jag 3Tests";
+			sourceTree = "<group>";
+		};
+		9BF139632E232B15009A0196 /* Lilla jag 3UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Lilla jag 3UITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9BF139462E232B13009A0196 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9BEE2DBD2E4D3B7600F671E1 /* FirebasePerformance in Frameworks */,
+				9BEE2DAB2E4D3B7600F671E1 /* FirebaseDatabase in Frameworks */,
+				9BEE2DB32E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community in Frameworks */,
+				9BF139832E247031009A0196 /* ElevenLabsSDK in Frameworks */,
+				9BD21CEE2E43EB4A00A39176 /* StoreKit.framework in Frameworks */,
+				9BEE2DC12E4D3B7600F671E1 /* FirebaseStorage in Frameworks */,
+				9BEE2DAF2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community in Frameworks */,
+				9BEE2DA72E4D3B7600F671E1 /* FirebaseCore in Frameworks */,
+				9BEE2D992E4D38F400F671E1 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
+				9BEE2DB92E4D3B7600F671E1 /* FirebaseMLModelDownloader in Frameworks */,
+				9BEE2D972E4D38F400F671E1 /* FirebaseAnalyticsCore in Frameworks */,
+				9BEE2DBB2E4D3B7600F671E1 /* FirebaseMessaging in Frameworks */,
+				9BEE2DB72E4D3B7600F671E1 /* FirebaseInstallations in Frameworks */,
+				9BEE2DA32E4D3B7600F671E1 /* FirebaseAuth in Frameworks */,
+				9BEE2D9B2E4D38F400F671E1 /* FirebaseAppCheck in Frameworks */,
+				9BEE2D952E4D38F400F671E1 /* FirebaseAnalytics in Frameworks */,
+				9BEE2DB52E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta in Frameworks */,
+				9BEE2D932E4D38F400F671E1 /* FirebaseAI in Frameworks */,
+				9BEE2DB12E4D3B7600F671E1 /* FirebaseFunctions in Frameworks */,
+				9BEE2DBF2E4D3B7600F671E1 /* FirebaseRemoteConfig in Frameworks */,
+				9BEE2DA92E4D3B7600F671E1 /* FirebaseCrashlytics in Frameworks */,
+				9BEE2DA12E4D3B7600F671E1 /* FirebaseAppDistribution-Beta in Frameworks */,
+				9BEE2DC32E4D3B7600F671E1 /* FirebaseStorageCombine-Community in Frameworks */,
+				9BEE2DA52E4D3B7600F671E1 /* FirebaseAuthCombine-Community in Frameworks */,
+				9BEE2DAD2E4D3B7600F671E1 /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BF139532E232B15009A0196 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BF1395D2E232B15009A0196 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9BD21CEC2E43EB4A00A39176 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9BD21CED2E43EB4A00A39176 /* StoreKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		9BF139402E232B13009A0196 = {
+			isa = PBXGroup;
+			children = (
+				9BF1394B2E232B13009A0196 /* Lilla jag 3 */,
+				9BF139592E232B15009A0196 /* Lilla jag 3Tests */,
+				9BF139632E232B15009A0196 /* Lilla jag 3UITests */,
+				9BD21CEC2E43EB4A00A39176 /* Frameworks */,
+				9BF1394A2E232B13009A0196 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9BF1394A2E232B13009A0196 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9BF139492E232B13009A0196 /* Lilla jag 3.app */,
+				9BF139562E232B15009A0196 /* Lilla jag 3Tests.xctest */,
+				9BF139602E232B15009A0196 /* Lilla jag 3UITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9BF139482E232B13009A0196 /* Lilla jag 3 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BF1396A2E232B15009A0196 /* Build configuration list for PBXNativeTarget "Lilla jag 3" */;
+			buildPhases = (
+				9BF139452E232B13009A0196 /* Sources */,
+				9BF139462E232B13009A0196 /* Frameworks */,
+				9BF139472E232B13009A0196 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9BF1394B2E232B13009A0196 /* Lilla jag 3 */,
+			);
+			name = "Lilla jag 3";
+			packageProductDependencies = (
+				9BF139822E247031009A0196 /* ElevenLabsSDK */,
+				9BEE2D922E4D38F400F671E1 /* FirebaseAI */,
+				9BEE2D942E4D38F400F671E1 /* FirebaseAnalytics */,
+				9BEE2D962E4D38F400F671E1 /* FirebaseAnalyticsCore */,
+				9BEE2D982E4D38F400F671E1 /* FirebaseAnalyticsIdentitySupport */,
+				9BEE2D9A2E4D38F400F671E1 /* FirebaseAppCheck */,
+				9BEE2DA02E4D3B7600F671E1 /* FirebaseAppDistribution-Beta */,
+				9BEE2DA22E4D3B7600F671E1 /* FirebaseAuth */,
+				9BEE2DA42E4D3B7600F671E1 /* FirebaseAuthCombine-Community */,
+				9BEE2DA62E4D3B7600F671E1 /* FirebaseCore */,
+				9BEE2DA82E4D3B7600F671E1 /* FirebaseCrashlytics */,
+				9BEE2DAA2E4D3B7600F671E1 /* FirebaseDatabase */,
+				9BEE2DAC2E4D3B7600F671E1 /* FirebaseFirestore */,
+				9BEE2DAE2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community */,
+				9BEE2DB02E4D3B7600F671E1 /* FirebaseFunctions */,
+				9BEE2DB22E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community */,
+				9BEE2DB42E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta */,
+				9BEE2DB62E4D3B7600F671E1 /* FirebaseInstallations */,
+				9BEE2DB82E4D3B7600F671E1 /* FirebaseMLModelDownloader */,
+				9BEE2DBA2E4D3B7600F671E1 /* FirebaseMessaging */,
+				9BEE2DBC2E4D3B7600F671E1 /* FirebasePerformance */,
+				9BEE2DBE2E4D3B7600F671E1 /* FirebaseRemoteConfig */,
+				9BEE2DC02E4D3B7600F671E1 /* FirebaseStorage */,
+				9BEE2DC22E4D3B7600F671E1 /* FirebaseStorageCombine-Community */,
+			);
+			productName = "Lilla jag 3";
+			productReference = 9BF139492E232B13009A0196 /* Lilla jag 3.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9BF139552E232B15009A0196 /* Lilla jag 3Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BF1396D2E232B15009A0196 /* Build configuration list for PBXNativeTarget "Lilla jag 3Tests" */;
+			buildPhases = (
+				9BF139522E232B15009A0196 /* Sources */,
+				9BF139532E232B15009A0196 /* Frameworks */,
+				9BF139542E232B15009A0196 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9BF139582E232B15009A0196 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9BF139592E232B15009A0196 /* Lilla jag 3Tests */,
+			);
+			name = "Lilla jag 3Tests";
+			packageProductDependencies = (
+			);
+			productName = "Lilla jag 3Tests";
+			productReference = 9BF139562E232B15009A0196 /* Lilla jag 3Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9BF1395F2E232B15009A0196 /* Lilla jag 3UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BF139702E232B15009A0196 /* Build configuration list for PBXNativeTarget "Lilla jag 3UITests" */;
+			buildPhases = (
+				9BF1395C2E232B15009A0196 /* Sources */,
+				9BF1395D2E232B15009A0196 /* Frameworks */,
+				9BF1395E2E232B15009A0196 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9BF139622E232B15009A0196 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9BF139632E232B15009A0196 /* Lilla jag 3UITests */,
+			);
+			name = "Lilla jag 3UITests";
+			packageProductDependencies = (
+			);
+			productName = "Lilla jag 3UITests";
+			productReference = 9BF139602E232B15009A0196 /* Lilla jag 3UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9BF139412E232B13009A0196 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					9BF139482E232B13009A0196 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					9BF139552E232B15009A0196 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 9BF139482E232B13009A0196;
+					};
+					9BF1395F2E232B15009A0196 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 9BF139482E232B13009A0196;
+					};
+				};
+			};
+			buildConfigurationList = 9BF139442E232B13009A0196 /* Build configuration list for PBXProject "Lilla jag 3" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9BF139402E232B13009A0196;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9BF139812E247031009A0196 /* XCRemoteSwiftPackageReference "ElevenLabsSwift" */,
+				9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9BF1394A2E232B13009A0196 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9BF139482E232B13009A0196 /* Lilla jag 3 */,
+				9BF139552E232B15009A0196 /* Lilla jag 3Tests */,
+				9BF1395F2E232B15009A0196 /* Lilla jag 3UITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9BF139472E232B13009A0196 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BF139542E232B15009A0196 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BF1395E2E232B15009A0196 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9BF139452E232B13009A0196 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BF139522E232B15009A0196 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BF1395C2E232B15009A0196 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9BF139582E232B15009A0196 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9BF139482E232B13009A0196 /* Lilla jag 3 */;
+			targetProxy = 9BF139572E232B15009A0196 /* PBXContainerItemProxy */;
+		};
+		9BF139622E232B15009A0196 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9BF139482E232B13009A0196 /* Lilla jag 3 */;
+			targetProxy = 9BF139612E232B15009A0196 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9BF139682E232B15009A0196 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = G648H762LD;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9BF139692E232B15009A0196 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = G648H762LD;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9BF1396B2E232B15009A0196 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Lilla jag 3/Lilla jag 3.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G648H762LD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Lilla-jag-3-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Lilla Jag";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Appen behöver mikrofonen för att höra dig";
+				INFOPLIST_KEY_NSSiriUsageDescription = "Appen kan använda Siri-tjänster för röststyrning";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Vi omvandlar ditt tal till text för att assistenten skall förstå dig. ";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Svardteknik.Lilla-jag-3";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		9BF1396C2E232B15009A0196 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Lilla jag 3/Lilla jag 3.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G648H762LD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Lilla-jag-3-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Lilla Jag";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Appen behöver mikrofonen för att höra dig";
+				INFOPLIST_KEY_NSSiriUsageDescription = "Appen kan använda Siri-tjänster för röststyrning";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Vi omvandlar ditt tal till text för att assistenten skall förstå dig. ";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Svardteknik.Lilla-jag-3";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		9BF1396E2E232B15009A0196 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G648H762LD;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Svardteknik.Lilla-jag-3Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Lilla jag 3.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Lilla jag 3";
+			};
+			name = Debug;
+		};
+		9BF1396F2E232B15009A0196 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G648H762LD;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Svardteknik.Lilla-jag-3Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Lilla jag 3.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Lilla jag 3";
+			};
+			name = Release;
+		};
+		9BF139712E232B15009A0196 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G648H762LD;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Svardteknik.Lilla-jag-3UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Lilla jag 3";
+			};
+			name = Debug;
+		};
+		9BF139722E232B15009A0196 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G648H762LD;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Svardteknik.Lilla-jag-3UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Lilla jag 3";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9BF139442E232B13009A0196 /* Build configuration list for PBXProject "Lilla jag 3" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BF139682E232B15009A0196 /* Debug */,
+				9BF139692E232B15009A0196 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BF1396A2E232B15009A0196 /* Build configuration list for PBXNativeTarget "Lilla jag 3" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BF1396B2E232B15009A0196 /* Debug */,
+				9BF1396C2E232B15009A0196 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BF1396D2E232B15009A0196 /* Build configuration list for PBXNativeTarget "Lilla jag 3Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BF1396E2E232B15009A0196 /* Debug */,
+				9BF1396F2E232B15009A0196 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BF139702E232B15009A0196 /* Build configuration list for PBXNativeTarget "Lilla jag 3UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BF139712E232B15009A0196 /* Debug */,
+				9BF139722E232B15009A0196 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.1.0;
+			};
+		};
+		9BF139812E247031009A0196 /* XCRemoteSwiftPackageReference "ElevenLabsSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/elevenlabs/ElevenLabsSwift";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9BEE2D922E4D38F400F671E1 /* FirebaseAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAI;
+		};
+		9BEE2D942E4D38F400F671E1 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		9BEE2D962E4D38F400F671E1 /* FirebaseAnalyticsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsCore;
+		};
+		9BEE2D982E4D38F400F671E1 /* FirebaseAnalyticsIdentitySupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsIdentitySupport;
+		};
+		9BEE2D9A2E4D38F400F671E1 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		9BEE2DA02E4D3B7600F671E1 /* FirebaseAppDistribution-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseAppDistribution-Beta";
+		};
+		9BEE2DA22E4D3B7600F671E1 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseAuth;
+		};
+		9BEE2DA42E4D3B7600F671E1 /* FirebaseAuthCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseAuthCombine-Community";
+		};
+		9BEE2DA62E4D3B7600F671E1 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseCore;
+		};
+		9BEE2DA82E4D3B7600F671E1 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseCrashlytics;
+		};
+		9BEE2DAA2E4D3B7600F671E1 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseDatabase;
+		};
+		9BEE2DAC2E4D3B7600F671E1 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseFirestore;
+		};
+		9BEE2DAE2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseFirestoreCombine-Community";
+		};
+		9BEE2DB02E4D3B7600F671E1 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseFunctions;
+		};
+		9BEE2DB22E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseFunctionsCombine-Community";
+		};
+		9BEE2DB42E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseInAppMessaging-Beta";
+		};
+		9BEE2DB62E4D3B7600F671E1 /* FirebaseInstallations */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseInstallations;
+		};
+		9BEE2DB82E4D3B7600F671E1 /* FirebaseMLModelDownloader */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseMLModelDownloader;
+		};
+		9BEE2DBA2E4D3B7600F671E1 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseMessaging;
+		};
+		9BEE2DBC2E4D3B7600F671E1 /* FirebasePerformance */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebasePerformance;
+		};
+		9BEE2DBE2E4D3B7600F671E1 /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseRemoteConfig;
+		};
+		9BEE2DC02E4D3B7600F671E1 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseStorage;
+		};
+		9BEE2DC22E4D3B7600F671E1 /* FirebaseStorageCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseStorageCombine-Community";
+		};
+		9BF139822E247031009A0196 /* ElevenLabsSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BF139812E247031009A0196 /* XCRemoteSwiftPackageReference "ElevenLabsSwift" */;
+			productName = ElevenLabsSDK;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 9BF139412E232B13009A0196 /* Project object */;
+}
