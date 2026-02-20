@@ -15,4 +15,8 @@ enum Config {
     static var elevenLabsAgentID: String {
         return "" // TODO: Lägg till din ElevenLabs Agent ID här
     }
+
+    static var openAIAPIKey: String {
+        return "" // TODO: Lägg till din OpenAI API Key här
+    }
 }
