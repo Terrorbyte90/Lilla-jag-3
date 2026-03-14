@@ -324,6 +324,9 @@ struct DiagnoserView: View {
                 HStack {
                     LJTitle(text: "Diagnoser")
                     Spacer()
+                    Text("\(filtered.count) diagnoser")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.4))
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)
@@ -334,35 +337,58 @@ struct DiagnoserView: View {
                     TextField("Sök diagnos...", text: $searchText)
                         .textFieldStyle(.plain)
                         .foregroundColor(.white)
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Rensa sökning")
+                    }
                 }
                 .padding()
                 .ljGlassCard(radius: 12)
                 .padding()
+                .accessibilityLabel("Sök bland diagnoser")
 
                 ScrollView {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: 12) {
                         ForEach(filtered) { diag in
                             Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 selected = diag
                             } label: {
-                                HStack {
+                                HStack(spacing: 14) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.warmLavender.opacity(0.12))
+                                            .frame(width: 42, height: 42)
+                                        Image(systemName: "cross.case.fill")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundStyle(Color.warmLavender)
+                                    }
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(diag.name)
-                                            .font(.headline)
+                                            .font(.system(.subheadline, design: .rounded, weight: .bold))
                                             .foregroundColor(.white)
                                         Text(diag.description)
                                             .font(.caption)
-                                            .foregroundColor(.white.opacity(0.7))
+                                            .foregroundColor(.white.opacity(0.6))
                                             .lineLimit(2)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.3))
                                 }
-                                .padding()
+                                .padding(14)
                                 .ljGlassCard()
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(diag.name)
+                            .accessibilityHint("Tryck för att läsa mer om \(diag.name)")
                         }
                     }
                     .padding(.horizontal)

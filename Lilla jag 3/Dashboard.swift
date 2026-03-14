@@ -2,11 +2,13 @@
 //  Dashboard.swift
 //  Lilla Jag
 //
-//  Förbättringar iteration 2–3:
-//  • Emotion-indikator från LillaJagAIService visas i header
-//  • Affirmation animeras mjukt vid byte (transition)
-//  • Daglig AI-insikt-ruta under citatboxen
-//  • Snabbare quick actions med tydligare ikonografi
+//  Förbättringar iteration 4 – App Store-optimerade:
+//  • Daglig humör-incheckning (som Daylio/Headspace)
+//  • Streak-räknare med gamification
+//  • Andningsövning-snabbåtkomst
+//  • Förbättrad sektionsstruktur med headers
+//  • Accessibility-labels på alla interaktiva element
+//  • Haptic feedback på knapptryck
 //
 
 import SwiftUI
@@ -26,10 +28,12 @@ struct Dashboard: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: geo.size.height > 800 ? 24 : 18) {
+                    VStack(alignment: .leading, spacing: geo.size.height > 800 ? 20 : 16) {
                         header
-                        videoBox(geo: geo)
+                        dailyCheckInCard
+                        streakAndProgressBar
                         quickActions
+                        breathingQuickAccess
                         affirmationBox
                         if let emotion = ai.currentEmotion, !ai.messages.isEmpty {
                             emotionCard(emotion: emotion)
@@ -52,6 +56,7 @@ struct Dashboard: View {
         .fullScreenCover(isPresented: $viewModel.showPsykolog) { PsykologView() }
         .fullScreenCover(isPresented: $viewModel.showUkraine) { UkraineView() }
         .fullScreenCover(isPresented: $viewModel.showSocial) { SocialView() }
+        .fullScreenCover(isPresented: $viewModel.showBreathing) { BreathingQuickView() }
     }
 }
 
@@ -72,11 +77,13 @@ private extension Dashboard {
                     .minimumScaleFactor(0.8)
                     .foregroundStyle(.white.opacity(0.85))
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Lilla Jag. \(greetingText)")
             Spacer()
             HStack(spacing: 8) {
-                DashboardHeaderButton(icon: "heart.fill", action: { viewModel.showDonation = true })
-                DashboardHeaderButton(icon: "cross.case", action: { viewModel.showCrisisPlan = true })
-                DashboardHeaderButton(icon: "phone", action: { viewModel.showNumbers = true })
+                DashboardHeaderButton(icon: "heart.fill", label: "Donera", action: { viewModel.showDonation = true })
+                DashboardHeaderButton(icon: "cross.case", label: "Krisplan", action: { viewModel.showCrisisPlan = true })
+                DashboardHeaderButton(icon: "phone", label: "Krisnummer", action: { viewModel.showNumbers = true })
             }
         }
         .padding(12)
@@ -94,52 +101,214 @@ private extension Dashboard {
         }
     }
 
-    func videoBox(geo: GeometryProxy) -> some View {
-        let height = min(max(geo.size.height * 0.28, 180), 280)
-        return LoopingVideoBackground(videoName: "bipolar", fileExtension: "mp4")
-            .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 36, style: .continuous)
-                    .stroke(.white.opacity(0.25), lineWidth: 1)
-            )
-            .shadow(radius: 10)
-            .frame(height: height)
+    // MARK: - Daily Check-In (inspirerat av Daylio/Headspace)
+
+    var dailyCheckInCard: some View {
+        VStack(spacing: 14) {
+            HStack {
+                Image(systemName: viewModel.hasCheckedInToday ? "checkmark.circle.fill" : "sun.horizon.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(viewModel.hasCheckedInToday ? .warmSage : .warmGold)
+                Text(viewModel.hasCheckedInToday ? "Incheckat idag!" : "Hur mår du idag?")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
+            }
+
+            if !viewModel.hasCheckedInToday {
+                HStack(spacing: 0) {
+                    ForEach(QuickMood.allCases, id: \.rawValue) { mood in
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                viewModel.selectedQuickMood = mood
+                                viewModel.hasCheckedInToday = true
+                                viewModel.recordCheckIn()
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        } label: {
+                            VStack(spacing: 5) {
+                                Text(mood.emoji)
+                                    .font(.system(size: 30))
+                                    .scaleEffect(viewModel.selectedQuickMood == mood ? 1.2 : 1.0)
+                                Text(mood.rawValue)
+                                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.7))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                viewModel.selectedQuickMood == mood
+                                ? mood.color.opacity(0.2)
+                                : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 12)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Humör: \(mood.rawValue)")
+                    }
+                }
+            } else if let mood = viewModel.selectedQuickMood {
+                HStack(spacing: 10) {
+                    Text(mood.emoji)
+                        .font(.system(size: 28))
+                    Text("Du mår \(mood.rawValue.lowercased()) idag")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.warmSage)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(14)
+        .ljGlassCard(radius: 18)
+        .shadow(radius: 4, y: 2)
     }
 
+    // MARK: - Streak & Progress (gamification som Duolingo/Headspace)
+
+    var streakAndProgressBar: some View {
+        HStack(spacing: 14) {
+            // Streak
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.warmGold.opacity(0.15))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(viewModel.currentStreak > 0 ? .warmGold : .white.opacity(0.3))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(viewModel.currentStreak)")
+                        .font(.system(.title3, design: .rounded, weight: .black))
+                        .foregroundStyle(.white)
+                    Text(viewModel.currentStreak == 1 ? "dag i rad" : "dagar i rad")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .ljGlassCard(radius: 14)
+            .accessibilityLabel("Streak: \(viewModel.currentStreak) dagar i rad")
+
+            // Weekly progress dots
+            HStack(spacing: 6) {
+                ForEach(0..<7, id: \.self) { day in
+                    let isActive = day < viewModel.currentStreak
+                    Circle()
+                        .fill(isActive ? Color.warmSage : Color.white.opacity(0.1))
+                        .frame(width: 10, height: 10)
+                        .overlay(
+                            Circle()
+                                .stroke(isActive ? Color.warmSage.opacity(0.5) : Color.white.opacity(0.05), lineWidth: 1)
+                        )
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("Veckomål")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.5))
+                    Text("\(min(viewModel.currentStreak, 7))/7")
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(.warmSage)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(12)
+            .ljGlassCard(radius: 14)
+            .accessibilityLabel("Veckomål: \(min(viewModel.currentStreak, 7)) av 7 dagar")
+        }
+    }
+
+    // MARK: - Quick Actions
+
     var quickActions: some View {
-        HStack(spacing: 12) {
-            DashboardActionButton(icon: "bubble.left.and.bubble.right.fill",
-                                  label: "Chatt",
-                                  color: Color.warmLavender) {
-                viewModel.showChatty = true
-            }
-            DashboardActionButton(icon: "person.3.fill",
-                                  label: "Forum",
-                                  color: Color.warmSage) {
-                viewModel.showForum = true
-            }
-            DashboardActionButton(icon: "stethoscope",
-                                  label: "Psykolog",
-                                  color: Color(hex: 0x6ECFF6)) {
-                viewModel.showPsykolog = true
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(title: "Snabbåtgärder", icon: "bolt.fill")
+            HStack(spacing: 12) {
+                DashboardActionButton(icon: "bubble.left.and.bubble.right.fill",
+                                      label: "Chatt",
+                                      color: Color.warmLavender) {
+                    viewModel.showChatty = true
+                }
+                DashboardActionButton(icon: "person.3.fill",
+                                      label: "Forum",
+                                      color: Color.warmSage) {
+                    viewModel.showForum = true
+                }
+                DashboardActionButton(icon: "stethoscope",
+                                      label: "Psykolog",
+                                      color: Color(hex: 0x6ECFF6)) {
+                    viewModel.showPsykolog = true
+                }
             }
         }
     }
 
-    var affirmationBox: some View {
-        Text(viewModel.affirmation)
-            .font(DesignSystem.Typography.headline)
-            .foregroundStyle(.white)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, 14)
-            .padding(.horizontal, 20)
-            .frame(maxWidth: .infinity)
+    // MARK: - Breathing Quick Access (som Calm/Headspace)
+
+    var breathingQuickAccess: some View {
+        Button {
+            viewModel.showBreathing = true
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: 0x6ECFF6).opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "wind")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(Color(hex: 0x6ECFF6))
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Andas lugnt")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text("1 minut · Snabb avslappning")
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                Spacer()
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Color(hex: 0x6ECFF6).opacity(0.8))
+            }
+            .padding(14)
             .ljGlassCard(radius: 18)
-            .shadow(radius: 4, y: 2)
-            .id(viewModel.affirmation)
-            .transition(.opacity.combined(with: .scale(scale: 0.97)))
-            .animation(.easeInOut(duration: 0.5), value: viewModel.affirmation)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Starta andningsövning. 1 minut snabb avslappning.")
     }
+
+    // MARK: - Affirmation
+
+    var affirmationBox: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "quote.opening")
+                .font(.system(size: 14))
+                .foregroundStyle(.warmGold.opacity(0.5))
+            Text(viewModel.affirmation)
+                .font(DesignSystem.Typography.headline)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
+        .ljGlassCard(radius: 18)
+        .shadow(radius: 4, y: 2)
+        .id(viewModel.affirmation)
+        .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        .animation(.easeInOut(duration: 0.5), value: viewModel.affirmation)
+        .accessibilityLabel("Dagens affirmation: \(viewModel.affirmation)")
+    }
+
+    // MARK: - Emotion Card
 
     func emotionCard(emotion: EmotionResult) -> some View {
         HStack(spacing: 12) {
@@ -177,7 +346,11 @@ private extension Dashboard {
         .shadow(radius: 4, y: 2)
         .transition(.opacity.combined(with: .move(edge: .top)))
         .animation(.spring(response: 0.5), value: emotion.dominant.name)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Din senaste känsla: \(emotion.dominant.name)")
     }
+
+    // MARK: - Ukraine & Social
 
     var ukraineBanner: some View {
         HStack(spacing: 12) {
@@ -208,6 +381,7 @@ private extension Dashboard {
                 .ljGlassCard(radius: 18)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Stöd Ukraina")
 
             Button {
                 viewModel.showSocial = true
@@ -236,7 +410,31 @@ private extension Dashboard {
                 .ljGlassCard(radius: 18)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Socialt, hitta vänner")
         }
+    }
+}
+
+// MARK: - Section Header
+
+struct SectionHeader: View {
+    let title: String
+    var icon: String? = nil
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            Text(title)
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.4))
+                .textCase(.uppercase)
+                .tracking(0.5)
+        }
+        .padding(.leading, 4)
     }
 }
 
@@ -244,9 +442,13 @@ private extension Dashboard {
 
 struct DashboardHeaderButton: View {
     let icon: String
+    var label: String = ""
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
+        Button {
+            action()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(.white)
@@ -254,6 +456,7 @@ struct DashboardHeaderButton: View {
                 .ljGlassCard(radius: 10)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -266,12 +469,15 @@ struct DashboardActionButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            action()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
             VStack(spacing: 8) {
                 ZStack {
                     Circle()
                         .fill(color.opacity(0.15))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 48, height: 48)
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(color)
@@ -285,6 +491,7 @@ struct DashboardActionButton: View {
             .ljGlassCard(radius: 16)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -332,9 +539,174 @@ struct AffirmationManager {
         "Tack för att du fortsätter kämpa.",
         "Du duger precis som du är.",
         "Varje dag är en ny chans.",
-        "Din hjärna gör sitt bästa – det räcker."
+        "Din hjärna gör sitt bästa – det räcker.",
+        "Det är okej att inte vara okej.",
+        "Du är starkare än dina svåraste dagar.",
+        "Att be om hjälp är modigt.",
+        "Du förtjänar samma kärlek du ger andra.",
+        "Varje andetag är en ny början.",
+        "Du gör framsteg, även när det inte känns så.",
+        "Det är okej att ta det lugnt idag.",
+        "Du är värd att bli lyssnad på.",
+        "Mörker varar inte för evigt.",
+        "Din resa är unik och värdefull.",
+        "Självmedkänsla är inte svaghet – det är styrka.",
+        "Du har klarat svåra saker förut.",
+        "Idag räcker det att bara vara.",
+        "Dina tankar definierar inte vem du är.",
+        "Du förtjänar vila utan skuldkänslor."
     ]
     static func random() -> String { list.randomElement() ?? "" }
+}
+
+// MARK: - BreathingQuickView (snabb andningsövning)
+
+struct BreathingQuickView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var phase: BreathPhase = .inhale
+    @State private var circleScale: CGFloat = 0.5
+    @State private var timer: Timer?
+    @State private var secondsLeft = 60
+    @State private var isActive = false
+
+    enum BreathPhase: String {
+        case inhale = "Andas in"
+        case hold = "Håll"
+        case exhale = "Andas ut"
+
+        var duration: Double {
+            switch self {
+            case .inhale: return 4
+            case .hold:   return 4
+            case .exhale: return 4
+            }
+        }
+
+        var next: BreathPhase {
+            switch self {
+            case .inhale: return .hold
+            case .hold:   return .exhale
+            case .exhale: return .inhale
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .inhale: return Color(hex: 0x6ECFF6)
+            case .hold:   return .warmLavender
+            case .exhale: return .warmSage
+            }
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            WarmBackground()
+
+            VStack(spacing: 40) {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    Text(timeString)
+                        .font(.system(.headline, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+
+                Spacer()
+
+                // Animated circle
+                ZStack {
+                    Circle()
+                        .fill(phase.color.opacity(0.08))
+                        .frame(width: 260, height: 260)
+                    Circle()
+                        .fill(phase.color.opacity(0.15))
+                        .frame(width: 200, height: 200)
+                        .scaleEffect(circleScale)
+                    Circle()
+                        .fill(phase.color.opacity(0.25))
+                        .frame(width: 140, height: 140)
+                        .scaleEffect(circleScale)
+                    Text(phase.rawValue)
+                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .animation(.easeInOut(duration: phase.duration), value: circleScale)
+
+                Spacer()
+
+                if !isActive {
+                    Button {
+                        startBreathing()
+                    } label: {
+                        Text("Börja andas")
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 28)
+                } else {
+                    Text("Följ cirkeln och andas lugnt")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+
+                Spacer(minLength: 40)
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onDisappear { timer?.invalidate() }
+    }
+
+    private var timeString: String {
+        let m = secondsLeft / 60
+        let s = secondsLeft % 60
+        return String(format: "%d:%02d", m, s)
+    }
+
+    private func startBreathing() {
+        isActive = true
+        advancePhase()
+
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in
+                secondsLeft -= 1
+                if secondsLeft <= 0 {
+                    timer?.invalidate()
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private func advancePhase() {
+        // Set scale based on phase
+        withAnimation(.easeInOut(duration: phase.duration)) {
+            switch phase {
+            case .inhale: circleScale = 1.0
+            case .hold:   circleScale = 1.0
+            case .exhale: circleScale = 0.5
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + phase.duration) {
+            if isActive && secondsLeft > 0 {
+                phase = phase.next
+                advancePhase()
+            }
+        }
+    }
 }
 
 // MARK: - Preview
