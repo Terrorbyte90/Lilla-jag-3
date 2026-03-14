@@ -79,6 +79,7 @@ private let exercises: [BreathingExercise] = [
 
 struct MeditationView: View {
     @State private var selectedExercise: BreathingExercise? = nil
+    @State private var completedExerciseNames: Set<String> = []
 
     var body: some View {
         NavigationStack {
@@ -97,13 +98,17 @@ struct MeditationView: View {
                         }
                         .padding(.top, 8)
 
+                        if !completedExerciseNames.isEmpty {
+                            completedBanner
+                        }
+
                         ForEach(exercises) { exercise in
-                            ExerciseCard(exercise: exercise) {
+                            ExerciseCard(exercise: exercise,
+                                         isDone: completedExerciseNames.contains(exercise.name)) {
                                 selectedExercise = exercise
                             }
                         }
 
-                        // Mindfulness-tips
                         mindfulnessSection
                     }
                     .padding(.horizontal, 16)
@@ -112,9 +117,26 @@ struct MeditationView: View {
             }
             .preferredColorScheme(.dark)
             .fullScreenCover(item: $selectedExercise) { exercise in
-                BreathingSession(exercise: exercise)
+                BreathingSession(exercise: exercise) {
+                    completedExerciseNames.insert(exercise.name)
+                }
             }
         }
+    }
+
+    private var completedBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(Color.warmSage)
+            Text("\(completedExerciseNames.count) övning\(completedExerciseNames.count > 1 ? "ar" : "") avklarad idag – bra jobbat!")
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.warmSage.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmSage.opacity(0.2), lineWidth: 1))
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var mindfulnessSection: some View {
@@ -156,6 +178,7 @@ private let mindfulnessTips = [
 
 struct ExerciseCard: View {
     let exercise: BreathingExercise
+    let isDone: Bool
     let onTap: () -> Void
 
     var body: some View {
@@ -163,17 +186,28 @@ struct ExerciseCard: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(exercise.color.opacity(0.2))
+                        .fill(exercise.color.opacity(isDone ? 0.3 : 0.2))
                         .frame(width: 52, height: 52)
-                    Image(systemName: exercise.icon)
+                    Image(systemName: isDone ? "checkmark" : exercise.icon)
                         .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(exercise.color)
+                        .contentTransition(.symbolEffect(.replace))
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(exercise.name)
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                    HStack(spacing: 6) {
+                        Text(exercise.name)
+                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                        if isDone {
+                            Text("Klar")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Color.warmSage)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.warmSage.opacity(0.15), in: Capsule())
+                        }
+                    }
                     Text(exercise.description)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.65))
@@ -196,13 +230,14 @@ struct ExerciseCard: View {
                 }
 
                 Spacer()
-                Image(systemName: "play.circle.fill")
+                Image(systemName: isDone ? "arrow.clockwise.circle" : "play.circle.fill")
                     .font(.system(size: 28))
-                    .foregroundStyle(exercise.color)
+                    .foregroundStyle(exercise.color.opacity(isDone ? 0.6 : 1.0))
+                    .contentTransition(.symbolEffect(.replace))
             }
             .padding(14)
             .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(exercise.color.opacity(0.2), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(exercise.color.opacity(isDone ? 0.35 : 0.2), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -212,6 +247,7 @@ struct ExerciseCard: View {
 
 struct BreathingSession: View {
     let exercise: BreathingExercise
+    let onComplete: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentStepIndex = 0
@@ -221,28 +257,52 @@ struct BreathingSession: View {
     @State private var isFinished = false
     @State private var scale: CGFloat = 1.0
     @State private var timer: Timer? = nil
+    @State private var aiTip: String = ""
+    @State private var loadingTip = false
+    @State private var progressFraction: CGFloat = 0.0
 
     private var currentStep: BreathStep {
         exercise.steps[currentStepIndex % exercise.steps.count]
+    }
+
+    private var totalStepsAllRounds: Int {
+        exercise.steps.count * exercise.totalRounds
+    }
+
+    private var completedSteps: Int {
+        (round - 1) * exercise.steps.count + currentStepIndex
     }
 
     var body: some View {
         ZStack {
             Color(hex: 0x110820).ignoresSafeArea()
 
-            // Pulsating circle
+            // Progress arc behind breathing circle
             ZStack {
+                // Outer ripple rings
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(currentStep.color.opacity(0.05 - Double(i) * 0.01))
-                        .frame(width: 280 + CGFloat(i * 60), height: 280 + CGFloat(i * 60))
+                        .fill(currentStep.color.opacity(0.04 - Double(i) * 0.01))
+                        .frame(width: 290 + CGFloat(i * 60), height: 290 + CGFloat(i * 60))
                         .scaleEffect(scale)
                         .animation(.easeInOut(duration: Double(currentStep.seconds)).repeatCount(1, autoreverses: false), value: scale)
                 }
 
+                // Progress ring
+                Circle()
+                    .stroke(currentStep.color.opacity(0.15), lineWidth: 6)
+                    .frame(width: 240, height: 240)
+                Circle()
+                    .trim(from: 0, to: progressFraction)
+                    .stroke(currentStep.color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .frame(width: 240, height: 240)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 1), value: progressFraction)
+
+                // Main breathing circle
                 Circle()
                     .fill(
-                        RadialGradient(colors: [currentStep.color.opacity(0.6), currentStep.color.opacity(0.1)],
+                        RadialGradient(colors: [currentStep.color.opacity(0.6), currentStep.color.opacity(0.08)],
                                        center: .center, startRadius: 20, endRadius: 120)
                     )
                     .frame(width: 220, height: 220)
@@ -250,12 +310,17 @@ struct BreathingSession: View {
                     .animation(.easeInOut(duration: Double(currentStep.seconds)), value: scale)
 
                 VStack(spacing: 8) {
-                    Text(isFinished ? "🎉" : currentStep.action)
-                        .font(.system(size: isFinished ? 48 : 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-
-                    if !isFinished {
+                    if isFinished {
+                        Text("🎉")
+                            .font(.system(size: 48))
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Text(currentStep.action)
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .transition(.opacity)
+                            .id(currentStep.id)
                         Text("\(timeLeft)s")
                             .font(.system(size: 48, weight: .black, design: .monospaced))
                             .foregroundStyle(.white)
@@ -263,10 +328,10 @@ struct BreathingSession: View {
                     }
                 }
             }
-            .frame(width: 280, height: 280)
+            .frame(width: 290, height: 290)
 
             VStack {
-                // Stäng-knapp
+                // Header
                 HStack {
                     Button {
                         stopTimer()
@@ -284,8 +349,10 @@ struct BreathingSession: View {
                     Spacer()
                     if exercise.totalRounds > 1 {
                         Text("Runda \(round)/\(exercise.totalRounds)")
-                            .font(.subheadline)
+                            .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.white.opacity(0.5))
+                    } else {
+                        Spacer().frame(width: 80)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -293,38 +360,76 @@ struct BreathingSession: View {
 
                 Spacer()
 
-                // Progress dots
+                // Step dots
                 HStack(spacing: 8) {
                     ForEach(0..<exercise.steps.count, id: \.self) { i in
                         Circle()
-                            .fill(i == currentStepIndex ? currentStep.color : Color.white.opacity(0.2))
+                            .fill(i == currentStepIndex % exercise.steps.count
+                                  ? currentStep.color : Color.white.opacity(0.2))
                             .frame(width: 8, height: 8)
+                            .animation(.spring(response: 0.3), value: currentStepIndex)
                     }
                 }
 
                 Spacer().frame(height: 40)
 
                 if isFinished {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         Text("Bra jobbat!")
                             .font(.system(.title, design: .rounded, weight: .black))
                             .foregroundStyle(.white)
-                        Text("Du har slutfört \(exercise.name).\nKänner du dig lugnare?")
+                        Text("Du har slutfört \(exercise.name).")
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.7))
                             .multilineTextAlignment(.center)
 
-                        Button("Klar") { dismiss() }
-                            .font(.system(.body, design: .rounded, weight: .bold))
-                            .foregroundStyle(.black)
-                            .frame(width: 200)
-                            .padding(.vertical, 14)
-                            .background(Color.warmGold)
-                            .clipShape(Capsule())
+                        // AI tip after exercise
+                        if loadingTip {
+                            HStack(spacing: 8) {
+                                ProgressView().tint(.white)
+                                Text("Lilla Jag hämtar ett tips...")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                        } else if !aiTip.isEmpty {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(Color.warmGold)
+                                    .font(.caption)
+                                    .padding(.top, 2)
+                                Text(aiTip)
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .lineSpacing(3)
+                                    .multilineTextAlignment(.leading)
+                            }
+                            .padding(12)
+                            .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+                            .padding(.horizontal, 8)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
+                        Button("Klar") {
+                            onComplete()
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            dismiss()
+                        }
+                        .font(.system(.body, design: .rounded, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(width: 200)
+                        .padding(.vertical, 14)
+                        .background(Color.warmGold)
+                        .clipShape(Capsule())
+                        .shadow(color: Color.warmGold.opacity(0.4), radius: 10, y: 4)
                     }
                     .transition(.opacity.combined(with: .scale))
+                    .padding(.horizontal, 20)
                 } else if !isRunning {
                     Button("Starta övning") {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         startExercise()
                     }
                     .font(.system(.body, design: .rounded, weight: .bold))
@@ -347,22 +452,26 @@ struct BreathingSession: View {
         round = 1
         isRunning = true
         isFinished = false
+        progressFraction = 0
         startStep()
     }
 
     private func startStep() {
         let step = exercise.steps[currentStepIndex]
         timeLeft = step.seconds
+        progressFraction = 0
 
-        // Animate circle
         withAnimation(.easeInOut(duration: Double(step.seconds))) {
             scale = step.action.contains("ut") ? 0.7 : (step.action.contains("Håll") ? scale : 1.3)
         }
 
+        let total = Double(step.seconds)
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             Task { @MainActor in
                 if timeLeft > 1 {
                     timeLeft -= 1
+                    progressFraction = CGFloat(total - Double(timeLeft - 1)) / CGFloat(total)
+                    UISelectionFeedbackGenerator().selectionChanged()
                 } else {
                     stopTimer()
                     nextStep()
@@ -376,17 +485,24 @@ struct BreathingSession: View {
         if nextIndex < exercise.steps.count {
             currentStepIndex = nextIndex
             startStep()
+        } else if round < exercise.totalRounds {
+            round += 1
+            currentStepIndex = 0
+            startStep()
         } else {
-            // Nästa runda
-            if round < exercise.totalRounds {
-                round += 1
-                currentStepIndex = 0
-                startStep()
-            } else {
-                withAnimation { isFinished = true }
-                isRunning = false
-            }
+            progressFraction = 1.0
+            withAnimation(.spring(response: 0.5)) { isFinished = true }
+            isRunning = false
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Task { await fetchAITip() }
         }
+    }
+
+    private func fetchAITip() async {
+        loadingTip = true
+        let prompt = "Ge ett kort, varmt och uppmuntrande tips (1-2 meningar) på svenska om hur man kan behålla lugnet från andningsövningen \(exercise.name) under dagen."
+        aiTip = await LillaJagAIService.shared.generateResponse(to: prompt)
+        loadingTip = false
     }
 
     private func stopTimer() {

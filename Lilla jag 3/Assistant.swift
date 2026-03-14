@@ -70,10 +70,14 @@ struct AITherapistView: View {
     private var header: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(Color.warmLavender.opacity(0.2)).frame(width: 44, height: 44)
+                Circle()
+                    .fill((ai.currentEmotion?.color ?? Color.warmLavender).opacity(0.2))
+                    .frame(width: 44, height: 44)
+                    .animation(.spring(response: 0.5), value: ai.currentEmotion?.dominant.name)
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(Color.warmLavender)
+                    .foregroundStyle(ai.currentEmotion?.color ?? Color.warmLavender)
+                    .animation(.spring(response: 0.5), value: ai.currentEmotion?.dominant.name)
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -82,10 +86,18 @@ struct AITherapistView: View {
                     .foregroundStyle(.white)
                 HStack(spacing: 4) {
                     Circle().fill(.green).frame(width: 6, height: 6)
-                    Text("Lokal AI · 100% privat")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
+                    if let emotion = ai.currentEmotion, !ai.messages.isEmpty {
+                        Text("Känsla: \(emotion.dominant.name)")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .transition(.opacity)
+                    } else {
+                        Text("Lokal AI · 100% privat")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
                 }
+                .animation(.easeInOut(duration: 0.3), value: ai.currentEmotion?.dominant.name)
             }
 
             Spacer()
@@ -209,9 +221,8 @@ struct AITherapistView: View {
         inputText = ""
         inputFocused = false
 
-        ai.addUserMessage(trimmed)
-
         Task {
+            await ai.addUserMessage(trimmed)
             let response = await ai.generateResponse(to: trimmed)
             withAnimation(.spring(response: 0.4)) {
                 ai.addAssistantMessage(response)
@@ -252,24 +263,39 @@ struct MessageBubble: View {
                 }
             }
 
-            Text(message.content)
-                .font(.system(.body, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    isUser
-                    ? AnyShapeStyle(LinearGradient(colors: [Color.warmLavender, Color(hex: 0x9B6FD6)],
-                                                   startPoint: .topLeading, endPoint: .bottomTrailing))
-                    : AnyShapeStyle(Color.white.opacity(0.08))
-                )
-                .clipShape(
-                    RoundedRectangle(cornerRadius: isUser ? 18 : 18, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(isUser ? Color.clear : Color.white.opacity(0.1), lineWidth: 1)
-                )
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
+                Text(message.content)
+                    .font(.system(.body, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        isUser
+                        ? AnyShapeStyle(LinearGradient(colors: [Color.warmLavender, Color(hex: 0x9B6FD6)],
+                                                       startPoint: .topLeading, endPoint: .bottomTrailing))
+                        : AnyShapeStyle(Color.white.opacity(0.08))
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(isUser ? Color.clear : Color.white.opacity(0.1), lineWidth: 1)
+                    )
+
+                // Emotion badge for user messages
+                if isUser, let emotion = message.emotion, emotion.dominant.value > 0.45 {
+                    HStack(spacing: 4) {
+                        Image(systemName: emotion.icon)
+                            .font(.system(size: 9, weight: .medium))
+                        Text(emotion.dominant.name)
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(emotion.color.opacity(0.9))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(emotion.color.opacity(0.15), in: Capsule())
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
 
             if !isUser { Spacer(minLength: 48) }
         }

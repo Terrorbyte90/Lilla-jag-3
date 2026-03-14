@@ -1,26 +1,12 @@
 // LillaJagAI.swift
 // Lilla Jag – Lokal AI-motor
 //
-// Arkitektur:
-//   1. LillaJagAIService – singleton som alla vyer använder
-//   2. ChatMessage – gemensam meddelandemodell
-//   3. KBT-svarsmotor med evidensbaserade svar
+// Arkitektur (tre lager):
+//   1. QwenEngine       – Qwen 2.5 CoreML när modell finns i bundle
+//   2. LillaJagMLEngine – Emotion/sentiment-analys (KB-BERT + CoreML classifiers)
+//   3. KBTFallback      – Evidensbaserade KBT-svar (körs alltid offline)
 //
-// ──────────────────────────────────────────────────────────
-// MARK: - llama.cpp Integration Point
-//
-// För att aktivera Qwen/GGUF:
-//   1. Lägg till Swift Package: https://github.com/ggml-org/llama.cpp
-//      ELLER använd LLM.swift / LLMFarm-paketet
-//   2. Bunta in modell-filen (t.ex. qwen2.5-1.5b-instruct-q4_k_m.gguf)
-//      som Bundle Resource i Xcode
-//   3. Avkommentera kodblocket "llama.cpp integration" nedan
-//   4. Ta bort KBTFallback-anropet i generateResponse()
-//
-// Rekommenderad modell för iPhone 14/15 (6 GB RAM):
-//   Qwen 2.5 1.5B Instruct Q4_K_M  (~1 GB)
-//   https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF
-// ──────────────────────────────────────────────────────────
+// LillaJagAIService är det enda gränssnitt som alla vyer använder.
 
 import Foundation
 import SwiftUI
@@ -32,11 +18,13 @@ struct ChatMessage: Identifiable, Equatable {
     let role: Role
     var content: String
     let timestamp: Date
+    var emotion: EmotionResult?
 
-    init(role: Role, content: String, timestamp: Date = .now) {
+    init(role: Role, content: String, timestamp: Date = .now, emotion: EmotionResult? = nil) {
         self.role = role
         self.content = content
         self.timestamp = timestamp
+        self.emotion = emotion
     }
 
     enum Role: String, Codable {
@@ -44,16 +32,18 @@ struct ChatMessage: Identifiable, Equatable {
     }
 }
 
-// MARK: - LillaJagAIService
+// MARK: - LillaJagAIService (singleton)
 
 @MainActor
 final class LillaJagAIService: ObservableObject {
     static let shared = LillaJagAIService()
 
     @Published var isThinking = false
-
-    // Aktiv konversationshistorik per session
     @Published private(set) var messages: [ChatMessage] = []
+    @Published private(set) var currentEmotion: EmotionResult?
+
+    // Senaste analys av konversationens emotionella tillstånd
+    @Published private(set) var sessionSentiment: Float = 0.0
 
     private let systemPrompt = """
     Du är "Lilla Jag" – en varm, empatisk och vetenskapligt förankrad KBT-coach.
@@ -67,45 +57,59 @@ final class LillaJagAIService: ObservableObject {
     • Identifiera kognitiva distortioner varsamt
     • Föreslå konkreta, små beteendeexperiment
     • Om krisläge: hänvisa direkt till Självmordslinjen 90101
-    • Svara med max 3-4 meningar, sedan en fråga
-    • Inga listor med punkter i konversation – skriv naturligt
+    • Svara med max 3-4 meningar, sedan en öppen fråga
+    • Inga punktlistor i konversation – skriv naturligt, som en terapeut
     """
 
     // MARK: - Modell-status
 
-    var modelIsLoaded: Bool {
-        // TODO: Returnera true när llama.cpp-modellen är laddad
-        return false
-    }
-
     var modelName: String {
-        // TODO: Returnera faktiskt modellnamn
-        return "KBT-motor (offline)"
+        "Lilla Jag KBT (lokal)"
     }
 
-    // MARK: - Generera svar
+    // MARK: - Generera svar (huvud-API)
 
     func generateResponse(to userMessage: String) async -> String {
         isThinking = true
         defer { isThinking = false }
 
-        // Lägg till ett realistiskt fördröjning för bättre UX
-        let thinkTime = Double.random(in: 0.8...1.8)
+        // Analysera emotion i meddelandet
+        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(userMessage)
+        let sentiment = await LillaJagMLEngine.shared.analyzeSentiment(userMessage)
+
+        // Uppdatera aktuellt emotionellt tillstånd
+        currentEmotion = emotion
+        sessionSentiment = sessionSentiment * 0.7 + sentiment * 0.3 // exponentiellt glidande medelvärde
+
+        // Försök med Qwen om modell finns
+        let qwen = QwenEngine.shared
+        let historyForQwen = messages.suffix(8).map { msg in
+            (role: msg.role == .user ? "user" : "assistant", content: msg.content)
+        }
+
+        let qwenResponse = await qwen.generate(
+            systemPrompt: systemPrompt,
+            conversationHistory: Array(historyForQwen),
+            userMessage: userMessage,
+            maxNewTokens: 250,
+            temperature: 0.75
+        )
+
+        if !qwenResponse.isEmpty {
+            return qwenResponse
+        }
+
+        // Fallback: KBT-motor + emotion-aware svar
+        let thinkTime = Double.random(in: 0.6...1.4)
         try? await Task.sleep(nanoseconds: UInt64(thinkTime * 1_000_000_000))
-
-        // ────────────────────────────────────────────
-        // llama.cpp integration (aktivera när modell finns):
-        //
-        // if modelIsLoaded {
-        //     return await runQwenInference(prompt: buildPrompt(userMessage))
-        // }
-        // ────────────────────────────────────────────
-
-        return KBTFallback.response(for: userMessage, history: messages)
+        return KBTFallback.response(for: userMessage, history: messages, emotion: emotion)
     }
 
-    func addUserMessage(_ text: String) {
-        messages.append(ChatMessage(role: .user, content: text))
+    // MARK: - Konversationshantering
+
+    func addUserMessage(_ text: String) async {
+        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(text)
+        messages.append(ChatMessage(role: .user, content: text, emotion: emotion))
     }
 
     func addAssistantMessage(_ text: String) {
@@ -114,61 +118,70 @@ final class LillaJagAIService: ObservableObject {
 
     func newSession() {
         messages = []
+        currentEmotion = nil
+        sessionSentiment = 0
     }
 
-    // Välkomstmeddelande
     func welcomeMessage(name: String? = nil) -> String {
         let greeting = name.map { "Hej \($0)!" } ?? "Hej!"
         return "\(greeting) Jag är här för dig. Vad bär du på just nu?"
     }
 
-    // Snabbanalys för moodlogg-insikter (används av MoodViewModel)
+    // MARK: - Analysera humörlogg
+
     func analyzeMoodEntry(_ entryDescription: String) async -> (summary: String, insights: [String], advice: [String]) {
         isThinking = true
         defer { isThinking = false }
 
-        try? await Task.sleep(nanoseconds: 600_000_000)
+        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(entryDescription)
+        let sentiment = await LillaJagMLEngine.shared.analyzeSentiment(entryDescription)
 
-        return KBTFallback.moodInsights(for: entryDescription)
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        return KBTFallback.moodInsights(for: entryDescription, emotion: emotion, sentiment: sentiment)
     }
 
-    // Vecklig rapport (används av MoodViewModel)
+    // MARK: - Veckorapport
+
     func weeklyReport(summary: String) async -> String {
+        isThinking = true
+        defer { isThinking = false }
         try? await Task.sleep(nanoseconds: 400_000_000)
         return KBTFallback.weeklyReport(summary: summary)
     }
 
-    // MARK: - llama.cpp inference (skelett för framtida integration)
-    //
-    // private func runQwenInference(prompt: String) async -> String {
-    //     // Initiera llama_model och llama_context
-    //     // Tokenisera prompt
-    //     // Kör llama_decode i loop
-    //     // Returnera genererad text
-    //     return ""
-    // }
-    //
-    // private func buildPrompt(_ userMessage: String) -> String {
-    //     var prompt = "<|im_start|>system\n\(systemPrompt)<|im_end|>\n"
-    //     for msg in messages {
-    //         let role = msg.role == .user ? "user" : "assistant"
-    //         prompt += "<|im_start|>\(role)\n\(msg.content)<|im_end|>\n"
-    //     }
-    //     prompt += "<|im_start|>user\n\(userMessage)<|im_end|>\n<|im_start|>assistant\n"
-    //     return prompt
-    // }
+    // MARK: - Analysera dagboksinlägg (KBT-dagbok)
+
+    func analyzeDiaryEntry(_ abcEntry: String) async -> String {
+        isThinking = true
+        defer { isThinking = false }
+
+        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(abcEntry)
+
+        let qwen = QwenEngine.shared
+        let qwenResponse = await qwen.generate(
+            systemPrompt: "Du är en KBT-terapeut som analyserar ABC-modellen. Ge en kort, empatisk insikt på svenska (max 3 meningar) om vad du ser i detta dagboksinlägg och erbjud ett omstrukturerande perspektiv.",
+            conversationHistory: [],
+            userMessage: abcEntry,
+            maxNewTokens: 150
+        )
+
+        if !qwenResponse.isEmpty { return qwenResponse }
+
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        return KBTFallback.diaryInsight(emotion: emotion)
+    }
 }
 
 // MARK: - KBT Fallback Motor
 
 private enum KBTFallback {
-    // Trigger-nyckelord → respons-kategori
+
     private enum Topic {
         case kris, ångest, nedstämdhet, sömnproblem, ensamhet,
              stress, ilska, skam, relationer, motivation, allmän
     }
 
-    static func response(for input: String, history: [ChatMessage]) -> String {
+    static func response(for input: String, history: [ChatMessage], emotion: EmotionResult) -> String {
         let lower = input.lowercased()
 
         // Krisläge – alltid prioritet
@@ -177,19 +190,20 @@ private enum KBTFallback {
             return "Det låter som du har det väldigt tungt just nu, och jag vill att du vet att du inte är ensam. Ring Självmordslinjen på 90101 – de finns dygnet runt och lyssnar utan att döma. Kan du ringa dem nu?"
         }
 
-        let topic = detectTopic(lower)
+        let topic = detectTopic(lower, emotion: emotion)
         let isFollowUp = history.count > 2
-
-        return topicResponse(topic, input: input, isFollowUp: isFollowUp)
+        return topicResponse(topic, input: input, isFollowUp: isFollowUp, emotion: emotion)
     }
 
-    private static func detectTopic(_ input: String) -> Topic {
-        if containsAny(input, ["panik", "ångest", "hjärtat", "andas", "rädd", "oro"]) { return .ångest }
-        if containsAny(input, ["ledsen", "trist", "depression", "tom", "meningslös", "gråter"]) { return .nedstämdhet }
+    private static func detectTopic(_ input: String, emotion: EmotionResult) -> Topic {
+        // Prioritera emotion-baserad detektion
+        let dom = emotion.dominant.name
+        if dom == "rädsla" || containsAny(input, ["panik", "ångest", "hjärtat", "andas", "rädd", "oro"]) { return .ångest }
+        if dom == "sorg" || containsAny(input, ["ledsen", "trist", "depression", "tom", "meningslös", "gråter"]) { return .nedstämdhet }
+        if dom == "ilska" || containsAny(input, ["arg", "ilsken", "explosiv", "frustrerad", "irriterad"]) { return .ilska }
         if containsAny(input, ["sover", "sömn", "trött", "vaknar", "natt"]) { return .sömnproblem }
         if containsAny(input, ["ensam", "ingen", "vänner", "isolerad", "saknar"]) { return .ensamhet }
         if containsAny(input, ["stress", "pressat", "hinner", "krav", "jobb", "skola"]) { return .stress }
-        if containsAny(input, ["arg", "ilsken", "explosiv", "frustrerad", "irriterad"]) { return .ilska }
         if containsAny(input, ["skam", "skämms", "dålig", "värdelös", "misslyckad"]) { return .skam }
         if containsAny(input, ["relation", "partner", "kärlek", "bråk", "separation"]) { return .relationer }
         if containsAny(input, ["motivat", "orkar", "energi", "gör ingenting", "fastnat"]) { return .motivation }
@@ -197,7 +211,7 @@ private enum KBTFallback {
         return .allmän
     }
 
-    private static func topicResponse(_ topic: Topic, input: String, isFollowUp: Bool) -> String {
+    private static func topicResponse(_ topic: Topic, input: String, isFollowUp: Bool, emotion: EmotionResult) -> String {
         switch topic {
         case .ångest:
             let responses = [
@@ -211,19 +225,16 @@ private enum KBTFallback {
             let responses = [
                 "Att känna tomhet och ledsamhet är genuint svårt, och du förtjänar att få det validerat. Depression ljuger ofta – den säger att ingenting hjälper. Vad är en liten, liten sak du gjort idag som du kan ge dig credit för?",
                 "Jag hör dig, och jag vill att du vet att det är modigt att berätta. Nedstämdhet krymper ofta vår syn på framtiden. Kan du komma ihåg ett tillfälle – hur litet som helst – när du mådde lite bättre?",
-                "Depression är en lögn som viskar att du alltid har känt så här och alltid kommer att göra det. Det stämmer inte. Vad är det allra minsta du kan göra idag för din kropp – en glattes vatten, ett steg utomhus?"
+                "Depression är en lögn som viskar att du alltid har känt så här och alltid kommer att göra det. Det stämmer inte. Vad är det allra minsta du kan göra idag för din kropp?"
             ]
             return responses.randomElement()!
 
         case .sömnproblem:
-            let responses = [
-                "Sömnproblem och psykisk ohälsa påverkar varandra i en ond cirkel. KBT för sömnproblem (KBT-I) är faktiskt mer effektivt än sömntabletter på lång sikt. Vad är det som händer i huvudet när du lägger dig?"
-            ]
-            return responses.randomElement()!
+            return "Sömnproblem och psykisk ohälsa påverkar varandra i en ond cirkel. KBT-I (kognitiv beteendeterapi för insomni) är mer effektivt än sömntabletter på lång sikt. Vad är det som händer i huvudet när du lägger dig?"
 
         case .ensamhet:
             let responses = [
-                "Ensamhet gör ont på ett djupt sätt. Det är en mänsklig grundbehov att höra hemma någonstans. Har du någon person i ditt liv – hur avlägsen som helst – som du kan skicka ett enda meddelande till idag?",
+                "Ensamhet gör ont på ett djupt sätt – det är ett grundläggande mänskligt behov att höra hemma någonstans. Har du någon person i ditt liv – hur avlägsen som helst – som du kan skicka ett enda meddelande till idag?",
                 "Ensamhet kan växa sig stor när vi isolerar oss, även om vi innerst inne längtar efter kontakt. Vad hindrar dig från att nå ut till någon just nu?"
             ]
             return responses.randomElement()!
@@ -237,15 +248,15 @@ private enum KBTFallback {
 
         case .ilska:
             let responses = [
-                "Ilska är ofta en sekundär känsla – under den finns det nästan alltid en sårbarhet. Vad är det som egentligen gör dig så arg i den här situationen – vad kränktes?",
+                "Ilska är ofta en sekundär känsla – under den finns det nästan alltid en sårbarhet. Vad är det som egentligen gör dig så arg, vad kränktes?",
                 "Ilska har en funktion: den säger att en gräns har överskridits. Vad behöver du som du inte får just nu?"
             ]
             return responses.randomElement()!
 
         case .skam:
             let responses = [
-                "Skam är den mest smärtsamma känslan vi kan uppleva, för den säger att det är något fundamentalt fel på oss – inte på det vi gjorde, utan på oss. Det är lögn. Vad händer i kroppen när skammen kommer?",
-                "Skam växer i mörker och vissnar i ljus, som Brené Brown säger. Du behöver inte förtjäna din plats i världen. Vad skulle du säga till en vän som kände som du gör nu?"
+                "Skam är den mest smärtsamma känslan vi kan uppleva, för den säger att det är något fundamentalt fel på oss. Det är inte sant. Vad händer i kroppen när skammen kommer?",
+                "Skam växer i mörker och vissnar i ljus. Du behöver inte förtjäna din plats i världen. Vad skulle du säga till en vän som kände precis som du gör nu?"
             ]
             return responses.randomElement()!
 
@@ -258,7 +269,7 @@ private enum KBTFallback {
 
         case .motivation:
             let responses = [
-                "Brist på motivation är ett klassiskt symptom på depression och utmattning – inte lat. Beteendeaktivering visar att vi inte kan vänta på att känna oss motiverade; vi måste agera för att känslan ska följa. Vad är en sak, lika liten som att dricka ett glas vatten, som du kan göra nu?",
+                "Brist på motivation är ett klassiskt symptom på depression och utmattning – inte lathet. Beteendeaktivering visar att vi inte kan vänta på att känna oss motiverade; vi måste agera för att känslan ska följa. Vad är en sak, lika liten som att dricka ett glas vatten, som du kan göra nu?",
                 "Fasthet i livet beror ofta på att vi väntar på att 'rätt feeling' ska komma. Men hjärnan lär sig ny motivation genom handling, inte tvärtom. Vad brukade ge dig glädje förut?"
             ]
             return responses.randomElement()!
@@ -276,6 +287,10 @@ private enum KBTFallback {
                 ]
                 return followUps.randomElement()!
             }
+            // Emotion-aware opening
+            if emotion.dominant.value > 0.5 {
+                return "Jag känner att du bär på \(emotion.dominant.name) just nu. Det är en viktig känsla att ta på allvar. Berätta mer – vad händer?"
+            }
             let general = [
                 "Välkommen hit – det är ett modigt steg att börja utforska hur du mår. Vad är det viktigaste du vill prata om idag?",
                 "Jag är här och lyssnar utan att döma. Vad bär du på?",
@@ -285,20 +300,41 @@ private enum KBTFallback {
         }
     }
 
+    // MARK: - Dagboks-insikt
+
+    static func diaryInsight(emotion: EmotionResult) -> String {
+        let dom = emotion.dominant.name
+        switch dom {
+        case "sorg":
+            return "I ditt inlägg ser jag en djup sorg. KBT påminner oss om att tankarna vi har om händelserna – inte händelserna i sig – skapar mest lidande. Vad är en alternativ tolkning av det som hänt?"
+        case "ilska":
+            return "Det jag läser här rymmer stark ilska, och ilska är ofta en signal om att något viktigt kränktes. Vad behöver du för att känna dig trygg och respekterad?"
+        case "rädsla":
+            return "Rädslan du beskriver är verklig och valid. KBT-tekniken 'beteendeexperiment' handlar om att testa om våra rädslor stämmer med verkligheten. Vad är det lilla testet du kan göra?"
+        case "glädje":
+            return "Det är fint att se glädje i dina ord! Kom ihåg att beteendeaktivering – alltså att göra mer av det som ger glädje – är ett av de starkaste skydden mot depression."
+        default:
+            return "Att skriva ner sina tankar och känslor är i sig ett kraftfullt KBT-verktyg. Lägg märke till de mönster som uppstår – vad återkommer? Vad kan du utmana?"
+        }
+    }
+
     // MARK: - Mood-insikter
 
-    static func moodInsights(for entryDescription: String) -> (summary: String, insights: [String], advice: [String]) {
-        let summary = "En dag med blandade upplevelser. Dina registrerade data ger värdefull insikt om mönster i ditt mående."
+    static func moodInsights(for entryDescription: String, emotion: EmotionResult, sentiment: Float) -> (summary: String, insights: [String], advice: [String]) {
+        let domEmotion = emotion.dominant.name
+        let moodLabel = sentiment > 0.2 ? "positiv" : sentiment < -0.2 ? "negativt laddad" : "neutral"
+
+        let summary = "En \(moodLabel) dag dominerad av \(domEmotion). Dina registreringar hjälper dig se mönster du annars missar."
 
         let insights: [String] = [
-            "Sömn och ångestnivå verkar hänga ihop – dagar med sämre sömn visar ofta högre ångest.",
+            "Sömn och ångestnivå hänger ihop – dagar med sämre sömn visar ofta högre ångest.",
             "Utomhustid korrelerar positivt med din energinivå.",
             "Social kontakt, även kort, verkar ha positiv inverkan på ditt mående.",
-            "Rutiner bidrar till stabilitet i ditt humör."
+            "\(domEmotion.capitalized) är en signal värd att utforska – vad utlöste den idag?"
         ]
 
         let advice: [String] = [
-            "Försök hålla en konsekvent läggningstid – även 30 minuter kan göra skillnad.",
+            sentiment < 0 ? "Prova 4-7-8-andningen i appen – tre rundor kan sänka ångesten märkbart." : "Fortsätt med det som fungerade idag – det är beteendeaktivering i praktiken.",
             "En kort promenad (15-20 min) kan bryta ångescykeln.",
             "Skicka ett meddelande till en vän idag – kontakt, hur kort som helst.",
             "Schemalägg en aktivitet som brukade ge dig glädje, oavsett om du 'känner för det'."
@@ -311,34 +347,34 @@ private enum KBTFallback {
 
     static func weeklyReport(summary: String) -> String {
         return """
-        📊 Veckosammanfattning
+        Veckosammanfattning från Lilla Jag
 
         Dina mående-registreringar under veckan ger en bild av din psykiska hälsa.
 
-        • Trend: Ditt mående visar variationer som är helt normala. Uppmärksamma vilka dagar som var bättre.
-        • Sömnmönster: Sömnen påverkar direkt energi och ångest – prioritera sömnhygien.
-        • Positiva faktorer: Social kontakt och utomhustid gav positiva effekter.
+        Trend: Ditt mående visar variationer som är helt normala. Uppmärksamma vilka dagar som var bättre och vad som skiljde dem från de tuffare.
+        Sömnmönster: Sömnen påverkar direkt energi och ångest – prioritera sömnhygien.
+        Positiva faktorer: Social kontakt och utomhustid gav positiva effekter.
 
-        🎯 Tre fokusområden nästa vecka:
+        Tre fokusområden nästa vecka:
         1. Lägg till minst en beteendeaktiveringsövning om dagen
-        2. Håll konsekvent läggningstid ±30 min
+        2. Håll konsekvent läggningstid ±30 minuter
         3. Nå ut till en person du bryr dig om
 
-        💪 Mikromål:
+        Mikromål:
         • 15 min promenad varje dag
         • Logga mående på morgonen – inte bara när det är tungt
         • Skriv tre saker du är tacksam för varje kväll
         """
     }
 
-    // MARK: - Hjälpfunktion
+    // MARK: - Hjälp
 
     private static func containsAny(_ text: String, _ keywords: [String]) -> Bool {
         keywords.contains { text.contains($0) }
     }
 }
 
-// MARK: - Konversationsstartare (fördefinierade frågor)
+// MARK: - Konversationsstartare
 
 enum ConversationStarter: String, CaseIterable {
     case ångest       = "Jag är orolig och vet inte varför"

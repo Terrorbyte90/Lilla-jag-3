@@ -2,34 +2,11 @@
 //  Diagnoser.swift
 //  LillaJag
 //
-//  Åtgärdad & förbättrad 26 jul 2025 av ChatGPT (o3)
-//  – Fixat topp‑mellanrum & knappdocka
-//
-
 
 import SwiftUI
 import AVKit
-import AVFoundation
 
-// MARK: – Layout helper: reservera bottenutrymme för framtida navbar
-struct ReserveBottomSpace: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .safeAreaInset(edge: .bottom) {
-                Color.clear
-                    .frame(height: 100) // Fast höjd för navbar
-            }
-    }
-}
-
-extension View {
-    /// Lägger ett transparent inlägg i nederkant som tar upp plats (t.ex. för navbar)
-    func reserveBottomSpace() -> some View {
-        modifier(ReserveBottomSpace())
-    }
-}
-
-// MARK: – Datamodell ----------------------------------------------------------
+// MARK: - Datamodell
 
 struct Diagnosis: Identifiable, Hashable {
     let id = UUID()
@@ -38,7 +15,7 @@ struct Diagnosis: Identifiable, Hashable {
     let videoFile: String
 }
 
-// MARK: – Fasta data (15 vanliga diagnoser) ----------------------------------
+// MARK: - Fasta data (15 vanliga diagnoser)
 
 let diagnoses: [Diagnosis] = [
     Diagnosis(
@@ -47,8 +24,8 @@ let diagnoses: [Diagnosis] = [
         symptoms: [
             "Ledsenhet större delen av dagen",
             "Förlust av glädje och motivation",
-            "Energi‑ och koncentrationsbrist",
-            "Sömn‑ och aptitförändringar",
+            "Energi- och koncentrationsbrist",
+            "Sömn- och aptitförändringar",
             "Skuldkänslor, hopplöshet, suicidtankar"
         ],
         help: [
@@ -56,7 +33,7 @@ let diagnoses: [Diagnosis] = [
             "Antidepressiv medicinering (SSRI/SNRI)",
             "Regelbunden fysisk aktivitet",
             "Socialt stöd & meningsfulla aktiviteter",
-            "Ljus‑ eller sömnbehandling vid behov"
+            "Ljus- eller sömnbehandling vid behov"
         ],
         videoFile: "depression"
     ),
@@ -73,7 +50,7 @@ let diagnoses: [Diagnosis] = [
         help: [
             "Kognitiv beteendeterapi",
             "Avslappning & mindfulness",
-            "SSRI/SNRI‑läkemedel",
+            "SSRI/SNRI-läkemedel",
             "Stresshantering & planering",
             "Regelbunden motion"
         ],
@@ -148,9 +125,9 @@ let diagnoses: [Diagnosis] = [
         ],
         help: [
             "Traumafokuserad KBT (PE, CPT)",
-            "EMDR‑behandling",
+            "EMDR-behandling",
             "SSRI/SNRI",
-            "Grounding‑ och stabiliseringstekniker",
+            "Grounding- och stabiliseringstekniker",
             "Socialt stöd & trygghet"
         ],
         videoFile: "ptsd"
@@ -179,7 +156,7 @@ let diagnoses: [Diagnosis] = [
         description: "EIPS kännetecknas av instabila relationer, självkänsla och kraftiga känslosvängningar samt impulsivitet och självskadebeteende.",
         symptoms: [
             "Intensiv rädsla för övergivenhet",
-            "Svart‑vit värdering av relationer",
+            "Svart-vit värdering av relationer",
             "Impulsivitet och vredesutbrott",
             "Kronisk tomhetskänsla",
             "Självskadehandlingar"
@@ -187,7 +164,7 @@ let diagnoses: [Diagnosis] = [
         help: [
             "Dialektisk beteendeterapi (DBT)",
             "Mentaliseringsbaserad terapi (MBT)",
-            "Kris‑ & säkerhetsplan",
+            "Kris- & säkerhetsplan",
             "Känsloregleringsfärdigheter",
             "Farmakologiskt stöd vid samsjuklighet"
         ],
@@ -200,12 +177,12 @@ let diagnoses: [Diagnosis] = [
             "Hjärtklappning & svettningar",
             "Andnöd & kvävningskänsla",
             "Yrsel, overklighetskänsla",
-            "Akut döds‑ eller kontrollförlustskräck",
+            "Akut döds- eller kontrollförlustskräck",
             "Förväntansoro"
         ],
         help: [
             "KBT med interoceptiv exponering",
-            "Andnings‑ & avslappningsövningar",
+            "Andnings- & avslappningsövningar",
             "SSRI/SNRI",
             "Regelbunden konditionsträning",
             "Psykoedukation"
@@ -223,11 +200,11 @@ let diagnoses: [Diagnosis] = [
             "Eftergrubblande"
         ],
         help: [
-            "Grupp‑ eller individuell KBT",
+            "Grupp- eller individuell KBT",
             "Exponeringsövningar",
             "SSRI/SNRI",
             "Social färdighetsträning",
-            "Mindfulness & ACT‑tekniker"
+            "Mindfulness & ACT-tekniker"
         ],
         videoFile: "social_anxiety"
     ),
@@ -243,7 +220,7 @@ let diagnoses: [Diagnosis] = [
         ],
         help: [
             "Antipsykotiska läkemedel",
-            "Psykosocialt stöd & case‑management",
+            "Psykosocialt stöd & case-management",
             "Kognitiv rehabilitering",
             "Familjeintervention",
             "Stödd sysselsättning"
@@ -261,11 +238,11 @@ let diagnoses: [Diagnosis] = [
             "Amenorré eller låg puls (vid AN)"
         ],
         help: [
-            "Specialiserad KBT‑E",
+            "Specialiserad KBT-E",
             "Näringsterapi & medicinsk uppföljning",
             "Familjebaserad behandling",
             "Farmakologisk samsjuklighetsbehandling",
-            "Kroppsacceptans‑övningar"
+            "Kroppsacceptans-övningar"
         ],
         videoFile: "eating_disorder"
     ),
@@ -283,7 +260,7 @@ let diagnoses: [Diagnosis] = [
             "Motiverande samtal",
             "Läkemedelsassisterad behandling",
             "Återfallsprevention",
-            "Självhjälpsgrupper (12‑steg, SMART)",
+            "Självhjälpsgrupper (12-steg, SMART)",
             "Social rehabilitering"
         ],
         videoFile: "substance_use"
@@ -293,7 +270,7 @@ let diagnoses: [Diagnosis] = [
         description: "Intensiv, irrationell rädsla för ett specifikt objekt eller situation som leder till undvikande och ångest.",
         symptoms: [
             "Omedelbar panikreaktion vid exponering",
-            "Panik‑/ångestsymtom",
+            "Panik-/ångestsymtom",
             "Undvikande av fobiobjektet",
             "Insikt om att rädslan är överdriven",
             "Funktionsförlust"
@@ -309,7 +286,7 @@ let diagnoses: [Diagnosis] = [
     ),
     Diagnosis(
         name: "Insomni",
-        description: "Insomni innebär svårigheter att somna, bibehålla sömn eller vakna för tidigt ≥ 3 nätter/vecka i minst en månad.",
+        description: "Insomni innebär svårigheter att somna, bibehålla sömn eller vakna för tidigt tre eller fler nätter per vecka i minst en månad.",
         symptoms: [
             "Lång insomningstid",
             "Uppvaknanden nattetid",
@@ -318,7 +295,7 @@ let diagnoses: [Diagnosis] = [
             "Koncentrationsproblem"
         ],
         help: [
-            "KBT‑I (sömnrestriktion/stimulus‑kontroll)",
+            "KBT-I (sömnrestriktion/stimulus-kontroll)",
             "Sömnhygien",
             "Avslappning & mindfulness",
             "Korttidsverkande insomnimedicin",
@@ -328,89 +305,21 @@ let diagnoses: [Diagnosis] = [
     )
 ]
 
-// MARK: – ChatGPT‑klient ------------------------------------------------------
-
-final class ChatGPT {
-    static let shared = ChatGPT(); private init() {}
-    
-    func send(_ prompt: String) async throws -> String {
-        var r = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
-        r.httpMethod = "POST"
-        r.addValue("Bearer \(Config.openAIAPIKey)", forHTTPHeaderField: "Authorization")
-        r.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        r.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": "gpt-4o-mini",
-            "temperature": 0.7,
-            "messages": [
-                ["role":"system","content":"Du är en hjälpsam, empatisk svensk psykologassistent."],
-                ["role":"user","content": prompt]
-            ]
-        ])
-        
-        let (d, _) = try await URLSession.shared.data(for: r)
-        guard
-            let obj = try JSONSerialization.jsonObject(with: d) as? [String:Any],
-            let choice = (obj["choices"] as? [[String:Any]])?.first,
-            let msg = choice["message"] as? [String:Any],
-            let txt = msg["content"] as? String
-        else { throw URLError(.badServerResponse) }
-        return txt.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
-
-// MARK: – ElevenLabs TTS ------------------------------------------------------
-
-final class ElevenLabsTTS {
-    static let shared = ElevenLabsTTS(); private init() {}
-    
-    func generateAudio(_ text: String) async throws -> Data? {
-        let voiceID = "4WpEoB5wO1r9MAJoD3s0"
-        var r = URLRequest(url: URL(string:
-            "https://api.elevenlabs.io/v1/text-to-speech/\(voiceID)/stream")!)
-        r.httpMethod = "POST"
-        r.addValue(Config.elevenLabsAPIKey, forHTTPHeaderField: "xi-api-key")
-        r.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        r.httpBody = try JSONSerialization.data(withJSONObject: [
-            "text": text,
-            "voice_settings": ["stability": 0.35, "similarity_boost": 0.8]
-        ])
-        let (d, _) = try await URLSession.shared.data(for: r)
-        return d
-    }
-}
-
-// MARK: – Audio‑spelare -------------------------------------------------------
-
-final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
-    static let shared = AudioPlayer(); private override init() {}
-    private var player: AVAudioPlayer?; private var done: () -> Void = {}
-    
-    func play(data: Data, completion: @escaping () -> Void) throws {
-        done = completion
-        player = try AVAudioPlayer(data: data)
-        player?.delegate = self
-        player?.prepareToPlay()
-        player?.play()
-    }
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        done()
-    }
-}
-
 // MARK: - DiagnoserView
+
 struct DiagnoserView: View {
     @State private var selected: Diagnosis?
     @State private var searchText = ""
-    
+
     var filtered: [Diagnosis] {
         if searchText.isEmpty { return diagnoses }
         return diagnoses.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
-    
+
     var body: some View {
         ZStack {
-            AppBackground()
-            
+            WarmBackground()
+
             VStack(spacing: 0) {
                 HStack {
                     LJTitle(text: "Diagnoser")
@@ -418,7 +327,7 @@ struct DiagnoserView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)
-                
+
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
@@ -429,7 +338,7 @@ struct DiagnoserView: View {
                 .padding()
                 .ljGlassCard(radius: 12)
                 .padding()
-                
+
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(filtered) { diag in
@@ -467,16 +376,18 @@ struct DiagnoserView: View {
     }
 }
 
+// MARK: - DiagnosisDetailView
+
 struct DiagnosisDetailView: View {
     let diagnosis: Diagnosis
     @Environment(\.dismiss) private var dismiss
-    @State private var isPlaying = false
-    @State private var loadingAudio = false
-    
+    @State private var aiInsight: String = ""
+    @State private var loadingInsight = false
+
     var body: some View {
         ZStack {
-            AppBackground()
-            
+            WarmBackground()
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack {
@@ -488,40 +399,60 @@ struct DiagnosisDetailView: View {
                                 .foregroundColor(.white.opacity(0.5))
                         }
                         Spacer()
-                        
+
                         Button {
-                            speak()
+                            loadAIInsight()
                         } label: {
                             HStack {
-                                if loadingAudio {
+                                if loadingInsight {
                                     ProgressView()
                                         .tint(.white)
+                                        .scaleEffect(0.8)
                                 } else {
-                                    Image(systemName: isPlaying ? "stop.fill" : "speaker.wave.2.fill")
+                                    Image(systemName: "brain.head.profile")
                                 }
-                                Text(isPlaying ? "Stoppa" : "Lyssna")
+                                Text(loadingInsight ? "Tänker..." : "AI-insikt")
                             }
                             .font(.subheadline.bold())
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.3), in: Capsule())
-                            .overlay(Capsule().stroke(Color.blue, lineWidth: 1))
+                            .background(Color.warmLavender.opacity(0.3), in: Capsule())
+                            .overlay(Capsule().stroke(Color.warmLavender, lineWidth: 1))
                         }
-                        .disabled(loadingAudio)
+                        .disabled(loadingInsight)
+                        .foregroundStyle(.white)
                     }
                     .padding(.top, 20)
-                    
+
                     Text(diagnosis.name)
                         .font(.largeTitle.bold())
                         .foregroundColor(.white)
-                    
+
+                    if !aiInsight.isEmpty {
+                        LJCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "brain.head.profile")
+                                        .foregroundStyle(Color.warmLavender)
+                                    Text("AI-insikt från Lilla Jag")
+                                        .font(.headline)
+                                        .foregroundStyle(Color.warmLavender)
+                                }
+                                Text(aiInsight)
+                                    .font(.body)
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .lineSpacing(4)
+                            }
+                        }
+                    }
+
                     if let url = Bundle.main.url(forResource: diagnosis.videoFile, withExtension: "mp4") {
                         VideoPlayer(player: AVPlayer(url: url))
                             .frame(height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .ljGlassCard(radius: 20)
                     }
-                    
+
                     LJCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Om diagnosen")
@@ -531,7 +462,7 @@ struct DiagnosisDetailView: View {
                                 .lineSpacing(4)
                         }
                     }
-                    
+
                     LJCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Vanliga symtom")
@@ -546,7 +477,7 @@ struct DiagnosisDetailView: View {
                             }
                         }
                     }
-                    
+
                     LJCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Hjälp & Behandling")
@@ -560,40 +491,25 @@ struct DiagnosisDetailView: View {
                             }
                         }
                     }
-                    
+
                     Spacer(minLength: 50)
                 }
                 .padding()
             }
         }
     }
-    
-    private func speak() {
-        if isPlaying {
-            // Stoppa (ej implementerat i AudioPlayer.shared men för UI skull)
-            isPlaying = false
-            return
-        }
-        
-        loadingAudio = true
+
+    private func loadAIInsight() {
+        loadingInsight = true
         Task {
-            do {
-                let text = "\(diagnosis.name). \(diagnosis.description). Symtom inkluderar: \(diagnosis.symptoms.joined(separator: ", ")). Behandling inkluderar: \(diagnosis.help.joined(separator: ", "))"
-                if let data = try await ElevenLabsTTS.shared.generateAudio(text) {
-                    try AudioPlayer.shared.play(data: data) {
-                        isPlaying = false
-                    }
-                    isPlaying = true
-                }
-            } catch {
-                print("TTS error: \(error)")
-            }
-            loadingAudio = false
+            let prompt = "Ge en kort, empatisk och evidensbaserad insikt (3-4 meningar) på svenska om \(diagnosis.name) ur ett KBT-perspektiv. Fokusera på hopp och återhämtning."
+            aiInsight = await LillaJagAIService.shared.generateResponse(to: prompt)
+            loadingInsight = false
         }
     }
 }
 
-// MARK: – Preview -------------------------------------------------------------
+// MARK: - Preview
 
 #Preview {
     DiagnoserView()

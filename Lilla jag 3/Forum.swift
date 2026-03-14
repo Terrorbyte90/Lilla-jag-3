@@ -36,12 +36,19 @@ private var samplePosts: [ForumPost] = [
               timeAgo: "3 dag", tag: "Relationer", tagColor: Color.warmRose, likes: 89, comments: 37),
 ]
 
+private let allTags = ["Alla", "Ångest", "Depression", "Tips", "Återhämtning", "Relationer"]
+
 // MARK: - ForumView
 
 struct ForumView: View {
     @State private var posts = samplePosts
     @State private var showNewPost = false
+    @State private var selectedTag = "Alla"
     @Environment(\.dismiss) private var dismiss
+
+    private var filtered: [ForumPost] {
+        selectedTag == "Alla" ? posts : posts.filter { $0.tag == selectedTag }
+    }
 
     var body: some View {
         NavigationStack {
@@ -52,14 +59,25 @@ struct ForumView: View {
                     VStack(spacing: 0) {
                         anonymityBanner
 
-                        VStack(spacing: 12) {
-                            ForEach($posts) { $post in
-                                ForumCard(post: $post)
+                        // Tag filter
+                        tagFilterRow
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+
+                        if filtered.isEmpty {
+                            emptyState
+                        } else {
+                            VStack(spacing: 12) {
+                                ForEach($posts.filter { p in
+                                    selectedTag == "Alla" || p.wrappedValue.tag == selectedTag
+                                }) { $post in
+                                    ForumCard(post: $post)
+                                }
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 40)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 40)
                     }
                 }
             }
@@ -82,7 +100,36 @@ struct ForumView: View {
             }
             .sheet(isPresented: $showNewPost) {
                 NewPostView { newPost in
-                    posts.insert(newPost, at: 0)
+                    withAnimation(.spring(response: 0.4)) {
+                        posts.insert(newPost, at: 0)
+                    }
+                }
+            }
+        }
+    }
+
+    private var tagFilterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(allTags, id: \.self) { tag in
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            selectedTag = tag
+                        }
+                    } label: {
+                        Text(tag)
+                            .font(.system(.caption, design: .rounded, weight: .semibold))
+                            .foregroundStyle(selectedTag == tag ? .black : .white.opacity(0.75))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                selectedTag == tag
+                                ? AnyShapeStyle(Color.warmLavender)
+                                : AnyShapeStyle(Color.white.opacity(0.1)),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -95,13 +142,32 @@ struct ForumView: View {
             Text("Alla inlägg är anonyma. Du väljer ett smeknamn.")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
+            Spacer()
+            Text("\(posts.count) inlägg")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.4))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(Color.warmSage.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmSage.opacity(0.2), lineWidth: 1))
         .padding(.horizontal, 16)
         .padding(.top, 12)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 36))
+                .foregroundStyle(.white.opacity(0.3))
+            Text("Inga inlägg med taggen "\(selectedTag)"")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white.opacity(0.5))
+            Button("Skapa ett") { showNewPost = true }
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(Color.warmGold)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(40)
     }
 }
 
@@ -109,6 +175,7 @@ struct ForumView: View {
 
 struct ForumCard: View {
     @Binding var post: ForumPost
+    @State private var isExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -131,12 +198,25 @@ struct ForumCard: View {
             Text(post.content)
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(3)
+                .lineLimit(isExpanded ? nil : 3)
+                .animation(.easeInOut(duration: 0.2), value: isExpanded)
+
+            if post.content.count > 120 {
+                Button(isExpanded ? "Visa mindre" : "Läs mer") {
+                    withAnimation { isExpanded.toggle() }
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(post.tagColor.opacity(0.9))
+                .buttonStyle(.plain)
+            }
 
             HStack(spacing: 16) {
                 Button {
-                    post.likes += post.isLiked ? -1 : 1
-                    post.isLiked.toggle()
+                    withAnimation(.spring(response: 0.3)) {
+                        post.likes += post.isLiked ? -1 : 1
+                        post.isLiked.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Label("\(post.likes)", systemImage: post.isLiked ? "heart.fill" : "heart")
                         .font(.caption.weight(.medium))
@@ -149,6 +229,10 @@ struct ForumCard: View {
                     .foregroundStyle(.white.opacity(0.5))
 
                 Spacer()
+
+                Image(systemName: "square.and.arrow.up")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.3))
             }
         }
         .padding(14)
@@ -177,29 +261,143 @@ struct NewPostView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var content = ""
-    @State private var nickname = "Anonym "
+    @State private var nickname = ""
+    @State private var selectedTag = "Ångest"
+    @State private var aiSuggestion = ""
+    @State private var loadingAI = false
+
+    private let tagOptions = ["Ångest", "Depression", "Tips", "Återhämtning", "Relationer", "Övrigt"]
+    private let tagColors: [String: Color] = [
+        "Ångest": .warmLavender, "Depression": Color(hex: 0x6B8DD6),
+        "Tips": .warmSage, "Återhämtning": .warmGold,
+        "Relationer": .warmRose, "Övrigt": Color.white.opacity(0.5)
+    ]
+
+    private var canPost: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty && !content.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 WarmBackground()
-                VStack(spacing: 16) {
-                    TextField("Smeknamn (t.ex. 'Anonym sol')", text: $nickname)
-                        .foregroundStyle(.white).padding(12)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-                    TextField("Rubrik", text: $title)
-                        .foregroundStyle(.white).padding(12)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-                    TextEditor(text: $content)
-                        .frame(minHeight: 150)
-                        .padding(8)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(.white)
-                        .scrollContentBackground(.hidden)
-                        .placeholder("Dela din upplevelse, fråga om råd eller dela hopp...", text: $content)
-                    Spacer()
+                ScrollView {
+                    VStack(spacing: 14) {
+                        // Nickname
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Smeknamn")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                            TextField("t.ex. Anonym sol", text: $nickname)
+                                .foregroundStyle(.white)
+                                .padding(12)
+                                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        // Tag picker
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Kategori")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(tagOptions, id: \.self) { tag in
+                                        Button {
+                                            selectedTag = tag
+                                        } label: {
+                                            Text(tag)
+                                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                                .foregroundStyle(selectedTag == tag ? .black : .white.opacity(0.7))
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(
+                                                    selectedTag == tag
+                                                    ? AnyShapeStyle(tagColors[tag] ?? .warmLavender)
+                                                    : AnyShapeStyle(Color.white.opacity(0.1)),
+                                                    in: Capsule()
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Title
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Rubrik")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                            TextField("Vad handlar ditt inlägg om?", text: $title)
+                                .foregroundStyle(.white)
+                                .padding(12)
+                                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        // Content
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Ditt inlägg")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                            TextEditor(text: $content)
+                                .frame(minHeight: 140)
+                                .padding(8)
+                                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(.white)
+                                .scrollContentBackground(.hidden)
+                                .font(.system(.body, design: .rounded))
+                        }
+
+                        // AI post helper
+                        Button {
+                            Task { await getAISuggestion() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if loadingAI {
+                                    ProgressView().tint(.white).scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "sparkles")
+                                }
+                                Text(loadingAI ? "Lilla Jag formulerar..." : "Hjälp mig formulera inlägget")
+                                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.warmLavender.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmLavender.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(title.isEmpty || loadingAI)
+
+                        if !aiSuggestion.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Förslag från Lilla Jag:")
+                                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                                        .foregroundStyle(Color.warmGold)
+                                    Spacer()
+                                    Button("Använd") {
+                                        content = aiSuggestion
+                                        aiSuggestion = ""
+                                    }
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color.warmGold)
+                                }
+                                Text(aiSuggestion)
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .lineSpacing(3)
+                            }
+                            .padding(12)
+                            .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
+                        Spacer()
+                    }
+                    .padding(16)
+                    .padding(.bottom, 40)
                 }
-                .padding(16)
             }
             .preferredColorScheme(.dark)
             .navigationTitle("Nytt inlägg")
@@ -212,24 +410,33 @@ struct NewPostView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Publicera") {
                         let post = ForumPost(
-                            author: nickname.isEmpty ? "Anonym" : nickname,
-                            title: title,
-                            content: content,
+                            author: nickname.trimmingCharacters(in: .whitespaces).isEmpty ? "Anonym" : nickname,
+                            title: title.trimmingCharacters(in: .whitespaces),
+                            content: content.trimmingCharacters(in: .whitespaces),
                             timeAgo: "Nu",
-                            tag: "Nytt",
-                            tagColor: Color.warmGold,
+                            tag: selectedTag,
+                            tagColor: tagColors[selectedTag] ?? .warmLavender,
                             likes: 0,
                             comments: 0
                         )
                         onPost(post)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
                         dismiss()
                     }
-                    .foregroundStyle(title.isEmpty ? .white.opacity(0.3) : Color.warmGold)
+                    .foregroundStyle(canPost ? Color.warmGold : .white.opacity(0.3))
                     .fontWeight(.bold)
-                    .disabled(title.isEmpty)
+                    .disabled(!canPost)
                 }
             }
         }
+    }
+
+    private func getAISuggestion() async {
+        guard !title.isEmpty else { return }
+        loadingAI = true
+        let prompt = "Skriv ett kort, empatiskt och ärligt foruminlägg på svenska (3-5 meningar) om ämnet: \"\(title)\" under kategorin \(selectedTag). Skriv i första person, som om du är en person som söker stöd och delar sin upplevelse. Inga punktlistor."
+        aiSuggestion = await LillaJagAIService.shared.generateResponse(to: prompt)
+        loadingAI = false
     }
 }
 

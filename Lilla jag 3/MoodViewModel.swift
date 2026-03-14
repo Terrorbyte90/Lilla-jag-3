@@ -22,7 +22,6 @@ final class MoodViewModel: ObservableObject {
         defer { generatingWeekly = false }
 
         // Lokal AI via LillaJagAIService – noll molnberoende
-        let corrs = store.correlations()
         let entrySummary = buildEntrySummary()
         weeklyReportText = await LillaJagAIService.shared.weeklyReport(summary: entrySummary)
     }
