@@ -109,8 +109,11 @@ struct KrisplanView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Spara" : "Redigera") {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         if isEditing { store.save() }
-                        isEditing.toggle()
+                        withAnimation(.spring(response: 0.3)) {
+                            isEditing.toggle()
+                        }
                     }
                     .foregroundStyle(isEditing ? Color.warmGold : .white.opacity(0.7))
                     .fontWeight(isEditing ? .bold : .regular)
@@ -126,8 +129,7 @@ struct KrisplanView: View {
     private var emergencySection: some View {
         VStack(spacing: 12) {
             HStack {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(Color(hex: 0xFF5B5B))
+                LJIconCircle(icon: "exclamationmark.triangle.fill", color: Color(hex: 0xFF5B5B), size: 36, iconScale: 0.45)
                 Text("Om det är akut")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)

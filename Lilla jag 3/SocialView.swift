@@ -72,9 +72,7 @@ struct SocialView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            Image(systemName: "person.2.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(Color.warmRose)
+            LJIconCircle(icon: "person.2.fill", color: Color.warmRose, size: 64)
             Text("Du behöver inte vara ensam")
                 .font(.system(.title3, design: .rounded, weight: .black))
                 .foregroundStyle(.white)
@@ -89,7 +87,10 @@ struct SocialView: View {
     }
 
     private func socialAction(icon: String, color: Color, title: String, description: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(color.opacity(0.2)).frame(width: 48, height: 48)

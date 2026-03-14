@@ -50,15 +50,29 @@ struct OnboardingView: View {
             WarmBackground()
 
             VStack(spacing: 0) {
-                // Page indicator dots
-                HStack(spacing: 8) {
-                    ForEach(0..<pages.count, id: \.self) { i in
-                        Capsule()
-                            .fill(i == currentPage ? Color.white : Color.white.opacity(0.3))
-                            .frame(width: i == currentPage ? 24 : 8, height: 8)
-                            .animation(.spring(response: 0.35), value: currentPage)
+                // Top bar: dots + skip
+                HStack {
+                    // Page indicator dots
+                    HStack(spacing: 8) {
+                        ForEach(0..<pages.count, id: \.self) { i in
+                            Capsule()
+                                .fill(i == currentPage ? Color.white : Color.white.opacity(0.25))
+                                .frame(width: i == currentPage ? 24 : 8, height: 8)
+                                .animation(.spring(response: 0.35), value: currentPage)
+                        }
+                    }
+                    Spacer()
+                    if currentPage < pages.count - 1 {
+                        Button("Hoppa över") {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.spring(response: 0.4)) { hasCompletedOnboarding = true }
+                        }
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .accessibilityLabel("Hoppa över introduktionen")
                     }
                 }
+                .padding(.horizontal, 28)
                 .padding(.top, 60)
 
                 Spacer()
@@ -76,43 +90,33 @@ struct OnboardingView: View {
                 Spacer()
 
                 // CTA button
-                VStack(spacing: 16) {
-                    Button {
-                        withAnimation(.spring(response: 0.4)) {
-                            if currentPage < pages.count - 1 {
-                                currentPage += 1
-                            } else {
-                                hasCompletedOnboarding = true
-                            }
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    withAnimation(.spring(response: 0.4)) {
+                        if currentPage < pages.count - 1 {
+                            currentPage += 1
+                        } else {
+                            hasCompletedOnboarding = true
                         }
-                    } label: {
-                        HStack {
-                            Text(currentPage < pages.count - 1 ? "Nästa" : "Kom igång")
-                                .font(.system(.body, design: .rounded, weight: .bold))
-                            Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
-                                .font(.system(size: 14, weight: .bold))
-                        }
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .shadow(color: .white.opacity(0.25), radius: 10, y: 4)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(currentPage < pages.count - 1 ? "Nästa sida" : "Kom igång med appen")
-
-                    if currentPage > 0 {
-                        Button("Hoppa över") {
-                            withAnimation { hasCompletedOnboarding = true }
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.6))
-                        .accessibilityLabel("Hoppa över introduktionen")
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(currentPage < pages.count - 1 ? "Nästa" : "Kom igång")
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                        Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
+                            .font(.system(size: 14, weight: .bold))
                     }
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: .white.opacity(0.2), radius: 12, y: 4)
                 }
+                .buttonStyle(LJPressableButtonStyle())
+                .accessibilityLabel(currentPage < pages.count - 1 ? "Nästa sida" : "Kom igång med appen")
                 .padding(.horizontal, 28)
-                .padding(.bottom, 48)
+                .padding(.bottom, 56)
             }
         }
         .preferredColorScheme(.dark)

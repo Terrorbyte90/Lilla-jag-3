@@ -182,7 +182,10 @@ struct ExerciseCard: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onTap()
+        } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()

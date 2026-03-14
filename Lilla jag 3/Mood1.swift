@@ -176,26 +176,10 @@ final class MoodStore: ObservableObject {
     }
 }
 
-// MARK: - Bakgrund
+// MARK: - Bakgrund (konsekvent med resten av appen)
 struct AppBackground: View {
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.black, Color(red: 0.06, green: 0.07, blue: 0.12)],
-                           startPoint: .bottom, endPoint: .top)
-            Circle()
-                .fill(LinearGradient(colors: [.purple.opacity(0.45), .blue.opacity(0.45)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 480, height: 480)
-                .blur(radius: 120)
-                .offset(x: 140, y: -200)
-            Circle()
-                .fill(LinearGradient(colors: [.blue.opacity(0.35), .mint.opacity(0.25)],
-                                     startPoint: .bottomLeading, endPoint: .topTrailing))
-                .frame(width: 380, height: 380)
-                .blur(radius: 140)
-                .offset(x: -160, y: 240)
-        }
-        .ignoresSafeArea()
+        WarmBackground()
     }
 }
 
@@ -217,8 +201,22 @@ struct Mood1View: View {
                         statsSection
                         insightsSection
                         weeklyAISection
-                        Button("Logga mående") { viewModel.showLogger = true }
-                            .buttonStyle(GradientButtonStyle())
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            viewModel.showLogger = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Logga mående")
+                                    .font(.system(.body, design: .rounded, weight: .bold))
+                            }
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.warmGold, in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .buttonStyle(LJPressableButtonStyle())
                     }
                     .frame(maxWidth: 640)
                     .padding(.vertical, 20)
@@ -236,16 +234,26 @@ struct Mood1View: View {
     // MARK: Hero
     private var heroWelcomeCard: some View {
         VStack(spacing: 14) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 54, weight: .semibold))
-                .foregroundStyle(.green)
-                .shadow(radius: 6)
-            Text("Välkommen tillbaka").font(DesignSystem.Typography.titleMain).foregroundStyle(.white)
+            LJIconCircle(icon: "face.smiling.fill", color: .warmSage, size: 56, iconScale: 0.5)
+            Text("Välkommen tillbaka")
+                .font(DesignSystem.Typography.titleMain)
+                .foregroundStyle(.white)
             Text("Redo att logga hur du mår idag? Dina insikter uppdateras direkt.")
-                .font(.subheadline).foregroundColor(.white.opacity(0.8))
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
-            Button("Börja logga") { viewModel.showLogger = true }
-                .buttonStyle(GradientButtonStyle())
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                viewModel.showLogger = true
+            } label: {
+                Text("Börja logga")
+                    .font(.system(.body, design: .rounded, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.warmGold, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(LJPressableButtonStyle())
         }
         .ljGlassCard()
     }
@@ -257,13 +265,13 @@ struct Mood1View: View {
             kpi("Socialt", store.avgSocial)
             kpi("Energi", store.avgEnergy)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Streak").font(.caption).foregroundColor(.secondary)
+                Text("Streak").font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
                 HStack(spacing: 2) {
-                    Text("\(store.currentStreak)").font(.headline).monospacedDigit().foregroundColor(.white)
-                    Text("d /").font(.caption2).foregroundColor(.secondary)
-                    Text("\(store.longestStreak)").font(.headline).monospacedDigit().foregroundColor(.white)
-                    Text("d").font(.caption2).foregroundColor(.secondary)
+                    Text("\(store.currentStreak)").font(.headline).monospacedDigit().foregroundStyle(.white)
+                    Text("d /").font(.caption2).foregroundStyle(.secondary)
+                    Text("\(store.longestStreak)").font(.headline).monospacedDigit().foregroundStyle(.white)
+                    Text("d").font(.caption2).foregroundStyle(.secondary)
                 }.lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
             }
             .padding(8)
@@ -273,11 +281,11 @@ struct Mood1View: View {
     }
     private func kpi(_ title: String, _ value: Double) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.caption).foregroundColor(.secondary)
+            Text(title).font(.caption).foregroundStyle(.secondary)
                 .lineLimit(1).minimumScaleFactor(0.65).allowsTightening(true)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(String(format: "%.0f", value * 100)).font(.headline).monospacedDigit().foregroundColor(.white)
-                Text("/100").font(.caption2).foregroundColor(.secondary)
+                Text(String(format: "%.0f", value * 100)).font(.headline).monospacedDigit().foregroundStyle(.white)
+                Text("/100").font(.caption2).foregroundStyle(.secondary)
             }.lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
         }
         .padding(8)
@@ -309,7 +317,7 @@ struct Mood1View: View {
             .chartYScale(domain: 0...1)
             .frame(height: UIScreen.main.bounds.height > 800 ? 180 : 140)
         }
-        .foregroundColor(.white)
+        .foregroundStyle(.white)
         .ljGlassCard()
     }
 
@@ -320,17 +328,17 @@ struct Mood1View: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("AI-sammanfattning").font(.title3.bold())
                     if !latest.summary.isEmpty {
-                        Text(latest.summary).foregroundColor(.white).ljGlassCard()
+                        Text(latest.summary).foregroundStyle(.white).ljGlassCard()
                     }
                     if !latest.insights.isEmpty {
                         Divider().background(.white.opacity(0.25))
-                        Text("Insikter").font(.headline).foregroundColor(.white)
-                        ForEach(latest.insights, id: \.self) { Text("• \($0)").foregroundColor(.white) }
+                        Text("Insikter").font(.headline).foregroundStyle(.white)
+                        ForEach(latest.insights, id: \.self) { Text("• \($0)").foregroundStyle(.white) }
                     }
                     if !latest.advice.isEmpty {
                         Divider().background(.white.opacity(0.25))
-                        Text("Rekommendationer").font(.headline).foregroundColor(.white)
-                        ForEach(latest.advice, id: \.self) { Text("→ \($0)").foregroundColor(.white) }
+                        Text("Rekommendationer").font(.headline).foregroundStyle(.white)
+                        ForEach(latest.advice, id: \.self) { Text("→ \($0)").foregroundStyle(.white) }
                     }
                 }
                 .ljGlassCard()
@@ -380,7 +388,7 @@ struct Mood1View: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Korrelationer (90 dagar)").font(.headline).foregroundStyle(.white)
                     if topPos.isEmpty && topNeg.isEmpty {
-                        Text("För lite data ännu – logga fler dagar.").foregroundColor(.secondary)
+                        Text("För lite data ännu – logga fler dagar.").foregroundStyle(.secondary)
                     } else {
                         if !topPos.isEmpty {
                             Text("Topp +").font(.subheadline.bold()).foregroundStyle(.white)
@@ -388,8 +396,8 @@ struct Mood1View: View {
                                 HStack {
                                     Text(c.name)
                                     Spacer()
-                                    Text(String(format: "%+.0f", c.delta * 100)) + Text(" p").foregroundColor(.secondary)
-                                }.foregroundColor(.white)
+                                    Text(String(format: "%+.0f", c.delta * 100)) + Text(" p").foregroundStyle(.secondary)
+                                }.foregroundStyle(.white)
                             }
                         }
                         if !topNeg.isEmpty {
@@ -399,12 +407,12 @@ struct Mood1View: View {
                                 HStack {
                                     Text(c.name)
                                     Spacer()
-                                    Text(String(format: "%+.0f", c.delta * 100)) + Text(" p").foregroundColor(.secondary)
-                                }.foregroundColor(.white)
+                                    Text(String(format: "%+.0f", c.delta * 100)) + Text(" p").foregroundStyle(.secondary)
+                                }.foregroundStyle(.white)
                             }
                         }
                         Text("Δ = skillnad i snittmående när faktor finns vs saknas.")
-                            .font(.footnote).foregroundColor(.secondary)
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 .ljGlassCard()
@@ -418,7 +426,7 @@ struct Mood1View: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("AI-Veckorapport").font(.title3.bold()).foregroundStyle(.white)
             if !viewModel.weeklyReportText.isEmpty {
-                Text(viewModel.weeklyReportText).foregroundColor(.white).ljGlassCard()
+                Text(viewModel.weeklyReportText).foregroundStyle(.white).ljGlassCard()
             }
             HStack {
                 if viewModel.generatingWeekly { ProgressView().progressViewStyle(.circular) }
@@ -548,7 +556,7 @@ struct CalendarGridView: View {
             LazyVGrid(columns: columns, spacing: 6) {
                 let weekdays = ["Må","Ti","On","To","Fr","Lö","Sö"]
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { _, label in
-                    Text(label).foregroundColor(.secondary)
+                    Text(label).foregroundStyle(.secondary)
                 }
                 ForEach(Array(monthCells.enumerated()), id: \.offset) { _, cellDate in
                     if let day = cellDate {
@@ -560,7 +568,7 @@ struct CalendarGridView: View {
                             if isToday {
                                 Circle().stroke(Color.white.opacity(0.9), lineWidth: 1.5).frame(width: 36, height: 36)
                             }
-                            Text(String(Calendar.current.component(.day, from: day))).font(.caption.bold()).foregroundColor(.white)
+                            Text(String(Calendar.current.component(.day, from: day))).font(.caption.bold()).foregroundStyle(.white)
                         }
                         .frame(height: 40)
                         .contentShape(Rectangle())
@@ -614,22 +622,22 @@ struct SummaryPopup: View {
                         }
                         if !entry.notes.isEmpty {
                             TitleText("Anteckning")
-                            Text(entry.notes).foregroundColor(.white).glass()
+                            Text(entry.notes).foregroundStyle(.white).glass()
                         }
                         if !entry.summary.isEmpty {
                             Divider()
                             TitleText("AI-sammanfattning")
-                            Text(entry.summary).foregroundColor(.white)
+                            Text(entry.summary).foregroundStyle(.white)
                         }
                         if !entry.insights.isEmpty {
                             Divider()
                             TitleText("Insikter")
-                            ForEach(entry.insights, id: \.self) { Text("• \($0)").foregroundColor(.white) }
+                            ForEach(entry.insights, id: \.self) { Text("• \($0)").foregroundStyle(.white) }
                         }
                         if !entry.advice.isEmpty {
                             Divider()
                             TitleText("Rekommendationer")
-                            ForEach(entry.advice, id: \.self) { Text("→ \($0)").foregroundColor(.white) }
+                            ForEach(entry.advice, id: \.self) { Text("→ \($0)").foregroundStyle(.white) }
                         }
                     }
                 }
@@ -734,7 +742,7 @@ struct MoodLogFlowView: View {
                     if step > 0 && step < 12 {
                         Button("Bakåt") { step -= 1 }
                             .buttonStyle(.plain)
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                     }
                     Spacer()
                     if step < 11 {
@@ -891,7 +899,7 @@ struct MoodLogFlowView: View {
                 .padding()
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 0.5))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
             InfoText("Skriv några rader om något viktigt från dagen (valfritt).")
         }
     }
@@ -899,7 +907,7 @@ struct MoodLogFlowView: View {
     private var loadingStep: some View {
         VStack(spacing: 20) {
             ProgressView().progressViewStyle(.circular).scaleEffect(2)
-            Text(statusText).foregroundColor(.white).font(.headline)
+            Text(statusText).foregroundStyle(.white).font(.headline)
         }
         .onAppear {
             Task {
@@ -912,7 +920,7 @@ struct MoodLogFlowView: View {
     private var summaryStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             TitleText("Sammanfattning av din dag")
-            Text(gptSummary).multilineTextAlignment(.leading).foregroundColor(.white).glass()
+            Text(gptSummary).multilineTextAlignment(.leading).foregroundStyle(.white).glass()
             if let url = Bundle.main.url(forResource: "bipolar", withExtension: "mp4") {
                 VideoPlayer(player: AVPlayer(url: url))
                     .frame(height: 200)
@@ -926,16 +934,16 @@ struct MoodLogFlowView: View {
     private var recommendationsStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             TitleText("Insikter")
-            ForEach(gptInsights, id: \.self) { Text("• \($0)").foregroundColor(.white) }
+            ForEach(gptInsights, id: \.self) { Text("• \($0)").foregroundStyle(.white) }
             Divider().background(.white.opacity(0.25))
             TitleText("Rekommendationer")
-            ForEach(gptAdvice, id: \.self) { Text("→ \($0)").foregroundColor(.white) }
+            ForEach(gptAdvice, id: \.self) { Text("→ \($0)").foregroundStyle(.white) }
             Spacer()
             Button("Spara & stäng") { onSave(entry); dismiss() }
                 .buttonStyle(GradientButtonStyle())
         }
         .glass()
-        .foregroundColor(.white)
+        .foregroundStyle(.white)
     }
 
     // Status-text
@@ -1029,11 +1037,11 @@ struct MoodOptionButton: View {
             .frame(maxWidth: .infinity)
             .background(
                 LinearGradient(colors: selected ? [.pink, .purple]
-                               : [Color(.secondarySystemBackground).opacity(0.25),
-                                  Color(.secondarySystemBackground).opacity(0.25)],
+                               : [Color.white.opacity(0.08),
+                                  Color.white.opacity(0.08)],
                                startPoint: .leading, endPoint: .trailing)
             )
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .shadow(color: .black.opacity(selected ? 0.25 : 0.05), radius: selected ? 6 : 2, y: selected ? 3 : 1)
     }
@@ -1094,7 +1102,7 @@ struct TitleText: View {
     var body: some View {
         Text(text)
             .font(.title2.bold())
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -1105,7 +1113,7 @@ struct InfoText: View {
     var body: some View {
         Text(text)
             .font(.footnote)
-            .foregroundColor(.white.opacity(0.8))
+            .foregroundStyle(.white.opacity(0.8))
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
     }

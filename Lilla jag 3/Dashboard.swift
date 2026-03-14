@@ -20,6 +20,7 @@ import Combine
 struct Dashboard: View {
     @StateObject private var viewModel = DashboardViewModel()
     @ObservedObject private var ai = LillaJagAIService.shared
+    @State private var appeared = false
 
     var body: some View {
         GeometryReader { geo in
@@ -44,10 +45,17 @@ struct Dashboard: View {
                     .padding(.horizontal, max(16, geo.size.width * 0.06))
                     .padding(.top, 16)
                     .padding(.bottom, 110)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 12)
                 }
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5).delay(0.1)) {
+                appeared = true
+            }
+        }
         .fullScreenCover(isPresented: $viewModel.showChatty) { ChattyView() }
         .fullScreenCover(isPresented: $viewModel.showNumbers) { NumbersView() }
         .fullScreenCover(isPresented: $viewModel.showCrisisPlan) { KrisplanView() }
@@ -68,27 +76,26 @@ private extension Dashboard {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Lilla Jag")
-                    .font(DesignSystem.Typography.titleMain)
+                    .font(.system(.title2, design: .rounded, weight: .black))
                     .minimumScaleFactor(0.8)
                     .foregroundStyle(.white)
-                    .shadow(radius: 10)
                 Text(greetingText)
-                    .font(.subheadline)
+                    .font(.system(.subheadline, design: .rounded))
                     .minimumScaleFactor(0.8)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.white.opacity(0.7))
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Lilla Jag. \(greetingText)")
             Spacer()
             HStack(spacing: 8) {
                 DashboardHeaderButton(icon: "heart.fill", label: "Donera", action: { viewModel.showDonation = true })
-                DashboardHeaderButton(icon: "cross.case", label: "Krisplan", action: { viewModel.showCrisisPlan = true })
-                DashboardHeaderButton(icon: "phone", label: "Krisnummer", action: { viewModel.showNumbers = true })
+                DashboardHeaderButton(icon: "cross.case.fill", label: "Krisplan", action: { viewModel.showCrisisPlan = true })
+                DashboardHeaderButton(icon: "phone.fill", label: "Krisnummer", action: { viewModel.showNumbers = true })
             }
         }
-        .padding(12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .ljGlassCard(radius: 18)
-        .shadow(radius: 4, y: 2)
     }
 
     var greetingText: String {
@@ -287,25 +294,37 @@ private extension Dashboard {
     // MARK: - Affirmation
 
     var affirmationBox: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "quote.opening")
-                .font(.system(size: 14))
-                .foregroundStyle(.warmGold.opacity(0.5))
+        VStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "quote.opening")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.warmGold.opacity(0.6))
+                Text("Dagens påminnelse")
+                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.warmGold.opacity(0.6))
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+            }
             Text(viewModel.affirmation)
-                .font(DesignSystem.Typography.headline)
-                .foregroundStyle(.white)
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
                 .multilineTextAlignment(.center)
-                .lineSpacing(2)
+                .lineSpacing(3)
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 22)
         .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [Color.warmGold.opacity(0.06), Color.warmLavender.opacity(0.04)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+        )
         .ljGlassCard(radius: 18)
-        .shadow(radius: 4, y: 2)
         .id(viewModel.affirmation)
         .transition(.opacity.combined(with: .scale(scale: 0.97)))
         .animation(.easeInOut(duration: 0.5), value: viewModel.affirmation)
-        .accessibilityLabel("Dagens affirmation: \(viewModel.affirmation)")
+        .accessibilityLabel("Dagens påminnelse: \(viewModel.affirmation)")
     }
 
     // MARK: - Emotion Card

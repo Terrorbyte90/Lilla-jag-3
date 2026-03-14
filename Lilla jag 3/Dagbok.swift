@@ -139,19 +139,26 @@ struct DagbokDashboardView: View {
                     HStack {
                         Spacer()
                         Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             showNewEntry = true
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundStyle(.black)
                                 .frame(width: 56, height: 56)
-                                .background(Color.warmGold)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.warmGold, Color.warmGold.opacity(0.85)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    )
+                                )
                                 .clipShape(Circle())
-                                .shadow(color: Color.warmGold.opacity(0.4), radius: 12, y: 4)
+                                .shadow(color: Color.warmGold.opacity(0.35), radius: 12, y: 4)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LJPressableButtonStyle())
                         .padding(.trailing, 20)
-                        .padding(.bottom, 96)
+                        .padding(.bottom, 110)
+                        .accessibilityLabel("Ny dagboksanteckning")
                     }
                 }
             }
@@ -189,18 +196,28 @@ struct DagbokDashboardView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "book.closed")
-                .font(.system(size: 52))
-                .foregroundStyle(Color.warmGold.opacity(0.5))
+            ZStack {
+                Circle()
+                    .fill(Color.warmGold.opacity(0.08))
+                    .frame(width: 120, height: 120)
+                Circle()
+                    .fill(Color.warmGold.opacity(0.05))
+                    .frame(width: 160, height: 160)
+                Image(systemName: "book.closed")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Color.warmGold.opacity(0.6))
+            }
             Text("Din dagbok är tom")
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundStyle(.white)
             Text("Tryck på + för att skapa din första\nKBT-anteckning med ABC-modellen.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.6))
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
+                .lineSpacing(2)
             Spacer()
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
