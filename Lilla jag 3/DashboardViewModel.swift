@@ -13,6 +13,11 @@ final class DashboardViewModel: ObservableObject {
     @Published var showUkraine = false
     @Published var showSocial = false
     @Published var showBreathing = false
+    @Published var showMonster = false
+
+    // Monster
+    let monsterStore = MonsterStore()
+    @Published var lastMonsterLog: DailyLog? = nil
 
     // Streak
     @Published var currentStreak: Int = 0
@@ -35,6 +40,7 @@ final class DashboardViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         loadStreak()
+        lastMonsterLog = monsterStore.logs.last
     }
 
     // MARK: - Streak

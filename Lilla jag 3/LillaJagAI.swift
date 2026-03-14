@@ -324,23 +324,41 @@ private enum KBTFallback {
         let domEmotion = emotion.dominant.name
         let moodLabel = sentiment > 0.2 ? "positiv" : sentiment < -0.2 ? "negativt laddad" : "neutral"
 
-        let summary = "En \(moodLabel) dag dominerad av \(domEmotion). Dina registreringar hjälper dig se mönster du annars missar."
-
-        let insights: [String] = [
-            "Sömn och ångestnivå hänger ihop – dagar med sämre sömn visar ofta högre ångest.",
-            "Utomhustid korrelerar positivt med din energinivå.",
-            "Social kontakt, även kort, verkar ha positiv inverkan på ditt mående.",
-            "\(domEmotion.capitalized) är en signal värd att utforska – vad utlöste den idag?"
+        // Bygg dynamisk sammanfattning baserad på känslan
+        let summaryVariants: [String] = [
+            "En \(moodLabel) dag dominerad av \(domEmotion). Dina registreringar hjälper dig se mönster du annars missar.",
+            "Idag präglas av \(domEmotion). Att du loggar regelbundet bygger en värdefull bild av ditt mönster.",
+            "Din dag verkar \(moodLabel) med \(domEmotion) som grundton. Varje loggning är ett steg mot självkännedom."
         ]
+        let summary = summaryVariants.randomElement()!
 
-        let advice: [String] = [
-            sentiment < 0 ? "Prova 4-7-8-andningen i appen – tre rundor kan sänka ångesten märkbart." : "Fortsätt med det som fungerade idag – det är beteendeaktivering i praktiken.",
-            "En kort promenad (15-20 min) kan bryta ångescykeln.",
-            "Skicka ett meddelande till en vän idag – kontakt, hur kort som helst.",
-            "Schemalägg en aktivitet som brukade ge dig glädje, oavsett om du 'känner för det'."
-        ]
+        // Dynamiska insikter baserade på sentiment
+        var insights: [String] = []
+        if sentiment < -0.2 {
+            insights.append("Dagar med lägre mående korrelerar ofta med sämre sömnkvalitet – håll koll på det sambandet.")
+            insights.append("När mående dalar aktiveras ofta negativa tankemönster. KBT kallar det 'kognitiva förvrängningar'.")
+        } else if sentiment > 0.2 {
+            insights.append("Bra dagar beror sällan på tur – det finns konkreta beteenden bakom. Vad gjorde du idag som fungerade?")
+            insights.append("Positiva dagar stärker din motståndskraft. Dokumentera vad som bidrog.")
+        } else {
+            insights.append("En neutral dag är inte en dålig dag – det är grundlinjen du kan bygga på.")
+        }
+        insights.append("Social kontakt, även kort, verkar ha positiv inverkan på ditt mående.")
+        insights.append("\(domEmotion.capitalized) är en signal värd att utforska – vad utlöste den idag?")
 
-        return (summary, insights, advice)
+        // Anpassade råd
+        var advice: [String] = []
+        if sentiment < -0.2 {
+            advice.append("Prova 4-7-8-andningen i appen – tre rundor kan sänka ångesten märkbart.")
+            advice.append("Beteendeaktivering: gör EN liten sak som brukade ge dig glädje, oavsett om du 'känner för det'.")
+            advice.append("Ring eller skriv till en person du litar på – isolering förvärrar nedstämdhet.")
+        } else {
+            advice.append("Fortsätt med det som fungerade idag – det är beteendeaktivering i praktiken.")
+            advice.append("Schemalägg det som gav dig energi idag igen i morgon – rutiner befäster framsteg.")
+        }
+        advice.append("En kort promenad (15-20 min) dagsljus kan stabilisera dygnsrytm och humör.")
+
+        return (summary, Array(insights.prefix(4)), Array(advice.prefix(3)))
     }
 
     // MARK: - Veckorapport

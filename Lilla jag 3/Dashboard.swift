@@ -36,6 +36,7 @@ struct Dashboard: View {
                         quickActions
                         breathingQuickAccess
                         affirmationBox
+                        monsterSection
                         if let emotion = ai.currentEmotion, !ai.messages.isEmpty {
                             emotionCard(emotion: emotion)
                         }
@@ -65,6 +66,12 @@ struct Dashboard: View {
         .fullScreenCover(isPresented: $viewModel.showUkraine) { UkraineView() }
         .fullScreenCover(isPresented: $viewModel.showSocial) { SocialView() }
         .fullScreenCover(isPresented: $viewModel.showBreathing) { BreathingQuickView() }
+        .fullScreenCover(isPresented: $viewModel.showMonster) {
+            MonsterLogWizard { log in
+                viewModel.monsterStore.add(log)
+                viewModel.lastMonsterLog = log
+            }
+        }
     }
 }
 
@@ -325,6 +332,77 @@ private extension Dashboard {
         .transition(.opacity.combined(with: .scale(scale: 0.97)))
         .animation(.easeInOut(duration: 0.5), value: viewModel.affirmation)
         .accessibilityLabel("Dagens påminnelse: \(viewModel.affirmation)")
+    }
+
+    // MARK: - Monster Section
+
+    var monsterSection: some View {
+        let state = viewModel.lastMonsterLog?.monsterState ?? .idle
+        let hasLog = viewModel.lastMonsterLog != nil
+
+        return VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                LJIconCircle(icon: "pawprint.fill", color: .warmLavender, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ditt monster")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text(hasLog ? state.summary : "Monstret väntar på din dagliga logg!")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                Spacer()
+            }
+
+            if hasLog, let log = viewModel.lastMonsterLog {
+                // Kompakt visning av dagens resultat
+                HStack(spacing: 8) {
+                    monsterStat("Sömn", value: log.sleep, icon: "moon.fill")
+                    monsterStat("Mat", value: log.meals, icon: "fork.knife")
+                    monsterStat("Ute", value: log.outdoor, icon: "sun.max.fill")
+                    monsterStat("Rörelse", value: log.exercise, icon: "figure.walk")
+                    monsterStat("Socialt", value: log.social, icon: "person.2.fill")
+                }
+            }
+
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                viewModel.showMonster = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: hasLog ? "arrow.clockwise" : "plus.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(hasLog ? "Logga igen" : "Logga din dag")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(colors: [.warmLavender, .warmRose],
+                                   startPoint: .leading, endPoint: .trailing),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+            }
+            .buttonStyle(LJPressableButtonStyle())
+        }
+        .padding(14)
+        .ljGlassCard(radius: 18)
+    }
+
+    func monsterStat(_ label: String, value: Int, icon: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(value >= 3 ? Color.warmSage : Color.white.opacity(0.35))
+            Text("\(value)/4")
+                .font(.system(.caption2, design: .rounded, weight: .bold))
+                .foregroundStyle(value >= 3 ? .white : .white.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(value >= 3 ? Color.warmSage.opacity(0.1) : Color.white.opacity(0.04),
+                    in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Emotion Card
