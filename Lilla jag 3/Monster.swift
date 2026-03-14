@@ -12,13 +12,6 @@ import SwiftUI
 import AVKit
 import Foundation
 
-// MARK: - 1  OpenAI‑inställningar (från Config)
-enum OpenAIConfig {
-    static var apiKey: String { Config.openAIAPIKey }
-    static let model  = "gpt-4o-mini"
-    static let temp: Double = 0.7
-}
-
 // MARK: - 2  Videofiler
 struct MonsterClips {
     static let idle       = ["idle_01", "idle_02", "idle_03"]
@@ -100,40 +93,46 @@ final class MonsterStore: ObservableObject {
                            let l = try? JSONDecoder().decode([DailyLog].self, from: d) { logs = l } }
 }
 
-// MARK: - 6  GPT‑service
+// MARK: - 6  AI-service (lokal – 100% offline via LillaJagAI)
 final class MonsterGPT {
     struct Tip: Identifiable { let id = UUID(); let text: String }
-    func fetch(for log: DailyLog) async throws -> [Tip] {
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
-        let body: [String: Any] = [
-            "model": OpenAIConfig.model,
-            "temperature": OpenAIConfig.temp,
-            "messages": [
-                ["role": "system",
-                 "content":
-                    """
-                    Du är ett snällt monster. Fokusera på det som användaren gjort **bra** \
-                    (högsta poängen ≥3). Ge exakt tre positiva rader \
-                    (max 18 ord) på svenska, i du‑tilltal: \
-                    “Monstret blev glad när du ...”. Var icke‑dömande.
-                    """
-                ],
-                ["role": "user", "content": log.prompt]
-            ]
-        ]
-        var r = URLRequest(url: url)
-        r.httpMethod = "POST"
-        r.addValue("Bearer \(OpenAIConfig.apiKey)", forHTTPHeaderField: "Authorization")
-        r.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        r.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, _) = try await URLSession.shared.data(for: r)
-        struct R: Codable { struct C: Codable { struct M: Codable { let content: String }; let message: M }; let choices: [C] }
-        let text = try JSONDecoder().decode(R.self, from: data).choices.first?.message.content ?? ""
-        return text
-            .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "•", with: "") }
-            .filter { !$0.isEmpty }
-            .prefix(3).map { Tip(text: $0) }
+
+    func fetch(for log: DailyLog) async -> [Tip] {
+        // Generera tips baserat på loggens innehåll – helt lokalt
+        var tips: [Tip] = []
+
+        // Beröm det som gick bra (rating ≥ 3)
+        if log.sleep >= 3 {
+            tips.append(Tip(text: “Monstret blev glad att du sov bra i natt – sömn är superkraft!”))
+        }
+        if log.meals >= 3 {
+            tips.append(Tip(text: “Bra jobbat med maten idag! Kroppen tackar dig.”))
+        }
+        if log.outdoor >= 3 {
+            tips.append(Tip(text: “Monstret älskar att du var utomhus – dagsljus gör underverk!”))
+        }
+        if log.exercise >= 3 {
+            tips.append(Tip(text: “Du rörde på dig idag – monstret hoppar av glädje!”))
+        }
+        if log.social >= 3 {
+            tips.append(Tip(text: “Social kontakt gör monstret varmt i hjärtat. Bra att du umgicks!”))
+        }
+
+        // Om inget var ≥ 3, ge uppmuntran
+        if tips.isEmpty {
+            tips.append(Tip(text: “Monstret vill bara säga: du klarade dagen, och det räcker.”))
+            tips.append(Tip(text: “Imorgon är en ny chans – ett litet steg i taget.”))
+        }
+
+        // Ge ett förbättringsförslag för det lägsta
+        let scores = [(“sömnen”, log.sleep), (“maten”, log.meals),
+                      (“utomhustiden”, log.outdoor), (“träningen”, log.exercise),
+                      (“det sociala”, log.social)]
+        if let lowest = scores.min(by: { $0.1 < $1.1 }), lowest.1 < 3 {
+            tips.append(Tip(text: “Monstret undrar: kan du satsa lite extra på \(lowest.0) imorgon?”))
+        }
+
+        return Array(tips.prefix(3))
     }
 }
 
@@ -280,13 +279,25 @@ struct MonsterLogWizard: View {
     
     var body: some View {
         VStack(spacing: 24) {
+            // Steg-indikator
+            HStack(spacing: 6) {
+                ForEach(0..<5, id: \.self) { i in
+                    Capsule()
+                        .fill(i <= step ? Color.warmLavender : Color.white.opacity(0.15))
+                        .frame(height: 4)
+                }
+            }
+            .padding(.horizontal, 32)
+            .animation(.easeOut(duration: 0.3), value: step)
+
             // Video högst upp
             MonsterVideoView(fileName: stepVideos[step])
                 .frame(height: 180)
                 .padding(.horizontal, 32)
-            
+
             Text(prompts[step])
-                .font(.title2.weight(.semibold))
+                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
@@ -294,7 +305,10 @@ struct MonsterLogWizard: View {
                 ForEach(options[step].indices, id: \.self) { i in
                     let opt = options[step][i]
                     OptionButton(label: opt.label, selected: selections[step] == opt.rating)
-                        .onTapGesture { selections[step] = opt.rating }
+                        .onTapGesture {
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            withAnimation(.easeOut(duration: 0.2)) { selections[step] = opt.rating }
+                        }
                 }
             }
             .padding(.horizontal)
@@ -319,9 +333,11 @@ struct MonsterLogWizard: View {
     
     private func advance() {
         guard let _ = selections[step] else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         if step < 4 {
-            step += 1
+            withAnimation(.easeInOut(duration: 0.3)) { step += 1 }
         } else {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             let log = DailyLog(
                 date: .now,
                 sleep: selections[0] ?? 1,
@@ -384,8 +400,7 @@ struct MonsterPanel: View {
     @MainActor
     private func loadTips(for log: DailyLog) async {
         loading = true
-        do   { tips = try await gpt.fetch(for: log) }
-        catch{ tips = [ .init(text: "Monstret kunde inte hämta tips just nu.") ] }
+        tips = await gpt.fetch(for: log)
         loading = false
     }
 }

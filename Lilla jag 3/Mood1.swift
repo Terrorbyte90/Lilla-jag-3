@@ -740,17 +740,39 @@ struct MoodLogFlowView: View {
             FooterContainer {
                 HStack {
                     if step > 0 && step < 12 {
-                        Button("Bakåt") { step -= 1 }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.white)
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.easeInOut(duration: 0.3)) { step -= 1 }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.caption.weight(.semibold))
+                                Text("Bakåt")
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white)
+                    }
+                    Spacer()
+                    if step < 12 {
+                        // Steg-indikator
+                        Text("\(step + 1)/12")
+                            .font(.system(.caption2, design: .rounded, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.4))
                     }
                     Spacer()
                     if step < 11 {
-                        Button("Nästa") { step += 1 }
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.easeInOut(duration: 0.3)) { step += 1 }
+                        } label: { Text("Nästa") }
                             .buttonStyle(GradientButtonStyle())
                             .frame(maxWidth: 220)
                     } else if step == 11 {
-                        Button("Sammanfatta") { step = 12 }
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            withAnimation(.easeInOut(duration: 0.3)) { step = 12 }
+                        } label: { Text("Sammanfatta") }
                             .buttonStyle(GradientButtonStyle())
                             .frame(maxWidth: 260)
                     }
@@ -939,8 +961,17 @@ struct MoodLogFlowView: View {
             TitleText("Rekommendationer")
             ForEach(gptAdvice, id: \.self) { Text("→ \($0)").foregroundStyle(.white) }
             Spacer()
-            Button("Spara & stäng") { onSave(entry); dismiss() }
-                .buttonStyle(GradientButtonStyle())
+            Button {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                onSave(entry)
+                dismiss()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("Spara & stäng")
+                }
+            }
+            .buttonStyle(GradientButtonStyle())
         }
         .glass()
         .foregroundStyle(.white)
@@ -1013,8 +1044,17 @@ struct OpenAIService {
     /// Analyserar en moodEntry och returnerar (sammanfattning, insikter, råd)
     /// via den lokala KBT-motorn – ingen nätverkstrafik.
     static func summarise(entry: MoodEntry) async throws -> (String, [String], [String]) {
-        let description = "Mående: \(Int(entry.moodQuality * 100))%, Sömn: \(entry.sleepHours)h, Ångest: \(Int(entry.anxietyLevel * 100))%"
-        return await LillaJagAIService.shared.analyzeMoodEntry(description)
+        var parts: [String] = [
+            "Mående: \(Int(entry.moodQuality * 100))%",
+            "Sömn: \(entry.sleepHours)h (kvalitet \(Int(entry.sleepQuality * 100))%)",
+            "Ångest: \(Int(entry.anxietyLevel * 100))%",
+            "Energi: \(Int(entry.energyLevel * 100))%",
+            "Socialt: \(Int(entry.socialQuality * 100))%"
+        ]
+        if !entry.emotions.isEmpty { parts.append("Känslor: \(entry.emotions.joined(separator: ", "))") }
+        if !entry.activities.isEmpty { parts.append("Aktiviteter: \(entry.activities.joined(separator: ", "))") }
+        if entry.outdoorMinutes > 0 { parts.append("Utomhus: \(entry.outdoorMinutes) min") }
+        return await LillaJagAIService.shared.analyzeMoodEntry(parts.joined(separator: ". "))
     }
 
     /// Vecklig rapport – delegerar till LillaJagAIService
@@ -1070,10 +1110,13 @@ struct ButtonGrid: View {
                 let isSel = single ? opt == selection : multiSelection.contains(opt)
                 MoodOptionButton(label: opt, selected: isSel)
                     .onTapGesture {
-                        if single { selection = opt }
-                        else {
-                            if isSel { multiSelection.removeAll { $0 == opt } }
-                            else { multiSelection.append(opt) }
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            if single { selection = opt }
+                            else {
+                                if isSel { multiSelection.removeAll { $0 == opt } }
+                                else { multiSelection.append(opt) }
+                            }
                         }
                     }
             }
