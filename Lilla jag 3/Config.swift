@@ -1,7 +1,7 @@
 // Config.swift
 // Lilla Jag – Konfiguration
 //
-// Appen kör all AI lokalt via Qwen/llama.cpp.
+// Appen kör all AI lokalt via Qwen3 1.7B / llama.cpp + Metal.
 // Inga molnberoenden eller API-nycklar krävs.
 
 import Foundation
@@ -10,10 +10,9 @@ enum Config {
     // MARK: - Lokal AI (Qwen via llama.cpp)
 
     /// Namn på GGUF-modellfilen i app-bunten.
-    /// Lägg till i Xcode: File ▸ Add Files to Project (ej kopiera, lägg som Bundle Resource)
-    /// Rekommenderad modell: qwen2.5-1.5b-instruct-q4_k_m.gguf (~1 GB)
-    /// Ladda ned: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF
-    static let qwenModelFilename = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    /// Lägg till i Xcode: File ▸ Add Files to Project → lägg som Bundle Resource
+    /// Modell: Qwen3-1.7B-Q4_K_M.gguf (~1 GB) – körs lokalt via llama.cpp + Metal
+    static let qwenModelFilename = "Qwen3-1.7B-Q4_K_M.gguf"
 
     /// Max antal tokens i svar
     static let maxResponseTokens = 512

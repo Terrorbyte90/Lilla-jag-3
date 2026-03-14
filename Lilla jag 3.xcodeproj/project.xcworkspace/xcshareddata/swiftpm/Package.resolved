@@ -146,6 +146,14 @@
       }
     },
     {
+      "identity" : "llama.cpp",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ggml-org/llama.cpp",
+      "state" : {
+        "revision" : "d05b3127bd30515955aa4ee2bacdb68ebafe88f4"
+      }
+    },
+    {
       "identity" : "swift-protobuf",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-protobuf.git",
