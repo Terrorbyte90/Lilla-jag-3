@@ -7,6 +7,7 @@ struct SocialView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showForum = false
     @State private var showMeditation = false
+    @State private var aiEncouragement: String = ""
 
     var body: some View {
         NavigationStack {
@@ -16,6 +17,11 @@ struct SocialView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         header
+
+                        // AI-uppmuntran
+                        if !aiEncouragement.isEmpty {
+                            aiSection
+                        }
 
                         // Community-åtgärder
                         VStack(spacing: 12) {
@@ -64,6 +70,7 @@ struct SocialView: View {
                 }
             }
         }
+        .task { aiEncouragement = await LillaJagAIService.shared.socialEncouragement() }
         .fullScreenCover(isPresented: $showForum) { ForumView() }
         .fullScreenCover(isPresented: $showMeditation) {
             NavigationStack { MeditationView() }
@@ -84,6 +91,24 @@ struct SocialView: View {
         .padding(18)
         .background(Color.warmRose.opacity(0.1), in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.warmRose.opacity(0.2), lineWidth: 1))
+    }
+
+    private var aiSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").foregroundStyle(Color.warmGold)
+                Text("Lilla Jag säger")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            Text(aiEncouragement)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.85))
+                .lineSpacing(3)
+        }
+        .padding(14)
+        .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
     }
 
     private func socialAction(icon: String, color: Color, title: String, description: String, action: @escaping () -> Void) -> some View {

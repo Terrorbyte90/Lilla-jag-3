@@ -355,6 +355,7 @@ struct MonsterLogWizard: View {
 struct MonsterPanel: View {
     @StateObject private var store = MonsterStore()
     @State private var tips: [MonsterGPT.Tip] = []
+    @State private var aiInsight: String = ""
     @State private var loading = false
     @State private var showWizard = false
     private let gpt = MonsterGPT()
@@ -377,6 +378,27 @@ struct MonsterPanel: View {
             } else if !tips.isEmpty {
                 TipsCard(tips: tips)
                     .transition(.opacity.combined(with: .scale))
+
+                if !aiInsight.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(Color.warmGold)
+                            Text("AI-insikt")
+                                .font(.system(.caption, design: .rounded, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        Text(aiInsight)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineSpacing(3)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+                    .transition(.opacity)
+                }
             }
             
             Button("Logga din dag") { showWizard = true }
@@ -401,6 +423,7 @@ struct MonsterPanel: View {
     private func loadTips(for log: DailyLog) async {
         loading = true
         tips = await gpt.fetch(for: log)
+        aiInsight = await LillaJagAIService.shared.monsterInsight(for: log)
         loading = false
     }
 }
