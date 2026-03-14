@@ -1,687 +1,311 @@
+// Krisplan.swift
+// Lilla Jag – Personlig Krisplan
+
 import SwiftUI
-import Foundation
-import UIKit
 
-#if canImport(FirebaseCore)
-import FirebaseCore
-#endif
-#if canImport(FirebaseAuth)
-import FirebaseAuth
-#endif
-#if canImport(FirebaseFirestore)
-import FirebaseFirestore
-#endif
+// MARK: - Data model
 
-// MARK: – Huvudvy
-struct KrisplanView: View {
-    @StateObject private var store       = KrisplanStore()
-    @State private var laddar            = false
-    @State private var alertText         = ""
-    @State private var visaAlert         = false
-    @State private var visaHem           = false
-    @State private var visaFörslag       = false
+struct KrisplanData: Codable {
+    var warningSigns: String = ""
+    var copingStrategies: [String] = ["", "", ""]
+    var supportContacts: [SupportContact] = []
+    var safeEnvironments: String = ""
+    var professionalContact: String = ""
+    var emergencyNote: String = ""
 
-    // Centrala mått
-    private let knappHöjd: CGFloat       = 52
-    private let knappMellanrum: CGFloat  = 10
-    private let minFältHöjd: CGFloat     = 90
-
-    var body: some View {
-        ZStack {
-            AuroraBackground().ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        heroKort
-                            .padding(.horizontal, 20)
-                            .padding(.top, 10)
-
-                        VStack(spacing: 18) {
-                            fält
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 18)
-                        // Extra bottenmarginal för nederpanelen i safe area
-                        .padding(.bottom, 160)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-            }
-            .padding(.horizontal, 16)
-
-            if laddar {
-                ProgressView("ChatGPT tänker …")
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.25), radius: 20, y: 10)
-            }
-        }
-        .foregroundStyle(.white)
-        .onAppear { store.startMolnInit() }
-        .sheet(isPresented: $visaFörslag) {
-            AIAdviceView(text: alertText)
-        }
-        .overlay(
-            Group {
-                if visaAlert {
-                    Color.black.opacity(0.25)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                        .zIndex(1)
-                    VStack(spacing: 0) {
-                        VStack(spacing: 18) {
-                            Text("Systemmeddelande")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text(alertText)
-                                .font(.body)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(.top, 22)
-                        .padding(.horizontal, 22)
-                        Button(action: { withAnimation { visaAlert = false } }) {
-                            Text("Okej")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: knappHöjd)
-                                .background(
-                                    LinearGradient(colors: [.blue, .purple],
-                                                   startPoint: .topLeading,
-                                                   endPoint: .bottomTrailing)
-                                        .opacity(0.95)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(.white.opacity(0.25), lineWidth: 1)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 22)
-                        .padding(.top, 14)
-                        .padding(.bottom, 18)
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                                    .stroke(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.08)],
-                                                           startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-                            )
-                    )
-                    .padding(.horizontal, 32)
-                    .shadow(color: .black.opacity(0.45), radius: 30, y: 12)
-                    .transition(.scale)
-                    .zIndex(2)
-                }
-            }
-        )
-        .safeAreaInset(edge: .bottom) {
-            nederPanel
-                .padding(.bottom, 10)
-        }
-        .preferredColorScheme(.dark)
-        .fullScreenCover(isPresented: $visaHem) {
-            ContentView()
-                .navigationBarBackButtonHidden(true)
-        }
-    }
-
-    // MARK: – Hero-kort
-    private var heroKort: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(.white.opacity(0.10))
-                    .frame(width: 72, height: 72)
-                    .blur(radius: 6)
-                    .offset(y: 2)
-
-                Circle()
-                    .fill(LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 58, height: 58)
-                    .overlay(
-                        Image(systemName: "heart.text.square.fill")
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundColor(.white)
-                            .font(.system(size: 26, weight: .bold))
-                    )
-                    .shadow(color: .green.opacity(0.5), radius: 16, y: 8)
-            }
-
-            Text("Min Krisplan")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
-
-            Text("En trygg väg ut ur krisen.")
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.8))
-            
-            Button {
-                Task {
-                    laddar = true
-                    do {
-                        let assistant = GPTAssistant()
-                        let tips = try await assistant.förslag(från: store.plan)
-                        alertText = tips
-                        visaFörslag = true
-                    } catch {
-                        alertText = "Kunde inte hämta förslag."
-                        visaAlert = true
-                    }
-                    laddar = false
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "sparkles")
-                    Text("Få AI-förslag")
-                }
-                .font(.subheadline.bold())
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.white.opacity(0.15), in: Capsule())
-                .overlay(Capsule().stroke(.white.opacity(0.3), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-        }
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.08)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-                )
-        )
-        .shadow(color: .black.opacity(0.35), radius: 25, y: 15)
-    }
-
-    // MARK: – Planens fält
-    private var fält: some View {
-        Group {
-            PlanField(titel: "Tidiga varningssignaler",
-                      text: $store.plan.tidiga,
-                      minHeight: minFältHöjd,
-                      placeholder: "Tankar, känslor, beteenden …",
-                      symbol: "waveform.path.ecg")
-
-            PlanField(titel: "Vad jag kan göra själv",
-                      text: $store.plan.göra,
-                      minHeight: minFältHöjd,
-                      placeholder: "Konkreta steg …",
-                      symbol: "checkmark.circle")
-
-            PlanField(titel: "Lugnande strategier",
-                      text: $store.plan.strategier,
-                      minHeight: minFältHöjd,
-                      placeholder: "Musik, andning, mindfulness …",
-                      symbol: "leaf")
-
-            PlanField(titel: "Saker att undvika",
-                      text: $store.plan.undvika,
-                      minHeight: minFältHöjd,
-                      placeholder: "Alkohol, konflikter …",
-                      symbol: "nosign")
-
-            PlanField(titel: "Trygg plats/miljö",
-                      text: $store.plan.tryggPlats,
-                      minHeight: minFältHöjd,
-                      placeholder: "Soffan med filt …",
-                      symbol: "house")
-
-            PlanField(titel: "Kontaktpersoner (namn & tel.)",
-                      text: $store.plan.kontakter,
-                      minHeight: minFältHöjd,
-                      placeholder: "Vänner, familj …",
-                      symbol: "person.2")
-
-            PlanField(titel: "Professionell hjälp",
-                      text: $store.plan.proHjälp,
-                      minHeight: minFältHöjd,
-                      placeholder: "Akutpsykiatri, 1177 …",
-                      symbol: "stethoscope")
-
-            PlanField(titel: "Akutnummer",
-                      text: $store.plan.akut,
-                      minHeight: 64,
-                      placeholder: "112",
-                      symbol: "phone.fill")
-
-            PlanField(titel: "Pepp till mig själv",
-                      text: $store.plan.pepp,
-                      minHeight: minFältHöjd,
-                      placeholder: "”Jag klarar detta!”",
-                      symbol: "sparkles")
-        }
-    }
-
-    // MARK: – Nederpanelen (flyttad in i ScrollView-innehållet)
-    private var nederPanel: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                knapp(titel: "Spara", system: "icloud.and.arrow.up") {
-                    Task {
-                        do {
-                            try store.sparaLokalt()
-                            try await store.sparaTillFirebase()
-                            alertText = "Krisplanen sparades."
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        } catch {
-                            alertText = "Kunde inte spara: \(error.localizedDescription)"
-                            UINotificationFeedbackGenerator().notificationOccurred(.error)
-                        }
-                        visaAlert = true
-                    }
-                }
-                knapp(titel: "Hem", system: "house.fill") {
-                    visaHem = true
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 12)
-        .frame(maxWidth: .infinity)
-        .background(
-            // Flytande glasbar med rundade hörn runtom
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(LinearGradient(colors: [.white.opacity(0.25), .white.opacity(0.08)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.35), radius: 20, y: 6)
-                .background(
-                    LinearGradient(colors: [.black.opacity(0.10), .black.opacity(0.30)],
-                                   startPoint: .top, endPoint: .bottom)
-                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                )
-        )
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: – Knapp
-    private func knapp(titel: String, system: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(titel, systemImage: system)
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: knappHöjd)
-                .background(
-                    LinearGradient(colors: [.blue, .purple],
-                                   startPoint: .topLeading,
-                                   endPoint: .bottomTrailing)
-                        .opacity(0.95)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(.white.opacity(0.25), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
-        }
-        .buttonStyle(.plain)
+    struct SupportContact: Codable, Identifiable {
+        var id = UUID()
+        var name: String = ""
+        var phone: String = ""
+        var relation: String = ""
     }
 }
 
-// MARK: – AI Advice View
-struct AIAdviceView: View {
-    let text: String
+@MainActor
+final class KrisplanStore: ObservableObject {
+    static let shared = KrisplanStore()
+    @Published var plan = KrisplanData()
+
+    private let url: URL
+
+    init() {
+        let doc = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        url = doc.appendingPathComponent("krisplan.json")
+        load()
+        if plan.warningSigns.isEmpty { loadExample() }
+    }
+
+    func save() {
+        try? JSONEncoder().encode(plan).write(to: url)
+    }
+
+    private func load() {
+        guard let d = try? Data(contentsOf: url),
+              let p = try? JSONDecoder().decode(KrisplanData.self, from: d) else { return }
+        plan = p
+    }
+
+    private func loadExample() {
+        plan.warningSigns = "Jag sover sämre, drar mig undan socialt och har ökad negativ tankeström."
+        plan.copingStrategies = [
+            "Gå ut och promenera i 15 minuter",
+            "Ring en vän eller familjemedlem",
+            "Kör 4-7-8 andningsövningen i appen"
+        ]
+        plan.safeEnvironments = "Hemma, i naturen, hos mamma."
+        plan.professionalContact = "1177 eller min BUP-kontakt"
+    }
+}
+
+// MARK: - KrisplanView
+
+struct KrisplanView: View {
+    @StateObject private var store = KrisplanStore.shared
+    @State private var isEditing = false
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
-                AuroraBackground().ignoresSafeArea()
-                
+                WarmBackground()
+
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        HStack {
-                            Image(systemName: "sparkles")
-                                .font(.title)
-                                .foregroundStyle(.yellow)
-                            Text("AI-förslag")
-                                .font(.title.bold())
+                    VStack(spacing: 16) {
+                        // Akutknapp
+                        emergencySection
+
+                        krisSection(icon: "eye.fill", color: Color.warmGold, title: "Mina varningssignaler",
+                                    text: store.plan.warningSigns,
+                                    placeholder: "Hur märker du att du mår sämre?") { newText in
+                            store.plan.warningSigns = newText
                         }
-                        .padding(.top)
-                        
-                        Text(text)
-                            .font(.body)
-                            .lineSpacing(6)
-                        
-                        Spacer(minLength: 40)
+
+                        copingSection
+
+                        contactsSection
+
+                        krisSection(icon: "house.fill", color: Color.warmSage, title: "Trygga platser",
+                                    text: store.plan.safeEnvironments,
+                                    placeholder: "Var mår du bra?") { newText in
+                            store.plan.safeEnvironments = newText
+                        }
+
+                        krisSection(icon: "stethoscope", color: Color(hex: 0x6ECFF6), title: "Professionell kontakt",
+                                    text: store.plan.professionalContact,
+                                    placeholder: "Ex: min terapeut, 1177, psykiatrin") { newText in
+                            store.plan.professionalContact = newText
+                        }
+
+                        // Mind info
+                        mindInfo
                     }
-                    .padding()
+                    .padding(16)
+                    .padding(.bottom, 40)
                 }
             }
+            .preferredColorScheme(.dark)
+            .navigationTitle("Min krisplan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Klar") { dismiss() }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isEditing ? "Spara" : "Redigera") {
+                        if isEditing { store.save() }
+                        isEditing.toggle()
+                    }
+                    .foregroundStyle(isEditing ? Color.warmGold : .white.opacity(0.7))
+                    .fontWeight(isEditing ? .bold : .regular)
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Stäng") { dismiss() }
+                        .foregroundStyle(.white.opacity(0.7))
                 }
             }
         }
     }
+
+    private var emergencySection: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color(hex: 0xFF5B5B))
+                Text("Om det är akut")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            HStack(spacing: 10) {
+                Link(destination: URL(string: "tel:90101")!) {
+                    Label("90101", systemImage: "phone.fill")
+                        .font(.system(.body, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: 0xFF5B5B), in: RoundedRectangle(cornerRadius: 12))
+                }
+                Link(destination: URL(string: "tel:112")!) {
+                    Label("112", systemImage: "phone.fill")
+                        .font(.system(.body, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: 0xFF3B30), in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(hex: 0xFF5B5B).opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: 0xFF5B5B).opacity(0.25), lineWidth: 1))
+    }
+
+    private var copingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "bolt.heart.fill").foregroundStyle(Color.warmLavender)
+                Text("Mina copingstrategier")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            ForEach(Array(store.plan.copingStrategies.enumerated()), id: \.offset) { index, strategy in
+                HStack(spacing: 10) {
+                    Text("\(index + 1)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.warmLavender)
+                        .frame(width: 20, height: 20)
+                        .background(Color.warmLavender.opacity(0.2), in: Circle())
+
+                    if isEditing {
+                        TextField("Strategi \(index + 1)", text: Binding(
+                            get: { store.plan.copingStrategies[index] },
+                            set: { store.plan.copingStrategies[index] = $0 }
+                        ))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        Text(strategy.isEmpty ? "Lägg till strategi..." : strategy)
+                            .font(.subheadline)
+                            .foregroundStyle(strategy.isEmpty ? .white.opacity(0.3) : .white)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmLavender.opacity(0.2), lineWidth: 1))
+    }
+
+    private var contactsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.2.fill").foregroundStyle(Color.warmRose)
+                Text("Kontaktpersoner")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                if isEditing {
+                    Button {
+                        store.plan.supportContacts.append(KrisplanData.SupportContact())
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(Color.warmRose)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if store.plan.supportContacts.isEmpty {
+                Text(isEditing ? "Tryck + för att lägga till kontakter" : "Inga kontakter sparade")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+
+            ForEach($store.plan.supportContacts) { $contact in
+                if isEditing {
+                    VStack(spacing: 6) {
+                        TextField("Namn", text: $contact.name)
+                            .foregroundStyle(.white).padding(8)
+                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        HStack(spacing: 6) {
+                            TextField("Telefon", text: $contact.phone)
+                                .foregroundStyle(.white).padding(8)
+                                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                            TextField("Relation", text: $contact.relation)
+                                .foregroundStyle(.white).padding(8)
+                                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                } else {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(contact.name).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                            Text(contact.relation).font(.caption).foregroundStyle(.white.opacity(0.5))
+                        }
+                        Spacer()
+                        if !contact.phone.isEmpty {
+                            Link(destination: URL(string: "tel:\(contact.phone)")!) {
+                                Label(contact.phone, systemImage: "phone.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.warmRose)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmRose.opacity(0.2), lineWidth: 1))
+    }
+
+    private func krisSection(icon: String, color: Color, title: String, text: String, placeholder: String, onUpdate: @escaping (String) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).foregroundStyle(color)
+                Text(title)
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            if isEditing {
+                TextEditor(text: Binding(get: { text }, set: onUpdate))
+                    .frame(minHeight: 70)
+                    .padding(8)
+                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(.white)
+                    .scrollContentBackground(.hidden)
+            } else {
+                Text(text.isEmpty ? placeholder : text)
+                    .font(.subheadline)
+                    .foregroundStyle(text.isEmpty ? .white.opacity(0.3) : .white)
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.2), lineWidth: 1))
+    }
+
+    private var mindInfo: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "heart.circle.fill")
+                .font(.title)
+                .foregroundStyle(Color.warmLavender)
+            Text("Mind – Självmordslinjen")
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+            Text("Ring 90101 eller chatta på mind.se.\nKostnadsfritt och anonymt, dygnet runt.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.65))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .background(Color.warmLavender.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+    }
 }
 
-// MARK: – Förhandsvisning
 #Preview {
     KrisplanView()
-        .preferredColorScheme(.dark)
-        .environment(\.locale, .init(identifier: "sv_SE"))
-}
-
-// MARK: – Modell
-struct KrisplanEntry: Identifiable, Codable {
-    let id: UUID
-    var tidiga, göra, strategier, undvika, tryggPlats,
-        kontakter, proHjälp, akut, pepp: String
-    var updatedAt: Date
-
-    init(
-        id: UUID = .init(),
-        tidiga: String = "",
-        göra: String = "",
-        strategier: String = "",
-        undvika: String = "",
-        tryggPlats: String = "",
-        kontakter: String = "",
-        proHjälp: String = "",
-        akut: String = "112",
-        pepp: String = "",
-        updatedAt: Date = .now
-    ) {
-        self.id         = id
-        self.tidiga     = tidiga
-        self.göra       = göra
-        self.strategier = strategier
-        self.undvika    = undvika
-        self.tryggPlats = tryggPlats
-        self.kontakter  = kontakter
-        self.proHjälp   = proHjälp
-        self.akut       = akut
-        self.pepp       = pepp
-        self.updatedAt  = updatedAt
-    }
-}
-
-// MARK: – Persistens + Firebase-synk
-@MainActor
-final class KrisplanStore: ObservableObject {
-    @Published var plan: KrisplanEntry
-    private let url: URL
-    private let remote = KrisplanRemote()
-
-    init() {
-        url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Krisplan.json")
-
-        if let data = try? Data(contentsOf: url),
-           let sparad = try? JSONDecoder().decode(KrisplanEntry.self, from: data) {
-            plan = sparad
-        } else {
-            plan = KrisplanEntry()
-        }
-    }
-
-    func sparaLokalt() throws {
-        var p = plan
-        p.updatedAt = .now
-        plan = p
-
-        let data = try JSONEncoder().encode(plan)
-        try data.write(to: url, options: [.atomic, .completeFileProtection])
-    }
-
-    func startMolnInit() {
-        Task {
-            // Hämta från Firebase om nyare än lokalt
-            if let fjärr = try? await remote.hämta(),
-               fjärr.updatedAt > plan.updatedAt {
-                plan = fjärr
-                try? sparaLokalt()
-            }
-        }
-    }
-
-    func sparaTillFirebase() async throws {
-        try await remote.spara(plan: plan)
-    }
-}
-
-// MARK: – Firebase-klient
-actor KrisplanRemote {
-    enum RemoteError: LocalizedError {
-        case ejInloggad
-        var errorDescription: String? { "Ingen användare inloggad." }
-    }
-
-    #if canImport(FirebaseCore)
-    private func ensureFirebase() {
-        if FirebaseApp.app() == nil {
-            FirebaseApp.configure()
-        }
-    }
-    #endif
-
-    func spara(plan: KrisplanEntry) async throws {
-        #if canImport(FirebaseFirestore) && canImport(FirebaseAuth) && canImport(FirebaseCore)
-        ensureFirebase()
-        guard let uid = Auth.auth().currentUser?.uid else { throw RemoteError.ejInloggad }
-        let db = Firestore.firestore()
-        let ref = db.collection("users").document(uid).collection("krisplan").document("current")
-
-        let data: [String: Any] = [
-            "id": plan.id.uuidString,
-            "tidiga": plan.tidiga,
-            "göra": plan.göra,
-            "strategier": plan.strategier,
-            "undvika": plan.undvika,
-            "tryggPlats": plan.tryggPlats,
-            "kontakter": plan.kontakter,
-            "proHjälp": plan.proHjälp,
-            "akut": plan.akut,
-            "pepp": plan.pepp,
-            // dubbla tidsstämplar
-            "updatedAtClient": plan.updatedAt.timeIntervalSince1970,
-            "updatedAt": FieldValue.serverTimestamp()
-        ]
-
-        try await ref.setData(data, merge: true)
-        #else
-        // Firebase ej installerat – gör inget (bygget kompilerar ändå)
-        #endif
-    }
-
-    func hämta() async throws -> KrisplanEntry? {
-        #if canImport(FirebaseFirestore) && canImport(FirebaseAuth) && canImport(FirebaseCore)
-        ensureFirebase()
-        guard let uid = Auth.auth().currentUser?.uid else { throw RemoteError.ejInloggad }
-        let db = Firestore.firestore()
-        let ref = db.collection("users").document(uid).collection("krisplan").document("current")
-        let snap = try await ref.getDocument()
-        guard let d = snap.data() else { return nil }
-
-        let updatedClient = (d["updatedAtClient"] as? Double).map(Date.init(timeIntervalSince1970:)) ?? .distantPast
-
-        return KrisplanEntry(
-            id: UUID(uuidString: (d["id"] as? String) ?? "") ?? UUID(),
-            tidiga: d["tidiga"] as? String ?? "",
-            göra: d["göra"] as? String ?? "",
-            strategier: d["strategier"] as? String ?? "",
-            undvika: d["undvika"] as? String ?? "",
-            tryggPlats: d["tryggPlats"] as? String ?? "",
-            kontakter: d["kontakter"] as? String ?? "",
-            proHjälp: d["proHjälp"] as? String ?? "",
-            akut: d["akut"] as? String ?? "112",
-            pepp: d["pepp"] as? String ?? "",
-            updatedAt: updatedClient
-        )
-        #else
-        return nil
-        #endif
-    }
-}
-
-// MARK: – GPT-4o-mini
-actor GPTAssistant {
-    func förslag(från plan: KrisplanEntry) async throws -> String {
-        let sammanfattning = """
-        Tidiga varningssignaler: \(plan.tidiga)
-        Vad jag kan göra: \(plan.göra)
-        Lugnande strategier: \(plan.strategier)
-        Saker att undvika: \(plan.undvika)
-        Trygg plats: \(plan.tryggPlats)
-        Kontaktpersoner: \(plan.kontakter)
-        Professionell hjälp: \(plan.proHjälp)
-        Akutnummer: \(plan.akut)
-        Pepp: \(plan.pepp)
-        """
-
-        struct Req: Encodable {
-            struct Msg: Encodable { let role, content: String }
-            let model: String
-            let messages: [Msg]
-        }
-        struct Res: Decodable {
-            struct Choice: Decodable {
-                struct Msg: Decodable { let content: String }
-                let message: Msg
-            }
-            let choices: [Choice]
-        }
-
-        let body = Req(model: "gpt-4o-mini",
-                       messages: [.init(role: "user",
-                                        content: "Du är psykolog. Ge max åtta konkreta förbättringsförslag, punktlista:\n\(sammanfattning)")])
-
-        let apiKey = Config.openAIAPIKey
-        let url    = URL(string: "https://api.openai.com/v1/chat/completions")!
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        req.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONEncoder().encode(body)
-
-        let (data, _) = try await URLSession.shared.data(for: req)
-        let res = try JSONDecoder().decode(Res.self, from: data)
-        return res.choices.first?.message.content
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
-}
-
-// MARK: – Fält (glas + ikon)
-private struct PlanField: View {
-    let titel: LocalizedStringKey
-    @Binding var text: String
-    let minHeight: CGFloat
-    let placeholder: String
-    var symbol: String? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                if let symbol {
-                    Image(systemName: symbol)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .frame(width: 22)
-                }
-                Text(titel)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.95))
-            }
-
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $text)
-                    .font(.body)
-                    .foregroundColor(.white)
-                    .tint(.white)
-                    .frame(minHeight: minHeight)
-                    .scrollContentBackground(.hidden)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 10)
-
-                if text.isEmpty {
-                    Text(placeholder)
-                        .foregroundColor(.white.opacity(0.55))
-                        .padding(.top, 16)
-                        .padding(.leading, 14)
-                }
-            }
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(LinearGradient(colors: [.white.opacity(0.25), .white.opacity(0.08)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.25), radius: 18, y: 10)
-        }
-    }
-}
-
-// MARK: – Animerad bakgrund
-private struct AuroraBackground: View {
-    @State private var move = false
-
-    var body: some View {
-        GeometryReader { geo in
-            let d = min(geo.size.width, geo.size.height)
-            let blurLarge = d * 0.28
-            let blurMedium = d * 0.24
-            let blurSmall = d * 0.26
-
-            ZStack {
-                LinearGradient(colors: [Color.black, Color.black.opacity(0.9)],
-                               startPoint: .top, endPoint: .bottom)
-
-                // Blob 1 – scales with screen
-                Circle()
-                    .fill(LinearGradient(colors: [.purple.opacity(0.9), .blue.opacity(0.6)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: d * 1.10, height: d * 1.10)
-                    .blur(radius: blurLarge)
-                    .offset(x: move ? -0.22 * d : 0.11 * d,
-                            y: move ? -0.50 * d : -0.35 * d)
-                    .animation(.easeInOut(duration: 10).repeatForever(autoreverses: true), value: move)
-
-                // Blob 2 – scales with screen
-                Circle()
-                    .fill(LinearGradient(colors: [.indigo.opacity(0.8), .cyan.opacity(0.7)],
-                                         startPoint: .topTrailing, endPoint: .bottomLeading))
-                    .frame(width: d * 0.95, height: d * 0.95)
-                    .blur(radius: blurMedium)
-                    .offset(x: move ? 0.30 * d : -0.16 * d,
-                            y: move ? 0.36 * d : 0.47 * d)
-                    .animation(.easeInOut(duration: 12).repeatForever(autoreverses: true), value: move)
-
-                // Blob 3 – scales with screen
-                Circle()
-                    .fill(LinearGradient(colors: [.pink.opacity(0.7), .purple.opacity(0.5)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .frame(width: d * 0.85, height: d * 0.85)
-                    .blur(radius: blurSmall)
-                    .offset(x: move ? 0.09 * d : -0.28 * d,
-                            y: move ? 0.14 * d : -0.10 * d)
-                    .animation(.easeInOut(duration: 14).repeatForever(autoreverses: true), value: move)
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .drawingGroup()
-        }
-        .onAppear { move = true }
-    }
 }

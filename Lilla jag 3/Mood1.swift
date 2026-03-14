@@ -205,26 +205,28 @@ struct Mood1View: View {
     @StateObject private var store = MoodStore() // Behövs för att skicka till logger och andra vyer om de inte använder VM än
 
     var body: some View {
-        ZStack {
-            AppBackground()
-            ScrollView {
-                VStack(spacing: 24) {
-                    heroWelcomeCard
-                    kpiRow
-                    metricChart
-                    calendarSection
-                    statsSection
-                    insightsSection
-                    weeklyAISection
-                    Button("Logga mående") { viewModel.showLogger = true }
-                        .buttonStyle(GradientButtonStyle())
+        GeometryReader { geo in
+            ZStack {
+                AppBackground()
+                ScrollView {
+                    VStack(spacing: DesignSystem.Spacing.cardSpacing(for: geo.size.height)) {
+                        heroWelcomeCard
+                        kpiRow
+                        metricChart
+                        calendarSection
+                        statsSection
+                        insightsSection
+                        weeklyAISection
+                        Button("Logga mående") { viewModel.showLogger = true }
+                            .buttonStyle(GradientButtonStyle())
+                    }
+                    .frame(maxWidth: 640)
+                    .padding(.vertical, 20)
+                    .padding(.horizontal, DesignSystem.Spacing.horizontalPadding(for: geo.size.width))
+                    .padding(.bottom, 110)
                 }
-                .frame(maxWidth: 640)
-                .padding(.vertical, 24)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 100) // Plats för navbar
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
         }
         .fullScreenCover(isPresented: $viewModel.showLogger) {
             MoodLogFlowView { newEntry in store.add(newEntry) }
@@ -305,7 +307,7 @@ struct Mood1View: View {
                 )
             }
             .chartYScale(domain: 0...1)
-            .frame(height: 160)
+            .frame(height: UIScreen.main.bounds.height > 800 ? 180 : 140)
         }
         .foregroundColor(.white)
         .ljGlassCard()
@@ -998,79 +1000,20 @@ struct MoodLogFlowView: View {
     private func scale(_ dict:[String:Double], key:String)->Double { dict[key] ?? 0.5 }
 }
 
-// MARK: - GPT-service (från Config)
+// MARK: - AI-service (lokal – 100% offline via LillaJagAI)
 struct OpenAIService {
-    private static var apiKey: String { Config.openAIAPIKey }
-
-    static func summarise(entry: MoodEntry) async throws -> (String,[String],[String]) {
-        let prompt = """
-        Du är en empatisk, evidensnära psykologcoach. Sammanfatta dagen (max 90 ord),
-        lista 4-6 datadrivna insikter och 4-6 konkreta, vänliga rekommendationer.
-        Fokusera på sömn, ångest, energi, socialt, utomhus, rutiner och aktiviteter/vanor.
-        Undvik floskler. Ge mätbara råd (t.ex. minuter, antal, klockslag).
-        Svara i strikt JSON:
-        { "sum":"...", "ins":["..."], "adv":["..."] }
-        DATA:
-        \(entry)
-        """
-        let body: [String:Any] = [
-            "model":"gpt-4o-mini",
-            "temperature":0.6,
-            "messages":[
-                ["role":"system","content":"Du är empatisk, konkret och vetenskaplig. Du skriver kort, tydligt och använder mätbara råd."],
-                ["role":"user","content":prompt]
-            ]
-        ]
-        var req = URLRequest(url: URL(string:"https://api.openai.com/v1/chat/completions")!)
-        req.httpMethod = "POST"
-        req.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        req.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (d, _) = try await URLSession.shared.data(for: req)
-        let raw = try JSONSerialization.jsonObject(with: d) as? [String:Any]
-        let txt = (((raw?["choices"] as? [[String:Any]])?.first?["message"] as? [String:Any])?["content"] as? String) ?? "{}"
-        struct R: Codable { let sum:String; let ins:[String]; let adv:[String] }
-        let r = try JSONDecoder().decode(R.self, from: Data(txt.utf8))
-        return (r.sum, r.ins, r.adv)
+    /// Analyserar en moodEntry och returnerar (sammanfattning, insikter, råd)
+    /// via den lokala KBT-motorn – ingen nätverkstrafik.
+    static func summarise(entry: MoodEntry) async throws -> (String, [String], [String]) {
+        let description = "Mående: \(Int(entry.moodQuality * 100))%, Sömn: \(entry.sleepHours)h, Ångest: \(Int(entry.anxietyLevel * 100))%"
+        return await LillaJagAIService.shared.analyzeMoodEntry(description)
     }
 
-    struct CorrDTO: Codable { let name: String; let delta: Double; let present: Int; let total: Int }
-
+    /// Vecklig rapport – delegerar till LillaJagAIService
     static func weeklyReport(entries: [MoodEntry], correlations: [MoodStore.MoodCorrelation]) async throws -> String {
-        let enc = JSONEncoder()
-        enc.outputFormatting = [.sortedKeys]; enc.dateEncodingStrategy = .iso8601
-        let entriesJSON = String(data: try enc.encode(entries), encoding: .utf8) ?? "[]"
-        let corrDTOs = correlations.prefix(10).map { CorrDTO(name: $0.name, delta: $0.delta, present: $0.present, total: $0.total) }
-        let corrJSON = String(data: try enc.encode(corrDTOs), encoding: .utf8) ?? "[]"
-
-        let body: [String:Any] = [
-            "model":"gpt-4o-mini",
-            "temperature":0.5,
-            "messages":[
-                ["role":"system","content":"Du är en senior hälsocoach. Skriv en kort veckorapport med rubriker, siffror och en konkret plan för nästa vecka (3 prioriteringar + 3 mikromål)."],
-                ["role":"user","content":
-                    """
-                    Skapa en kort, konkret svenska-skriven veckorapport.
-                    1) Övergripande trend (mående, sömn, energi, ångest).
-                    2) Topplista positiva/negativa faktorer (från korrelationer).
-                    3) 3 prioriteringar för nästa vecka.
-                    4) 3 mikromål/vanor (mätbara).
-                    5) Risker + motdrag.
-                    Använd punkter. Max 220 ord.
-                    DATA (7 dagar): \(entriesJSON)
-                    KORRELATIONER: \(corrJSON)
-                    """
-                ]
-            ]
-        ]
-        var req = URLRequest(url: URL(string:"https://api.openai.com/v1/chat/completions")!)
-        req.httpMethod = "POST"
-        req.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        req.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
-        let (d, _) = try await URLSession.shared.data(for: req)
-        let raw = try JSONSerialization.jsonObject(with: d) as? [String:Any]
-        return (((raw?["choices"] as? [[String:Any]])?.first?["message"] as? [String:Any])?["content"] as? String) ?? ""
+        let avgMood = entries.map(\.moodQuality).average(default: 0)
+        let summary = "Veckosnitt mående: \(Int(avgMood * 100))% (\(entries.count) dagar loggade)"
+        return await LillaJagAIService.shared.weeklyReport(summary: summary)
     }
 }
 

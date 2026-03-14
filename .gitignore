@@ -1,0 +1,26 @@
+# Xcode
+.DS_Store
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# SPM
+.build/
+*.resolved
+
+# Sensitive – lägg ALDRIG API-nycklar i repo
+GoogleService-Info.plist
+Config.private.swift
+*.p8
+*.p12
+*.mobileprovision
+Pods/
+
+# Qwen model (för stor för git)
+*.gguf
+*.mlpackage
+*.mlmodel

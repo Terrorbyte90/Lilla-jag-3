@@ -23,26 +23,29 @@ struct ContentView: View {
                     Color.black.ignoresSafeArea()
                 }
 
-                VStack {
-                    Spacer().frame(height: 80)
+                GeometryReader { geo in
+                    VStack {
+                        Spacer().frame(height: geo.size.height * 0.12)
 
-                    Text("Lilla Jag")
-                        .font(.system(size: 48)) // 20% larger
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .shadow(radius: 10)
+                        Text("Lilla Jag")
+                            .font(.system(size: min(geo.size.width * 0.14, 56), weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .shadow(radius: 10)
 
-                    Text("Appen för dig med psykisk ohälsa")
-                        .font(.system(size: 26.4)) // 20% larger
-                        .foregroundColor(.white)
-                        .shadow(radius: 5)
+                        Text("Appen för dig med psykisk ohälsa")
+                            .font(.system(size: min(geo.size.width * 0.065, 28)))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .shadow(radius: 5)
 
-                    Spacer()
+                        Spacer()
 
-                    Text("Utvecklad av Ted Svärd")
-                        .font(.system(size: UIFont.preferredFont(forTextStyle: .caption2).pointSize * 2.6, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.bottom, 40)
+                        Text("Utvecklad av Ted Svärd")
+                            .font(.system(size: min(geo.size.width * 0.038, 16), weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                            .padding(.bottom, geo.safeAreaInsets.bottom + 32)
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .padding()
                 .opacity(showText ? 1 : 0)
@@ -79,17 +82,21 @@ struct LoopingVideoPlayer: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
         controller.player = player
         controller.showsPlaybackControls = false
+        controller.videoGravity = .resizeAspectFill
+        
         // Start video at 1.5 seconds
         let startTime = CMTime(seconds: 1.5, preferredTimescale: 600)
         player.seek(to: startTime)
         player.play()
 
-        let duration = CMTimeGetSeconds(player.currentItem?.asset.duration ?? CMTime(seconds: 0, preferredTimescale: 1))
-
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        context.coordinator.timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
+        context.coordinator.timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak player] time in
+            guard let player = player, let currentItem = player.currentItem else { return }
+            
+            let duration = CMTimeGetSeconds(currentItem.asset.duration)
             let current = CMTimeGetSeconds(time)
-            if current >= duration - 1 {
+            
+            if duration > 0 && current >= duration - 1 {
                 player.pause()
                 NotificationCenter.default.post(name: Notification.Name("VideoPaused"), object: nil)
             }

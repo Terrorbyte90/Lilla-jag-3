@@ -62,6 +62,8 @@ final class NavRouter: ObservableObject {
 // MARK: - 3  Snygg navbar
 struct Navbar: View {
     @ObservedObject private var router = NavRouter.shared
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
+    @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
     
     private let gradient = LinearGradient(colors: [.pink, .purple],
                                           startPoint: .topLeading,
@@ -77,9 +79,9 @@ struct Navbar: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: dest.icon)
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.system(size: min(iconSize, 24), weight: .semibold))
                         Text(dest.title)
-                            .font(.caption2.weight(.medium))
+                            .font(.system(size: min(labelSize, 12), weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -159,6 +161,5 @@ struct RootContainer: View {
 // MARK: - 8  Preview
 #Preview {
     RootContainer()
-        .previewDevice(.init(rawValue: "iPhone 16 Pro Max"))
         .preferredColorScheme(.dark)
 }
