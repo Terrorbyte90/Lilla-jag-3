@@ -20,7 +20,11 @@ Config.private.swift
 *.mobileprovision
 Pods/
 
-# Qwen model (för stor för git)
+# AI-modeller (för stora för git – lägg lokalt i projektet)
+# Qwen GGUF (när konverterad)
 *.gguf
-*.mlpackage
-*.mlmodel
+# Stora CoreML-modeller (>50MB)
+KBBertSwedish.mlpackage
+GptSw3_1_3B_Instruct.mlpackage
+# Vokabulärfiler (hör till modellen)
+gpt_sw3_vocab.json

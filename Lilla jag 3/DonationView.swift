@@ -72,9 +72,7 @@ struct DonationView: View {
             Text("Det bästa sättet att stötta är att berätta om appen för någon du bryr dig om.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.7))
-            Button {
-                // Dela appen – kan använda ShareLink i iOS 16+
-            } label: {
+            ShareLink(item: "Kolla in Lilla Jag – en gratis app för psykisk hälsa med KBT-verktyg och lokal AI. https://apps.apple.com/app/lilla-jag") {
                 Label("Dela appen", systemImage: "square.and.arrow.up")
                     .font(.system(.body, design: .rounded, weight: .semibold))
                     .foregroundStyle(.black)

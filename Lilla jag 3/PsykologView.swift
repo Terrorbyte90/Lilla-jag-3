@@ -5,6 +5,9 @@ import SwiftUI
 
 struct PsykologView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var ai = LillaJagAIService.shared
+    @State private var aiSuggestion: String = ""
+    @State private var loadingSuggestion = false
 
     var body: some View {
         NavigationStack {
@@ -14,9 +17,13 @@ struct PsykologView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         heroCard
+                        if !aiSuggestion.isEmpty || loadingSuggestion {
+                            aiSuggestionCard
+                        }
                         ForEach(resources, id: \.title) { res in
                             ResourceCard(resource: res)
                         }
+                        crisisButton
                         noteCard
                     }
                     .padding(16)
@@ -32,14 +39,29 @@ struct PsykologView: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
+            .task { await loadAISuggestion() }
         }
+    }
+
+    private func loadAISuggestion() async {
+        guard !loadingSuggestion else { return }
+        loadingSuggestion = true
+        let emotionContext = ai.currentEmotion.map { "Jag mår dåligt och känner \($0.dominant.name)." } ?? "Jag mår inte bra."
+        let prompt = "Ge ett kort, varmt och hoppfullt råd (2 meningar) på svenska om varför det är viktigt att söka professionell hjälp vid psykisk ohälsa. Börja med att validera känslan av att ta steget."
+        aiSuggestion = await LillaJagAIService.shared.generateResponse(to: prompt)
+        loadingSuggestion = false
     }
 
     private var heroCard: some View {
         VStack(spacing: 12) {
-            Image(systemName: "person.badge.shield.checkmark.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(Color.warmLavender)
+            ZStack {
+                Circle()
+                    .fill(Color.warmLavender.opacity(0.15))
+                    .frame(width: 72, height: 72)
+                Image(systemName: "person.badge.shield.checkmark.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(Color.warmLavender)
+            }
             Text("Professionell hjälp funkar")
                 .font(.system(.title3, design: .rounded, weight: .black))
                 .foregroundStyle(.white)
@@ -47,10 +69,95 @@ struct PsykologView: View {
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
+
+            HStack(spacing: 16) {
+                statPill(label: "KBT", icon: "brain.head.profile", color: .warmLavender)
+                statPill(label: "Gratis via 1177", icon: "stethoscope", color: .warmSage)
+                statPill(label: "Online", icon: "video.fill", color: .warmGold)
+            }
         }
         .padding(20)
         .background(Color.warmLavender.opacity(0.1), in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.warmLavender.opacity(0.25), lineWidth: 1))
+    }
+
+    private func statPill(label: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var aiSuggestionCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle().fill(Color.warmGold.opacity(0.15)).frame(width: 36, height: 36)
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.warmGold)
+            }
+            if loadingSuggestion {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Personlig insikt...")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Color.warmGold)
+                    ProgressView()
+                        .tint(Color.warmGold)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Lilla Jag säger")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Color.warmGold)
+                    Text(aiSuggestion)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineSpacing(3)
+                }
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private var crisisButton: some View {
+        Group {
+            if let url = URL(string: "tel:90101") {
+                Link(destination: url) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "phone.fill")
+                            .foregroundStyle(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Självmordslinjen – 90101")
+                                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text("Dygnet runt · kostnadsfritt · anonymt")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(14)
+                    .background(Color(hex: 0xFF5B5B).opacity(0.2), in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: 0xFF5B5B).opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var noteCard: some View {
@@ -124,6 +231,7 @@ struct ResourceCard: View {
                         .font(.caption)
                         .foregroundStyle(resource.color)
                 }
+                Spacer()
             }
             Text(resource.description)
                 .font(.caption)
@@ -141,8 +249,8 @@ struct ResourceCard: View {
                             .background(resource.color.opacity(0.25), in: Capsule())
                     }
                 }
-                if let phone = resource.phone {
-                    Link(destination: URL(string: "tel:\(phone)")!) {
+                if let phone = resource.phone, let telURL = URL(string: "tel:\(phone)") {
+                    Link(destination: telURL) {
                         Label(phone, systemImage: "phone.fill")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)

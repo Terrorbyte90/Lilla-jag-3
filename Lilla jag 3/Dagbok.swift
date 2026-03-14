@@ -518,8 +518,16 @@ struct ABCEntryView: View {
     }
 
     private func saveEntry() {
-        onSave(entry)
+        let entryToSave = entry
         dismiss()
+        // Generera AI-insikt asynkront
+        Task {
+            let fullText = "\(entryToSave.activatingEvent) \(entryToSave.belief) \(entryToSave.consequence)"
+            let insight = await LillaJagAIService.shared.analyzeDiaryEntry(fullText)
+            var updated = entryToSave
+            updated.aiInsight = insight
+            onSave(updated)
+        }
     }
 }
 
@@ -529,6 +537,14 @@ struct EntryDetailView: View {
     let entry: DagbokEntry
     let store: DagbokStore
     @Environment(\.dismiss) private var dismiss
+    @State private var currentEntry: DagbokEntry
+    @State private var loadingInsight = false
+
+    init(entry: DagbokEntry, store: DagbokStore) {
+        self.entry = entry
+        self.store = store
+        self._currentEntry = State(initialValue: entry)
+    }
 
     var body: some View {
         NavigationStack {
@@ -536,14 +552,14 @@ struct EntryDetailView: View {
                 WarmBackground()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text(entry.title.isEmpty ? "Anteckning" : entry.title)
+                        Text(currentEntry.title.isEmpty ? "Anteckning" : currentEntry.title)
                             .font(.system(.title2, design: .rounded, weight: .black))
                             .foregroundStyle(.white)
 
-                        detailSection(letter: "A", color: Color(hex: 0xFF8C69), title: "Händelse", text: entry.activatingEvent)
-                        detailSection(letter: "B", color: Color.warmLavender, title: "Automatisk tanke", text: entry.belief)
-                        detailSection(letter: "C", color: Color.warmRose, title: "Konsekvens", text: entry.consequence)
-                        detailSection(letter: "→", color: Color.warmSage, title: "Omstrukturerad tanke", text: entry.alternativeThought)
+                        detailSection(letter: "A", color: Color(hex: 0xFF8C69), title: "Händelse", text: currentEntry.activatingEvent)
+                        detailSection(letter: "B", color: Color.warmLavender, title: "Automatisk tanke", text: currentEntry.belief)
+                        detailSection(letter: "C", color: Color.warmRose, title: "Konsekvens", text: currentEntry.consequence)
+                        detailSection(letter: "→", color: Color.warmSage, title: "Omstrukturerad tanke", text: currentEntry.alternativeThought)
 
                         // Intensitetsjämförelse
                         HStack(spacing: 16) {
@@ -551,7 +567,7 @@ struct EntryDetailView: View {
                                 Text("Före")
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.5))
-                                Text("\(Int(entry.emotionIntensityBefore * 100))%")
+                                Text("\(Int(currentEntry.emotionIntensityBefore * 100))%")
                                     .font(.title2.bold())
                                     .foregroundStyle(Color.warmRose)
                             }
@@ -561,28 +577,55 @@ struct EntryDetailView: View {
                                 Text("Efter")
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.5))
-                                Text("\(Int(entry.emotionIntensityAfter * 100))%")
+                                Text("\(Int(currentEntry.emotionIntensityAfter * 100))%")
                                     .font(.title2.bold())
                                     .foregroundStyle(Color.warmSage)
                             }
                             Spacer()
-                            EmotionBadge(emotion: entry.emotion)
+                            EmotionBadge(emotion: currentEntry.emotion)
                         }
                         .padding()
                         .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
 
-                        if !entry.aiInsight.isEmpty {
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: "sparkles")
-                                    .foregroundStyle(Color.warmGold)
-                                Text(entry.aiInsight)
+                        // AI-insikt
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "brain.head.profile")
+                                        .foregroundStyle(Color.warmLavender)
+                                    Text("AI-insikt")
+                                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                        .foregroundStyle(Color.warmLavender)
+                                }
+                                Spacer()
+                                Button {
+                                    refreshInsight()
+                                } label: {
+                                    if loadingInsight {
+                                        ProgressView().tint(.white).scaleEffect(0.7)
+                                    } else {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.white.opacity(0.5))
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(loadingInsight)
+                            }
+                            if currentEntry.aiInsight.isEmpty {
+                                Text("Tryck på ↻ för att generera en KBT-insikt")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.4))
+                            } else {
+                                Text(currentEntry.aiInsight)
                                     .font(.subheadline)
                                     .foregroundStyle(.white.opacity(0.85))
+                                    .lineSpacing(3)
                             }
-                            .padding()
-                            .background(Color.warmGold.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
                         }
+                        .padding()
+                        .background(Color.warmLavender.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmLavender.opacity(0.15), lineWidth: 1))
                     }
                     .padding(20)
                     .padding(.bottom, 40)
@@ -605,6 +648,17 @@ struct EntryDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func refreshInsight() {
+        loadingInsight = true
+        Task {
+            let fullText = "\(currentEntry.activatingEvent) \(currentEntry.belief) \(currentEntry.consequence)"
+            let insight = await LillaJagAIService.shared.analyzeDiaryEntry(fullText)
+            currentEntry.aiInsight = insight
+            store.update(currentEntry)
+            loadingInsight = false
         }
     }
 

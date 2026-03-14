@@ -149,7 +149,7 @@ struct SocialView: View {
 
 private let externalLinks: [(title: String, subtitle: String, url: String, icon: String, color: Color)] = [
     ("Mind.se", "Stöd, information och hjälplinjen", "https://mind.se", "heart.fill", Color.warmRose),
-    ("r/psykiskohalsa (Reddit)", "Svensk subreddit om psykisk hälsa", "https://reddit.com/r/sweden", "text.bubble.fill", Color(hex: 0xFF4500)),
+    ("r/psykiskohalsa (Reddit)", "Svensk subreddit om psykisk hälsa", "https://reddit.com/r/psykiskohalsa", "text.bubble.fill", Color(hex: 0xFF4500)),
     ("1177 – Psykisk hälsa", "Officiell information och hitta vård", "https://www.1177.se", "stethoscope", Color(hex: 0x6ECFF6)),
     ("Internetpsykiatri.se", "Gratis KBT online med legitimerade terapeuter", "https://www.internetpsykiatri.se", "video.fill", Color.warmLavender)
 ]

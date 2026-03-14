@@ -134,21 +134,25 @@ struct KrisplanView: View {
             }
 
             HStack(spacing: 10) {
-                Link(destination: URL(string: "tel:90101")!) {
-                    Label("90101", systemImage: "phone.fill")
-                        .font(.system(.body, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: 0xFF5B5B), in: RoundedRectangle(cornerRadius: 12))
+                if let url90101 = URL(string: "tel:90101") {
+                    Link(destination: url90101) {
+                        Label("90101", systemImage: "phone.fill")
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color(hex: 0xFF5B5B), in: RoundedRectangle(cornerRadius: 12))
+                    }
                 }
-                Link(destination: URL(string: "tel:112")!) {
-                    Label("112", systemImage: "phone.fill")
-                        .font(.system(.body, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: 0xFF3B30), in: RoundedRectangle(cornerRadius: 12))
+                if let url112 = URL(string: "tel:112") {
+                    Link(destination: url112) {
+                        Label("112", systemImage: "phone.fill")
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color(hex: 0xFF3B30), in: RoundedRectangle(cornerRadius: 12))
+                    }
                 }
             }
         }
@@ -244,8 +248,9 @@ struct KrisplanView: View {
                             Text(contact.relation).font(.caption).foregroundStyle(.white.opacity(0.5))
                         }
                         Spacer()
-                        if !contact.phone.isEmpty {
-                            Link(destination: URL(string: "tel:\(contact.phone)")!) {
+                        if !contact.phone.isEmpty,
+                           let telURL = URL(string: "tel:\(contact.phone.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: ""))") {
+                            Link(destination: telURL) {
                                 Label(contact.phone, systemImage: "phone.fill")
                                     .font(.caption)
                                     .foregroundStyle(Color.warmRose)

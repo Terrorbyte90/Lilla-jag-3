@@ -88,13 +88,15 @@ struct NumbersView: View {
                     .foregroundStyle(.white.opacity(0.8))
             }
             Spacer()
-            Link(destination: URL(string: "tel:90101")!) {
-                Text("Ring nu")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color(hex: 0xFF5B5B), in: Capsule())
+            if let telURL = URL(string: "tel:90101") {
+                Link(destination: telURL) {
+                    Text("Ring nu")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color(hex: 0xFF5B5B), in: Capsule())
+                }
             }
         }
         .padding(14)
@@ -132,18 +134,20 @@ struct ContactCard: View {
 
             Spacer()
 
-            Link(destination: URL(string: "tel:\(contact.number.replacingOccurrences(of: " ", with: ""))")!) {
-                VStack(spacing: 2) {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 14))
-                    Text(contact.number)
-                        .font(.system(.caption2, design: .monospaced, weight: .bold))
+            if let telURL = URL(string: "tel:\(contact.number.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: ""))") {
+                Link(destination: telURL) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 14))
+                        Text(contact.number)
+                            .font(.system(.caption2, design: .monospaced, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(contact.color.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(contact.color.opacity(0.4), lineWidth: 1))
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(contact.color.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(contact.color.opacity(0.4), lineWidth: 1))
             }
         }
         .padding(12)
