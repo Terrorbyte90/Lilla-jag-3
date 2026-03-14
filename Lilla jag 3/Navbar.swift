@@ -59,55 +59,65 @@ final class NavRouter: ObservableObject {
     @Published var current: NavDestination = .home
 }
 
-// MARK: - 3  Snygg navbar
+// MARK: - 3  Snygg navbar (förbättrad med haptics & animationer)
 struct Navbar: View {
     @ObservedObject private var router = NavRouter.shared
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
     @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
-    
-    private let gradient = LinearGradient(colors: [.pink, .purple],
-                                          startPoint: .topLeading,
-                                          endPoint: .bottomTrailing)
-    
+    @Namespace private var tabAnimation
+
+    private let gradient = LinearGradient(
+        colors: [Color(hex: 0xBB86FC), Color(hex: 0xFF6B8A)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(NavDestination.allCases) { dest in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                         router.current = dest
                     }
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: dest.icon)
                             .font(.system(size: min(iconSize, 24), weight: .semibold))
+                            .scaleEffect(router.current == dest ? 1.1 : 1.0)
                         Text(dest.title)
                             .font(.system(size: min(labelSize, 12), weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .foregroundStyle(router.current == dest ? Color.white
-                                                            : Color.primary.opacity(0.7))
+                                                            : Color.primary.opacity(0.5))
                     .background(
                         Group {
                             if router.current == dest {
                                 gradient
-                                    .clipShape(RoundedRectangle(cornerRadius: 12,
+                                    .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14,
                                                                  style: .continuous))
+                                    .shadow(color: Color(hex: 0xBB86FC).opacity(0.3), radius: 8, y: 2)
                             } else {
                                 Color.clear
                             }
                         }
                     )
+                    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: router.current)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(dest.title)
+                .accessibilityAddTraits(router.current == dest ? .isSelected : [])
             }
         }
-        .padding(8)
+        .padding(6)
         .background(.ultraThinMaterial,
                     in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .stroke(Color.white.opacity(0.1), lineWidth: 1))
-        .shadow(radius: 6, y: 3)
+        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
         .padding(.horizontal, 12)
     }
 }

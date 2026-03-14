@@ -15,7 +15,7 @@ private let pages: [OnboardingPage] = [
         icon: "heart.fill",
         iconColor: .warmRose,
         title: "Välkommen till\nLilla Jag",
-        subtitle: "En trygg plats för dig som kämpar\nmed psykisk ohälsa."
+        subtitle: "En trygg plats för dig som kämpar\nmed psykisk ohälsa. Du är inte ensam."
     ),
     OnboardingPage(
         icon: "brain.head.profile",
@@ -100,6 +100,7 @@ struct OnboardingView: View {
                         .shadow(color: .white.opacity(0.25), radius: 10, y: 4)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(currentPage < pages.count - 1 ? "Nästa sida" : "Kom igång med appen")
 
                     if currentPage > 0 {
                         Button("Hoppa över") {
@@ -107,6 +108,7 @@ struct OnboardingView: View {
                         }
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.6))
+                        .accessibilityLabel("Hoppa över introduktionen")
                     }
                 }
                 .padding(.horizontal, 28)
@@ -119,34 +121,40 @@ struct OnboardingView: View {
     private func pageContent(_ page: OnboardingPage) -> some View {
         VStack(spacing: 28) {
             ZStack {
+                // Pulsating outer ring
                 Circle()
-                    .fill(page.iconColor.opacity(0.15))
-                    .frame(width: 130, height: 130)
+                    .fill(page.iconColor.opacity(0.06))
+                    .frame(width: 180, height: 180)
                 Circle()
-                    .fill(page.iconColor.opacity(0.08))
-                    .frame(width: 160, height: 160)
+                    .fill(page.iconColor.opacity(0.12))
+                    .frame(width: 140, height: 140)
+                Circle()
+                    .fill(page.iconColor.opacity(0.2))
+                    .frame(width: 100, height: 100)
                 Image(systemName: page.icon)
-                    .font(.system(size: 56, weight: .medium))
+                    .font(.system(size: 48, weight: .medium))
                     .foregroundStyle(page.iconColor)
-                    .shadow(color: page.iconColor.opacity(0.5), radius: 20)
+                    .shadow(color: page.iconColor.opacity(0.6), radius: 24)
             }
             .padding(.bottom, 8)
 
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
                 Text(page.title)
-                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .font(.system(size: 30, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(2)
+                    .lineSpacing(4)
 
                 Text(page.subtitle)
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(.white.opacity(0.75))
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+                    .lineSpacing(5)
+                    .padding(.horizontal, 8)
             }
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 28)
+        .accessibilityElement(children: .combine)
     }
 }
 

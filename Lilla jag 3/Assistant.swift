@@ -103,6 +103,7 @@ struct AITherapistView: View {
             Spacer()
 
             Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 withAnimation(.spring(response: 0.3)) {
                     ai.newSession()
                     showStarters = true
@@ -115,6 +116,7 @@ struct AITherapistView: View {
                     .background(Color.white.opacity(0.08), in: Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Ny konversation")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -194,6 +196,7 @@ struct AITherapistView: View {
                 )
 
             Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 sendMessage(inputText)
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
@@ -203,6 +206,7 @@ struct AITherapistView: View {
             }
             .buttonStyle(.plain)
             .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || ai.isThinking)
+            .accessibilityLabel("Skicka meddelande")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
