@@ -20,23 +20,25 @@ struct Dashboard: View {
     @StateObject private var viewModel = DashboardViewModel()
     
     var body: some View {
-        ZStack {
-            // Bakgrundsvideon
-            LoopingVideoBackground(videoName: "bloop", fileExtension: "mp4")
-                .ignoresSafeArea()
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
-                    header
-                    videoBox
-                    quickActions
-                    affirmationBox
-                    ukraineBanner
-                    Spacer(minLength: 0)
+        GeometryReader { geo in
+            ZStack {
+                // Bakgrundsvideon
+                LoopingVideoBackground(videoName: "bloop", fileExtension: "mp4")
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: geo.size.height > 800 ? 28 : 20) {
+                        header
+                        videoBox(geo: geo)
+                        quickActions
+                        affirmationBox
+                        ukraineBanner
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, max(16, geo.size.width * 0.06))
+                    .padding(.top, 16)
+                    .padding(.bottom, 110)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 100) // Plats för navbar
             }
         }
         .preferredColorScheme(.dark)
@@ -171,17 +173,16 @@ struct DashboardHeaderButton: View {
 private extension Dashboard {
     
     // Stora videorutan
-    var videoBox: some View {
-        GeometryReader { geo in
-            LoopingVideoBackground(videoName: "bipolar", fileExtension: "mp4")
-                .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 36, style: .continuous)
-                        .stroke(.white.opacity(0.25), lineWidth: 1)
-                )
-                .shadow(radius: 10)
-        }
-        .frame(height: 250)
+    func videoBox(geo: GeometryProxy) -> some View {
+        let height = min(max(geo.size.height * 0.28, 180), 280)
+        return LoopingVideoBackground(videoName: "bipolar", fileExtension: "mp4")
+            .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 36, style: .continuous)
+                    .stroke(.white.opacity(0.25), lineWidth: 1)
+            )
+            .shadow(radius: 10)
+            .frame(height: height)
     }
     
     // Snabba åtgärder
@@ -285,6 +286,5 @@ struct AffirmationManager {
 // MARK: ‑ Preview
 #Preview {
     Dashboard()
-        .previewDevice("iPhone 16 Pro Max")
         .preferredColorScheme(.dark)
 }
