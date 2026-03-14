@@ -51,11 +51,11 @@ struct AITherapistView: View {
                         .padding(.bottom, 8)
                     }
                     .onAppear { scrollProxy = proxy }
-                    .onChange(of: ai.messages.count) { _ in
+                    .onChange(of: ai.messages.count) {
                         scrollToBottom(proxy)
                     }
-                    .onChange(of: ai.isThinking) { thinking in
-                        if thinking { scrollToBottom(proxy) }
+                    .onChange(of: ai.isThinking) {
+                        if ai.isThinking { scrollToBottom(proxy) }
                     }
                 }
 
@@ -126,19 +126,24 @@ struct AITherapistView: View {
 
     private var welcomeSection: some View {
         VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 40))
-                    .foregroundStyle(Color.warmLavender)
-                    .padding(.bottom, 4)
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.warmLavender.opacity(0.1))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 36))
+                        .foregroundStyle(Color.warmLavender)
+                }
+                .padding(.bottom, 4)
 
                 Text("Jag är här för dig")
                     .font(.system(.title2, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text("Berätta vad du bär på, eller välj ett ämne nedan.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
             }
             .padding(.top, 20)

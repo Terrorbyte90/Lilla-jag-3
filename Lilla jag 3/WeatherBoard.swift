@@ -212,7 +212,7 @@ struct WeatherBoard: View {
                 } else {
                     Spacer()
                     Text("Ingen data ännu.")
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     Spacer()
                 }
             }
@@ -258,7 +258,7 @@ struct WeatherBoard: View {
                 } maximumValueLabel: {
                     Text("120")
                 }
-                .onChange(of: vm.updateInterval) { _ in vm.startTimer() }
+                .onChange(of: vm.updateInterval) { vm.startTimer() }
             }
             .font(.caption)
             .opacity(0.8)
@@ -321,7 +321,7 @@ struct WeatherBoard: View {
             riskRow(label: "Inom 8 timmar", value: risk.within8h)
             Text("Nästa händelse om \(risk.minutesUntilNext) min")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
@@ -459,9 +459,9 @@ struct WeatherBoard: View {
                     Text("\(Int(day.minC))–\(Int(day.maxC))°C")
                     Image(systemName: symbol(for: day.condition))
                     Text("\(day.rainProb)%")
-                        .foregroundColor(.blue)
+                        .foregroundStyle(.blue)
                     Text("\(day.thunderProb)%")
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                 }
             }
         }
@@ -480,11 +480,11 @@ struct WeatherBoard: View {
                     Spacer(minLength: 8)
                     Text("\(hour.rainProb)%")
                         .frame(width: 32, alignment: .trailing)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(.blue)
                     if let thunder = hour.thunderProb {
                         Text("\(thunder)%")
                             .frame(width: 32, alignment: .trailing)
-                            .foregroundColor(.orange)
+                            .foregroundStyle(.orange)
                     }
                 }
                 .font(.footnote.monospacedDigit())
@@ -505,10 +505,10 @@ struct WeatherBoard: View {
                     Spacer(minLength: 8)
                     Text("\(day.rainProb)%")
                         .frame(width: 32, alignment: .trailing)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(.blue)
                     Text("\(day.thunderProb)%")
                         .frame(width: 32, alignment: .trailing)
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                 }
                 .font(.footnote.monospacedDigit())
             }

@@ -80,8 +80,8 @@ public struct Inlogg: View {
         }
         
         // När auth lyckas, visa ContentView
-        .onChange(of: authState) { newValue in
-            if case .authenticated = newValue {
+        .onChange(of: authState) {
+            if case .authenticated = authState {
                 savedLoggedIn = true
                 showMain = true
                 onContinue?()
@@ -519,7 +519,7 @@ private struct FancyField: View {
                 .foregroundStyle(.white.opacity(0.85))
                 .frame(width: 22)
             
-            TextField(placeholder, text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.5)))
+            TextField(placeholder, text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.5)))
                 .foregroundStyle(.white)
                 .textInputAutocapitalization(.never)
         }
@@ -535,19 +535,19 @@ private struct FancySecureField: View {
     let placeholder: String
     @Binding var text: String
     @Binding var showPassword: Bool
-    
+
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .foregroundStyle(.white.opacity(0.85))
                 .frame(width: 22)
-            
+
             if showPassword {
-                TextField(placeholder, text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.5)))
+                TextField(placeholder, text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.5)))
                     .foregroundStyle(.white)
                     .textInputAutocapitalization(.never)
             } else {
-                SecureField(placeholder, text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.5)))
+                SecureField(placeholder, text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.5)))
                     .foregroundStyle(.white)
                     .textInputAutocapitalization(.never)
             }
@@ -712,7 +712,7 @@ private struct ForgotPasswordSheet: View {
                     TextField("E-post", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
                 }
                 .padding(12)
@@ -796,7 +796,7 @@ private struct CreateAccountSheet: View {
                         TextField("E-post", text: $email)
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
-                            .autocapitalization(.none)
+                            .textInputAutocapitalization(.never)
                             .disableAutocorrection(true)
                             .focused($focused, equals: .mail)
                     }

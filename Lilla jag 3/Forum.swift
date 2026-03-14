@@ -156,9 +156,7 @@ struct ForumView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 36))
-                .foregroundStyle(.white.opacity(0.3))
+            LJIconCircle(icon: "bubble.left.and.bubble.right", color: .white.opacity(0.5), size: 56)
             Text("Inga inlägg med taggen "\(selectedTag)"")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(.white.opacity(0.5))

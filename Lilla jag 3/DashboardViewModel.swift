@@ -23,13 +23,15 @@ final class DashboardViewModel: ObservableObject {
     @Published var showMoodConfirmation = false
 
     private var cancellables = Set<AnyCancellable>()
-    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+    private let timer = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
     private let streakKey = "lj_streak_dates"
 
     init() {
         timer
             .sink { [weak self] _ in
-                self?.affirmation = AffirmationManager.random()
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    self?.affirmation = AffirmationManager.random()
+                }
             }
             .store(in: &cancellables)
         loadStreak()

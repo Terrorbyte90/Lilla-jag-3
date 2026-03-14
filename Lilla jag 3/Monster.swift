@@ -174,14 +174,19 @@ final class LoopingPlayerUIView: UIView {
 struct GradientButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.system(.headline, design: .rounded, weight: .bold))
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(LinearGradient(colors: [.pink, .purple], startPoint: .leading, endPoint: .trailing))
+            .background(
+                LinearGradient(
+                    colors: [Color.warmLavender, Color.warmRose],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: .pink.opacity(0.35), radius: configuration.isPressed ? 2 : 6, y: 2)
+            .shadow(color: Color.warmLavender.opacity(0.3), radius: configuration.isPressed ? 2 : 8, y: 2)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
@@ -191,14 +196,13 @@ struct OptionButton: View {
     let selected: Bool
     var body: some View {
         Text(label)
-            .fontWeight(.medium)
+            .font(.system(.body, design: .rounded, weight: .medium))
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(selected ? Color.pink.opacity(0.9) : Color(.secondarySystemBackground))
-            .foregroundColor(selected ? .white : .primary)
+            .background(selected ? Color.warmLavender : Color.white.opacity(0.08))
+            .foregroundStyle(selected ? .black : .white)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.white.opacity(selected ? 0 : 0.1), lineWidth: 1))
-            .shadow(color: .black.opacity(selected ? 0.25 : 0.05), radius: selected ? 6 : 2, y: selected ? 3 : 1)
     }
 }
 
@@ -309,7 +313,8 @@ struct MonsterLogWizard: View {
                 .disabled(selections[step] == nil)
         }
         .padding(.top, 44)
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .background(Color(hex: 0x1A1025).ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
     
     private func advance() {
@@ -344,10 +349,11 @@ struct MonsterPanel: View {
                 .frame(maxWidth: .infinity)
             
             Text(state.summary)
-                .font(.title3.weight(.semibold))
+                .font(.system(.title3, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
-                .background(Color(.secondarySystemBackground))
+                .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
             
             if loading {

@@ -131,13 +131,13 @@ private struct NavbarModifier: ViewModifier {
         Group {
             if router.current == dest {
                 content
-                    .safeAreaInset(edge: .bottom) { 
+                    .safeAreaInset(edge: .bottom) {
                         Navbar()
-                            .padding(.bottom, 8) // Extra luft från botten
+                            .padding(.bottom, 8)
                     }
-                    .onAppear { router.current = dest }   // säkerställ rätt markering
+                    .transition(.opacity)
             } else {
-                Color.clear     // inget visas om inte aktiv
+                Color.clear
             }
         }
     }

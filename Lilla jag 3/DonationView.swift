@@ -20,10 +20,7 @@ struct DonationView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         VStack(spacing: 14) {
-                            Image(systemName: "heart.fill")
-                                .font(.system(size: 52))
-                                .foregroundStyle(Color.warmRose)
-                                .shadow(color: Color.warmRose.opacity(0.4), radius: 20)
+                            LJIconCircle(icon: "heart.fill", color: Color.warmRose, size: 72)
 
                             Text("Stöd psykisk hälsa")
                                 .font(.system(.title2, design: .rounded, weight: .black))
