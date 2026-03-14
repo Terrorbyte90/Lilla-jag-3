@@ -33,7 +33,7 @@ private let pages: [OnboardingPage] = [
         icon: "sparkles",
         iconColor: .warmGold,
         title: "Din AI-terapeut",
-        subtitle: "Prata med en empatisk KBT-coach\nnär du behöver det – dygnet runt."
+        subtitle: "Prata med en empatisk KBT-coach\nnär du behöver det – dygnet runt.\nAllt körs lokalt, helt privat."
     )
 ]
 
@@ -44,6 +44,7 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var dragOffset: CGFloat = 0
     @State private var animateContent = false
+    @State private var aiWelcome: String = ""
 
     var body: some View {
         ZStack {
@@ -89,6 +90,16 @@ struct OnboardingView: View {
 
                 Spacer()
 
+                // AI-välkomstmeddelande på sista sidan
+                if currentPage == pages.count - 1, !aiWelcome.isEmpty {
+                    Text(aiWelcome)
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .transition(.opacity)
+                }
+
                 // CTA button
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -120,6 +131,9 @@ struct OnboardingView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .task {
+            aiWelcome = LillaJagAIService.shared.welcomeMessage()
+        }
     }
 
     private func pageContent(_ page: OnboardingPage) -> some View {

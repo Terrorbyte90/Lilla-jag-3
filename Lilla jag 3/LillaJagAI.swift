@@ -149,6 +149,66 @@ final class LillaJagAIService: ObservableObject {
         return KBTFallback.weeklyReport(summary: summary)
     }
 
+    // MARK: - Krisplan-stöd
+
+    func crisisGrounding() async -> String {
+        isThinking = true
+        defer { isThinking = false }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return KBTFallback.groundingExercise()
+    }
+
+    func crisisCopingSuggestions(warningSigns: String) async -> [String] {
+        isThinking = true
+        defer { isThinking = false }
+
+        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(warningSigns)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return KBTFallback.copingSuggestions(for: emotion)
+    }
+
+    // MARK: - Krisnummer-stöd
+
+    func preCallGrounding() async -> String {
+        isThinking = true
+        defer { isThinking = false }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return KBTFallback.preCallGrounding()
+    }
+
+    // MARK: - Socialt stöd
+
+    func socialEncouragement() async -> String {
+        isThinking = true
+        defer { isThinking = false }
+
+        let sentiment = sessionSentiment
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return KBTFallback.socialEncouragement(sentiment: sentiment)
+    }
+
+    // MARK: - Donationsmotivation
+
+    func donationMotivation() async -> String {
+        isThinking = true
+        defer { isThinking = false }
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        return KBTFallback.donationMotivation()
+    }
+
+    // MARK: - Monster AI-tips
+
+    func monsterInsight(for log: DailyLog) async -> String {
+        isThinking = true
+        defer { isThinking = false }
+
+        let description = log.prompt
+        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(description)
+        let sentiment = await LillaJagMLEngine.shared.analyzeSentiment(description)
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return KBTFallback.monsterInsight(log: log, emotion: emotion, sentiment: sentiment)
+    }
+
     // MARK: - Analysera dagboksinlägg (KBT-dagbok)
 
     func analyzeDiaryEntry(_ abcEntry: String) async -> String {
@@ -383,6 +443,105 @@ private enum KBTFallback {
         • Logga mående på morgonen – inte bara när det är tungt
         • Skriv tre saker du är tacksam för varje kväll
         """
+    }
+
+    // MARK: - Groundingövning (krisplan)
+
+    static func groundingExercise() -> String {
+        let exercises = [
+            "5-4-3-2-1 övning: Nämn 5 saker du ser, 4 du kan röra, 3 du hör, 2 du kan lukta och 1 du smakar. Det landar ditt nervsystem i nuet.",
+            "Håll en isbit i handen i 30 sekunder. Fokusera helt på kylan. Din hjärna kan inte hantera panik och stark sensorisk input samtidigt.",
+            "Andas in 4 sekunder, håll 7 sekunder, andas ut 8 sekunder. Tre rundor. Vagusnerven aktiveras och sänker stressnivån.",
+            "Tryck fötterna hårt mot golvet. Känn marken under dig. Rör tårna, en i taget. Du är här. Du är trygg just nu.",
+            "Sätt på kallt vatten på handlederna i 30 sekunder. Det aktiverar dykningsreflexen och lugnar kroppen direkt."
+        ]
+        return exercises.randomElement()!
+    }
+
+    // MARK: - Copingförslag (krisplan)
+
+    static func copingSuggestions(for emotion: EmotionResult) -> [String] {
+        let dom = emotion.dominant.name
+        switch dom {
+        case "rädsla":
+            return [
+                "Prova progressiv muskelavslappning – spänn och slappna av varje muskelgrupp i 5 sekunder",
+                "Gå ut i frisk luft – rörelse och syre bryter ångestcykeln",
+                "Ring en trygg person och berätta hur du mår"
+            ]
+        case "sorg":
+            return [
+                "Skriv ner tre saker du är tacksam för – hjärnan kan inte vara nedstämd och tacksam samtidigt",
+                "Gör en liten sak som brukade ge dig glädje, även om du inte känner för det",
+                "Kontakta någon du litar på – isolering förvärrar nedstämdhet"
+            ]
+        case "ilska":
+            return [
+                "Fysisk rörelse – spring, gå snabbt, gör armhävningar – kanalisera energin",
+                "Skriv ner vad du känner utan censur, riv sedan sönder pappret",
+                "Räkna långsamt till 10 med djupa andetag mellan varje tal"
+            ]
+        default:
+            return [
+                "Prova 4-7-8 andningen: andas in 4s, håll 7s, ut 8s",
+                "Gå ut i naturen 15 minuter – dagsljus stabiliserar humöret",
+                "Ring eller skriv till någon du bryr dig om"
+            ]
+        }
+    }
+
+    // MARK: - Församtalsstöd (krisnummer)
+
+    static func preCallGrounding() -> String {
+        let tips = [
+            "Du behöver inte ha färdiga ord. Personen som svarar är utbildad att lyssna. Börja med 'Jag mår inte bra' – det räcker.",
+            "Det är modigt att ringa. Du behöver inte förklara allt. Säg bara det du orkar. De förstår.",
+            "Andas lugnt innan du ringer. Du förtjänar stöd. Det finns ingen skam i att be om hjälp.",
+            "Innan du ringer: ta tre djupa andetag. Påminn dig att samtalet är anonymt och kostnadsfritt. Du gör rätt som ringer."
+        ]
+        return tips.randomElement()!
+    }
+
+    // MARK: - Socialt stöd
+
+    static func socialEncouragement(sentiment: Float) -> String {
+        if sentiment < -0.2 {
+            return "Ensamhet kan kännas överväldigande, men forskning visar att redan en kort kontakt – ett meddelande, ett samtal – kan bryta den negativa spiralen. Du behöver inte prestera socialt. Bara att finnas räcker."
+        } else if sentiment > 0.2 {
+            return "Du verkar ha bra energi just nu – perfekt tillfälle att nå ut till någon. Social kontakt förstärker positiva känslor och bygger motståndskraft för tuffare dagar."
+        } else {
+            return "Mänsklig kontakt är grundläggande för psykisk hälsa. Även digital kontakt räknas. Vem kan du skicka ett 'hej' till idag?"
+        }
+    }
+
+    // MARK: - Donationsmotivation
+
+    static func donationMotivation() -> String {
+        let texts = [
+            "Att hjälpa andra aktiverar hjärnans belöningssystem – du mår bättre av att ge. Forskning visar att altruism stärker den egna psykiska hälsan.",
+            "Varje krona till psykisk hälsa kan rädda liv. Självmordslinjen svarar på 200 000+ samtal per år. Din insats gör skillnad.",
+            "Genom att dela appen hjälper du någon som kämpar i tystnad. Det kan vara det viktigaste du gör idag.",
+            "Forskning visar att hjälpbeteende ökar välmående och minskar stress. Att ge tillbaka är en investering i din egen hälsa."
+        ]
+        return texts.randomElement()!
+    }
+
+    // MARK: - Monster-insikt
+
+    static func monsterInsight(log: DailyLog, emotion: EmotionResult, sentiment: Float) -> String {
+        let scores = [log.sleep, log.meals, log.outdoor, log.exercise, log.social]
+        let avg = Double(scores.reduce(0, +)) / Double(scores.count)
+
+        if avg >= 3.0 {
+            return "Monstret ser att du tar hand om dig idag – det gör monstret starkt och glad! Fortsätt med det som fungerar."
+        } else if avg >= 2.0 {
+            let areas = [("sömnen", log.sleep), ("maten", log.meals), ("utomhustiden", log.outdoor),
+                         ("träningen", log.exercise), ("det sociala", log.social)]
+            let weak = areas.filter { $0.1 < 3 }.map { $0.0 }
+            return "Monstret ser att du gör ditt bästa. Imorgon kan du satsa lite extra på \(weak.joined(separator: " och ")) – små steg gör stor skillnad!"
+        } else {
+            return "Monstret vill krama dig. Tuffa dagar händer alla. Att du loggade visar att du bryr dig om dig själv – det är modigt."
+        }
     }
 
     // MARK: - Hjälp
