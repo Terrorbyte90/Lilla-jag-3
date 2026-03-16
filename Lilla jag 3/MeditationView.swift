@@ -466,7 +466,7 @@ struct BreathingSession: View {
         }
 
         let total = Double(step.seconds)
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+        let t = Timer(timeInterval: 1.0, repeats: true) { _ in
             Task { @MainActor in
                 if timeLeft > 1 {
                     timeLeft -= 1
@@ -478,6 +478,8 @@ struct BreathingSession: View {
                 }
             }
         }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
     }
 
     private func nextStep() {

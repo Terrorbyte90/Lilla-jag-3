@@ -86,6 +86,7 @@ struct DailyLog: Codable, Identifiable {
 }
 
 // MARK: - 5  Lokal lagring
+@MainActor
 final class MonsterStore: ObservableObject {
     @Published private(set) var logs: [DailyLog] = []
     private var fileURL: URL {

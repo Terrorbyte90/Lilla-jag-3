@@ -103,7 +103,7 @@ final class DagbokStore: ObservableObject {
 // MARK: - DagbokDashboardView
 
 struct DagbokDashboardView: View {
-    @StateObject private var store = DagbokStore.shared
+    @ObservedObject private var store = DagbokStore.shared
     @State private var showNewEntry = false
     @State private var selectedEntry: DagbokEntry? = nil
 

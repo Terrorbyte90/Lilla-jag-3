@@ -89,6 +89,7 @@ struct LoopingVideoPlayer: UIViewControllerRepresentable {
         player.seek(to: startTime)
         player.play()
 
+        context.coordinator.player = player
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
         context.coordinator.timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak player] time in
             guard let player = player, let currentItem = player.currentItem else { return }
@@ -113,5 +114,13 @@ struct LoopingVideoPlayer: UIViewControllerRepresentable {
 
     class Coordinator {
         var timeObserver: Any?
+        var player: AVPlayer?
+
+        deinit {
+            if let obs = timeObserver {
+                player?.removeTimeObserver(obs)
+                timeObserver = nil
+            }
+        }
     }
 }

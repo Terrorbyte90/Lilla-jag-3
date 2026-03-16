@@ -258,7 +258,7 @@ struct WeatherBoard: View {
                 } maximumValueLabel: {
                     Text("120")
                 }
-                .onChange(of: vm.updateInterval) { _ in vm.startTimer() }
+                .onChange(of: vm.updateInterval) { _, _ in vm.startTimer() }
             }
             .font(.caption)
             .opacity(0.8)
@@ -450,23 +450,6 @@ struct WeatherBoard: View {
         .frame(height: 160)
     }
     
-    private func dailySummary(daily: [WeatherResponse.Forecast.Daily]) -> some View {
-        VStack {
-            ForEach(daily) { day in
-                HStack {
-                    Text(formattedDate(day.dateISO))
-                    Spacer()
-                    Text("\(Int(day.minC))–\(Int(day.maxC))°C")
-                    Image(systemName: symbol(for: day.condition))
-                    Text("\(day.rainProb)%")
-                        .foregroundColor(.blue)
-                    Text("\(day.thunderProb)%")
-                        .foregroundColor(.orange)
-                }
-            }
-        }
-    }
-
     private func hourlyList(hourly: [WeatherResponse.Forecast.Hourly]) -> some View {
         VStack(spacing: 2) {
             ForEach(hourly) { hour in

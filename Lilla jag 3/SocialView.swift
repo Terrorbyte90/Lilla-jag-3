@@ -66,7 +66,7 @@ struct SocialView: View {
         }
         .fullScreenCover(isPresented: $showForum) { ForumView() }
         .fullScreenCover(isPresented: $showMeditation) {
-            NavigationStack { MeditationView() }
+            MeditationView()
         }
     }
 
