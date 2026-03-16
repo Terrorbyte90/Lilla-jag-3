@@ -60,7 +60,7 @@ final class KrisplanStore: ObservableObject {
 // MARK: - KrisplanView
 
 struct KrisplanView: View {
-    @StateObject private var store = KrisplanStore.shared
+    @ObservedObject private var store = KrisplanStore.shared
     @State private var isEditing = false
     @Environment(\.dismiss) private var dismiss
 

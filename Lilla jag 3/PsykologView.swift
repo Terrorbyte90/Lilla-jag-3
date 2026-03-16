@@ -47,7 +47,7 @@ struct PsykologView: View {
         guard !loadingSuggestion else { return }
         loadingSuggestion = true
         let emotionContext = ai.currentEmotion.map { "Jag mår dåligt och känner \($0.dominant.name)." } ?? "Jag mår inte bra."
-        let prompt = "Ge ett kort, varmt och hoppfullt råd (2 meningar) på svenska om varför det är viktigt att söka professionell hjälp vid psykisk ohälsa. Börja med att validera känslan av att ta steget."
+        let prompt = "\(emotionContext) Ge ett kort, varmt och hoppfullt råd (2 meningar) på svenska om varför det är viktigt att söka professionell hjälp vid psykisk ohälsa. Börja med att validera känslan av att ta steget."
         aiSuggestion = await LillaJagAIService.shared.generateResponse(to: prompt)
         loadingSuggestion = false
     }

@@ -15,7 +15,7 @@ struct AssistantView: View {
 // MARK: - AITherapistView
 
 struct AITherapistView: View {
-    @StateObject private var ai = LillaJagAIService.shared
+    @ObservedObject private var ai = LillaJagAIService.shared
     @State private var inputText = ""
     @State private var showStarters = true
     @State private var scrollProxy: ScrollViewProxy? = nil
@@ -51,10 +51,10 @@ struct AITherapistView: View {
                         .padding(.bottom, 8)
                     }
                     .onAppear { scrollProxy = proxy }
-                    .onChange(of: ai.messages.count) { _ in
+                    .onChange(of: ai.messages.count) { _, _ in
                         scrollToBottom(proxy)
                     }
-                    .onChange(of: ai.isThinking) { thinking in
+                    .onChange(of: ai.isThinking) { _, thinking in
                         if thinking { scrollToBottom(proxy) }
                     }
                 }

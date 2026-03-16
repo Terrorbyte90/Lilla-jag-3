@@ -83,7 +83,9 @@ final class LillaJagAIService: ObservableObject {
 
         // Försök med Qwen om modell finns
         let qwen = QwenEngine.shared
-        let historyForQwen = messages.suffix(8).map { msg in
+        // Exkludera det senast tillagda användarmeddelandet från historiken
+        // eftersom det skickas separat som userMessage-parameter till generate().
+        let historyForQwen = messages.dropLast().suffix(8).map { msg in
             (role: msg.role == .user ? "user" : "assistant", content: msg.content)
         }
 

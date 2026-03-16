@@ -201,8 +201,14 @@ struct AppBackground: View {
 
 // MARK: - Dashboard
 struct Mood1View: View {
-    @StateObject private var viewModel = MoodViewModel()
-    @StateObject private var store = MoodStore() // Behövs för att skicka till logger och andra vyer om de inte använder VM än
+    @StateObject private var store = MoodStore()
+    @StateObject private var viewModel: MoodViewModel
+
+    init() {
+        let sharedStore = MoodStore()
+        _store = StateObject(wrappedValue: sharedStore)
+        _viewModel = StateObject(wrappedValue: MoodViewModel(store: sharedStore))
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -692,6 +698,7 @@ struct MoodLogFlowView: View {
     @State private var gptSummary = ""
     @State private var gptInsights: [String] = []
     @State private var gptAdvice  : [String] = []
+    @State private var summaryPlayer: AVPlayer?
     private let habitCandidates = ["7+ timmar sömn","30+ min utomhus","10+ min meditation","Träning","Grönsaker till 2 måltider"]
 
     var body: some View {
@@ -913,13 +920,19 @@ struct MoodLogFlowView: View {
         VStack(alignment: .leading, spacing: 16) {
             TitleText("Sammanfattning av din dag")
             Text(gptSummary).multilineTextAlignment(.leading).foregroundColor(.white).glass()
-            if let url = Bundle.main.url(forResource: "bipolar", withExtension: "mp4") {
-                VideoPlayer(player: AVPlayer(url: url))
+            if let player = summaryPlayer {
+                VideoPlayer(player: player)
                     .frame(height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(.bottom, 12)
             }
             Button("Gå vidare") { step = 14 }.buttonStyle(GradientButtonStyle())
+        }
+        .onAppear {
+            if summaryPlayer == nil, let url = Bundle.main.url(forResource: "bipolar", withExtension: "mp4") {
+                summaryPlayer = AVPlayer(url: url)
+                summaryPlayer?.play()
+            }
         }
     }
 

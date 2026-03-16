@@ -42,8 +42,6 @@ private let pages: [OnboardingPage] = [
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var currentPage = 0
-    @State private var dragOffset: CGFloat = 0
-    @State private var animateContent = false
 
     var body: some View {
         ZStack {

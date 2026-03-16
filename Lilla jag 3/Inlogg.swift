@@ -80,7 +80,7 @@ public struct Inlogg: View {
         }
         
         // När auth lyckas, visa ContentView
-        .onChange(of: authState) { newValue in
+        .onChange(of: authState) { _, newValue in
             if case .authenticated = newValue {
                 savedLoggedIn = true
                 showMain = true
@@ -168,23 +168,25 @@ private extension Inlogg {
         ensureFirebaseConfigured()
         
         Auth.auth().signIn(withEmail: mail, password: password) { _, error in
-            if let error = error as NSError? {
-                isLoadingPrimary = false
-                Haptics.tap()
-                switch error.code {
-                case AuthErrorCode.userNotFound.rawValue:
-                    Toast.show("Ingen användare hittades. Skapa ett konto.")
-                case AuthErrorCode.wrongPassword.rawValue:
-                    Toast.show("Fel lösenord. Försök igen eller återställ.")
-                case AuthErrorCode.invalidEmail.rawValue:
-                    Toast.show("Ogiltig e-postadress.")
-                default:
-                    Toast.show(error.localizedDescription)
+            DispatchQueue.main.async {
+                if let error = error as NSError? {
+                    isLoadingPrimary = false
+                    Haptics.tap()
+                    switch error.code {
+                    case AuthErrorCode.userNotFound.rawValue:
+                        Toast.show("Ingen användare hittades. Skapa ett konto.")
+                    case AuthErrorCode.wrongPassword.rawValue:
+                        Toast.show("Fel lösenord. Försök igen eller återställ.")
+                    case AuthErrorCode.invalidEmail.rawValue:
+                        Toast.show("Ogiltig e-postadress.")
+                    default:
+                        Toast.show(error.localizedDescription)
+                    }
+                } else {
+                    Haptics.tap()
+                    isLoadingPrimary = false
+                    authState = .authenticated
                 }
-            } else {
-                Haptics.tap()
-                isLoadingPrimary = false
-                authState = .authenticated
             }
         }
     }
@@ -220,12 +222,14 @@ private extension Inlogg {
             )
             ensureFirebaseConfigured()
             Auth.auth().signIn(with: credential) { _, error in
-                if let error = error {
-                    Haptics.tap()
-                    Toast.show(error.localizedDescription)
-                } else {
-                    Haptics.tap()
-                    authState = .authenticated
+                DispatchQueue.main.async {
+                    if let error = error {
+                        Haptics.tap()
+                        Toast.show(error.localizedDescription)
+                    } else {
+                        Haptics.tap()
+                        authState = .authenticated
+                    }
                 }
             }
         }
@@ -753,13 +757,15 @@ private struct ForgotPasswordSheet: View {
         isSending = true
         if FirebaseApp.app() == nil, let options = FirebaseOptions.defaultOptions() { FirebaseApp.configure(options: options) }
         Auth.auth().sendPasswordReset(withEmail: mail) { error in
-            isSending = false
-            if let error = error {
-                Toast.show(error.localizedDescription)
-            } else {
-                Haptics.tap()
-                onSent()
-                dismiss()
+            DispatchQueue.main.async {
+                isSending = false
+                if let error = error {
+                    Toast.show(error.localizedDescription)
+                } else {
+                    Haptics.tap()
+                    onSent()
+                    dismiss()
+                }
             }
         }
     }
@@ -863,13 +869,15 @@ private struct CreateAccountSheet: View {
         isCreating = true
         if FirebaseApp.app() == nil, let options = FirebaseOptions.defaultOptions() { FirebaseApp.configure(options: options) }
         Auth.auth().createUser(withEmail: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password) { _, error in
-            isCreating = false
-            if let error = error {
-                Toast.show(error.localizedDescription)
-            } else {
-                Haptics.tap()
-                onCreated()
-                dismiss()
+            DispatchQueue.main.async {
+                isCreating = false
+                if let error = error {
+                    Toast.show(error.localizedDescription)
+                } else {
+                    Haptics.tap()
+                    onCreated()
+                    dismiss()
+                }
             }
         }
     }
