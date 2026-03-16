@@ -143,7 +143,7 @@ struct ForumView: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
             Spacer()
-            Text("\(posts.count) inlägg")
+            Text("\(filtered.count) inlägg")
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.4))
         }
