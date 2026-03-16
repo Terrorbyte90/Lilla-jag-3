@@ -140,14 +140,15 @@ struct DagbokDashboardView: View {
                         Spacer()
                         Button {
                             showNewEntry = true
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         } label: {
                             Image(systemName: "plus")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(.black)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(.white)
                                 .frame(width: 56, height: 56)
-                                .background(Color.warmGold)
+                                .background(DesignSystem.Colors.brandGradient)
                                 .clipShape(Circle())
-                                .shadow(color: Color.warmGold.opacity(0.4), radius: 12, y: 4)
+                                .shadow(color: DesignSystem.Colors.accent.opacity(0.5), radius: 16, x: 0, y: 6)
                         }
                         .buttonStyle(.plain)
                         .padding(.trailing, 20)
@@ -187,18 +188,15 @@ struct DagbokDashboardView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
+        VStack {
             Spacer()
-            Image(systemName: "book.closed")
-                .font(.system(size: 52))
-                .foregroundStyle(Color.warmGold.opacity(0.5))
-            Text("Din dagbok är tom")
-                .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
-            Text("Tryck på + för att skapa din första\nKBT-anteckning med ABC-modellen.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.6))
-                .multilineTextAlignment(.center)
+            LJEmptyState(
+                icon: "book.closed",
+                title: "Din dagbok är tom",
+                subtitle: "Tryck på + för att skapa din första KBT-anteckning med ABC-modellen.",
+                actionLabel: "Ny anteckning",
+                onAction: { showNewEntry = true }
+            )
             Spacer()
         }
     }
@@ -267,9 +265,14 @@ struct EntryCard: View {
                 }
             }
         }
-        .padding(14)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.glassMedium,
+                    in: RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous)
+                .stroke(Color.white.opacity(0.09), lineWidth: 1)
+        )
+        .ljShadowSmall()
     }
 }
 

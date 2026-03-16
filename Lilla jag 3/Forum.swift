@@ -110,64 +110,70 @@ struct ForumView: View {
 
     private var tagFilterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(allTags, id: \.self) { tag in
                     Button {
-                        withAnimation(.spring(response: 0.3)) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
                             selectedTag = tag
                         }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } label: {
                         Text(tag)
-                            .font(.system(.caption, design: .rounded, weight: .semibold))
-                            .foregroundStyle(selectedTag == tag ? .black : .white.opacity(0.75))
-                            .padding(.horizontal, 14)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundStyle(selectedTag == tag ? .white : .white.opacity(0.55))
+                            .padding(.horizontal, 16)
                             .padding(.vertical, 7)
                             .background(
-                                selectedTag == tag
-                                ? AnyShapeStyle(Color.warmLavender)
-                                : AnyShapeStyle(Color.white.opacity(0.1)),
-                                in: Capsule()
+                                Group {
+                                    if selectedTag == tag {
+                                        Capsule().fill(DesignSystem.Colors.brandGradient)
+                                    } else {
+                                        Capsule().fill(Color.white.opacity(0.07))
+                                            .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                                    }
+                                }
                             )
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 2)
         }
     }
 
     private var anonymityBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "lock.shield.fill")
-                .foregroundStyle(Color.warmSage)
-            Text("Alla inlägg är anonyma. Du väljer ett smeknamn.")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+                .font(.system(size: 14))
+                .foregroundStyle(DesignSystem.Colors.accentSage)
+            Text("Alla inlägg är anonyma")
+                .font(DesignSystem.Typography.caption)
+                .foregroundStyle(DesignSystem.Colors.textSecondary)
             Spacer()
             Text("\(filtered.count) inlägg")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.4))
+                .font(DesignSystem.Typography.caption2)
+                .foregroundStyle(DesignSystem.Colors.textTertiary)
         }
-        .padding(12)
-        .background(Color.warmSage.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmSage.opacity(0.2), lineWidth: 1))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(DesignSystem.Colors.accentSage.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous)
+                .stroke(DesignSystem.Colors.accentSage.opacity(0.18), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .padding(.top, 12)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 36))
-                .foregroundStyle(.white.opacity(0.3))
-            Text("Inga inlägg med taggen "\(selectedTag)"")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(.white.opacity(0.5))
-            Button("Skapa ett") { showNewPost = true }
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(Color.warmGold)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(40)
+        LJEmptyState(
+            icon: "bubble.left.and.bubble.right",
+            title: "Inga inlägg",
+            subtitle: "Inga inlägg med taggen "\(selectedTag)" ännu.",
+            actionLabel: "Skapa ett",
+            onAction: { showNewPost = true }
+        )
     }
 }
 
@@ -178,66 +184,81 @@ struct ForumCard: View {
     @State private var isExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(post.author)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.6))
-                Spacer()
-                Text(post.timeAgo)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.4))
-                TagBadge(text: post.tag, color: post.tagColor)
-            }
+        HStack(alignment: .top, spacing: 0) {
+            // Colored left accent bar
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(post.tagColor)
+                .frame(width: 3)
+                .padding(.vertical, 14)
+                .padding(.leading, 12)
 
-            Text(post.title)
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-
-            Text(post.content)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(isExpanded ? nil : 3)
-                .animation(.easeInOut(duration: 0.2), value: isExpanded)
-
-            if post.content.count > 120 {
-                Button(isExpanded ? "Visa mindre" : "Läs mer") {
-                    withAnimation { isExpanded.toggle() }
+            VStack(alignment: .leading, spacing: 9) {
+                // Author / time / tag row
+                HStack {
+                    Text(post.author)
+                        .font(DesignSystem.Typography.caption2)
+                        .foregroundStyle(DesignSystem.Colors.textTertiary)
+                    Spacer()
+                    Text(post.timeAgo)
+                        .font(DesignSystem.Typography.caption2)
+                        .foregroundStyle(DesignSystem.Colors.textTertiary)
+                    TagBadge(text: post.tag, color: post.tagColor)
                 }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(post.tagColor.opacity(0.9))
-                .buttonStyle(.plain)
-            }
 
-            HStack(spacing: 16) {
-                Button {
-                    withAnimation(.spring(response: 0.3)) {
-                        post.likes += post.isLiked ? -1 : 1
-                        post.isLiked.toggle()
+                // Title
+                Text(post.title)
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+                    .lineLimit(2)
+
+                // Content
+                Text(post.content)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(DesignSystem.Colors.textSecondary)
+                    .lineLimit(isExpanded ? nil : 3)
+                    .animation(.easeInOut(duration: 0.22), value: isExpanded)
+
+                if post.content.count > 120 {
+                    Button(isExpanded ? "Visa mindre" : "Läs mer") {
+                        withAnimation { isExpanded.toggle() }
                     }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    Label("\(post.likes)", systemImage: post.isLiked ? "heart.fill" : "heart")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(post.isLiked ? Color.warmRose : .white.opacity(0.5))
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(post.tagColor.opacity(0.85))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
-                Label("\(post.comments)", systemImage: "bubble.left")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
+                // Reactions
+                HStack(spacing: 16) {
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
+                            post.likes += post.isLiked ? -1 : 1
+                            post.isLiked.toggle()
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Label("\(post.likes)", systemImage: post.isLiked ? "heart.fill" : "heart")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundStyle(post.isLiked ? Color.warmRose : DesignSystem.Colors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
 
-                Spacer()
+                    Label("\(post.comments)", systemImage: "bubble.left")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundStyle(DesignSystem.Colors.textTertiary)
 
-                Image(systemName: "square.and.arrow.up")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.3))
+                    Spacer()
+                }
             }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 12)
         }
-        .padding(14)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .background(DesignSystem.Colors.glassMedium,
+                    in: RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        )
+        .ljShadowSmall()
     }
 }
 

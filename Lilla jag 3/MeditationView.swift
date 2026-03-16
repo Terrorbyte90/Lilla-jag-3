@@ -236,8 +236,13 @@ struct ExerciseCard: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .padding(14)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(exercise.color.opacity(isDone ? 0.35 : 0.2), lineWidth: 1))
+            .background(DesignSystem.Colors.glassMedium,
+                        in: RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous)
+                    .stroke(exercise.color.opacity(isDone ? 0.35 : 0.18), lineWidth: 1)
+            )
+            .ljShadowSmall()
         }
         .buttonStyle(.plain)
     }

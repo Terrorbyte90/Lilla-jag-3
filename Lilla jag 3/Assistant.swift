@@ -69,34 +69,44 @@ struct AITherapistView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
+            // Avatar with animated emotion ring
             ZStack {
                 Circle()
-                    .fill((ai.currentEmotion?.color ?? Color.warmLavender).opacity(0.2))
-                    .frame(width: 44, height: 44)
+                    .stroke(
+                        (ai.currentEmotion?.color ?? DesignSystem.Colors.accent).opacity(0.4),
+                        lineWidth: 2
+                    )
+                    .frame(width: 46, height: 46)
                     .animation(.spring(response: 0.5), value: ai.currentEmotion?.dominant.name)
+
+                Circle()
+                    .fill((ai.currentEmotion?.color ?? DesignSystem.Colors.accent).opacity(0.15))
+                    .frame(width: 42, height: 42)
+                    .animation(.spring(response: 0.5), value: ai.currentEmotion?.dominant.name)
+
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(ai.currentEmotion?.color ?? Color.warmLavender)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(ai.currentEmotion?.color ?? DesignSystem.Colors.accent)
                     .animation(.spring(response: 0.5), value: ai.currentEmotion?.dominant.name)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("KBT-Assistenten")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
-                HStack(spacing: 4) {
-                    Circle().fill(.green).frame(width: 6, height: 6)
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(DesignSystem.Colors.success)
+                        .frame(width: 5, height: 5)
                     if let emotion = ai.currentEmotion, !ai.messages.isEmpty {
-                        Text("Känsla: \(emotion.dominant.name)")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
+                        Text("Känsla detekterad: \(emotion.dominant.name)")
                             .transition(.opacity)
                     } else {
                         Text("Lokal AI · 100% privat")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
                     }
                 }
+                .font(DesignSystem.Typography.caption)
+                .foregroundStyle(DesignSystem.Colors.textTertiary)
                 .animation(.easeInOut(duration: 0.3), value: ai.currentEmotion?.dominant.name)
             }
 
@@ -107,12 +117,14 @@ struct AITherapistView: View {
                     ai.newSession()
                     showStarters = true
                 }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DesignSystem.Colors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(Color.white.opacity(0.08), in: Circle())
+                    .background(Color.white.opacity(0.07), in: Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
             }
             .buttonStyle(.plain)
         }
@@ -181,32 +193,49 @@ struct AITherapistView: View {
     private var inputBar: some View {
         HStack(spacing: 10) {
             TextField("Berätta hur du mår...", text: $inputText, axis: .vertical)
-                .font(.system(.body, design: .rounded))
+                .font(DesignSystem.Typography.body)
                 .foregroundStyle(.white)
                 .lineLimit(1...5)
                 .focused($inputFocused)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .padding(.vertical, 11)
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color.white.opacity(inputFocused ? 0.12 : 0.07))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(
+                                    inputFocused ? DesignSystem.Colors.accent.opacity(0.45) : Color.white.opacity(0.09),
+                                    lineWidth: 1.5
+                                )
+                        )
+                        .animation(.easeInOut(duration: 0.18), value: inputFocused)
                 )
 
+            let canSend = !inputText.trimmingCharacters(in: .whitespaces).isEmpty && !ai.isThinking
             Button {
                 sendMessage(inputText)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(inputText.trimmingCharacters(in: .whitespaces).isEmpty || ai.isThinking
-                                     ? Color.white.opacity(0.3) : Color.warmLavender)
+                ZStack {
+                    Circle()
+                        .fill(canSend ? DesignSystem.Colors.brandGradient : AnyShapeStyle(Color.white.opacity(0.08)))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(canSend ? .white : .white.opacity(0.3))
+                }
+                .animation(.spring(response: 0.25), value: canSend)
             }
             .buttonStyle(.plain)
-            .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || ai.isThinking)
+            .disabled(!canSend)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Divider().opacity(0.08)
+        }
     }
 
     // MARK: - Actions
@@ -345,28 +374,43 @@ struct StarterChip: View {
     let starter: ConversationStarter
     let action: () -> Void
 
+    @State private var isPressed = false
+
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: starter.icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(starter.color)
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(starter.color.opacity(0.18))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: starter.icon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(starter.color)
+                }
                 Text(starter.rawValue)
-                    .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundStyle(.white)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(3)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(12)
-            .background(starter.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .background(starter.color.opacity(0.09),
+                        in: RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(starter.color.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous)
+                    .stroke(starter.color.opacity(0.22), lineWidth: 1)
             )
+            .scaleEffect(isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isPressed)
         }
         .buttonStyle(.plain)
-        .frame(minHeight: 70)
+        .frame(minHeight: 80)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded   { _ in isPressed = false }
+        )
     }
 }
 

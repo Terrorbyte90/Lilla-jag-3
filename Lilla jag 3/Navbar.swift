@@ -1,38 +1,16 @@
 //
 //  Navbar.swift
-//  Lilla Jag
-//
-//  ➜  Så använder du den:
-//
-//  1.  Lägg den här filen i projektet.
-//  2.  I varje huvudsida lägger du **en rad**:
-//
-//          .withNavbar(dest: .chat)   // välj .home/.diary/.diagnoses/.chat/.mood
-//
-//      Exempel:
-//
-//          struct AssistantView: View {
-//              var body: some View {
-//                  Color.yellow.opacity(0.2)
-//                      .overlay(Text("Prata").font(.largeTitle))
-//                      .withNavbar(dest: .chat)      // ← en rad räcker
-//              }
-//          }
-//
-//  3.  Ha en enda “RootContainer” som staplar alla fem sidor i en ZStack
-//      – modifieraren gör att bara den aktiva visas, resten är tomma.
-//      Se preview längst ned.
-//
-//  Resultat:  Varje sida kan leva helt fristående, men växlar snyggt via NavRouter.
+//  Lilla Jag
 //
 
 import SwiftUI
 
 // MARK: - 1  Destinations­enum
+
 enum NavDestination: String, CaseIterable, Identifiable {
     case home, diary, diagnoses, chat, mood
     var id: String { rawValue }
-    
+
     var title: String {
         switch self {
         case .home:       return "Hem"
@@ -51,79 +29,109 @@ enum NavDestination: String, CaseIterable, Identifiable {
         case .mood:       return "face.smiling.fill"
         }
     }
+    var activeColor: Color {
+        switch self {
+        case .home:       return .warmLavender
+        case .diary:      return .warmGold
+        case .diagnoses:  return Color(hex: 0x6ECFF6)
+        case .chat:       return .warmLavender
+        case .mood:       return .warmRose
+        }
+    }
 }
 
-// MARK: - 2  Global router (delad instans)
+// MARK: - 2  Global router
+
 final class NavRouter: ObservableObject {
     static let shared = NavRouter()
     @Published var current: NavDestination = .home
 }
 
-// MARK: - 3  Snygg navbar
+// MARK: - 3  Premium Navbar
+
 struct Navbar: View {
     @ObservedObject private var router = NavRouter.shared
-    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
-    @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
-    
-    private let gradient = LinearGradient(colors: [.pink, .purple],
-                                          startPoint: .topLeading,
-                                          endPoint: .bottomTrailing)
-    
+    @Namespace private var pillNS
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(NavDestination.allCases) { dest in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                NavItem(dest: dest, isActive: router.current == dest, namespace: pillNS) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
                         router.current = dest
                     }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: dest.icon)
-                            .font(.system(size: min(iconSize, 24), weight: .semibold))
-                        Text(dest.title)
-                            .font(.system(size: min(labelSize, 12), weight: .medium))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .foregroundStyle(router.current == dest ? Color.white
-                                                            : Color.primary.opacity(0.7))
-                    .background(
-                        Group {
-                            if router.current == dest {
-                                gradient
-                                    .clipShape(RoundedRectangle(cornerRadius: 12,
-                                                                 style: .continuous))
-                            } else {
-                                Color.clear
-                            }
-                        }
-                    )
                 }
-                .buttonStyle(.plain)
             }
         }
-        .padding(8)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
         .background(.ultraThinMaterial,
-                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1))
-        .shadow(radius: 6, y: 3)
-        .padding(.horizontal, 12)
+                    in: RoundedRectangle(cornerRadius: DesignSystem.Radius.large, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.Radius.large, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 8)
+        .padding(.horizontal, 20)
     }
 }
 
-// MARK: - 4  Modifierare som växlar vyer
+// MARK: - Nav Item
+
+private struct NavItem: View {
+    let dest: NavDestination
+    let isActive: Bool
+    let namespace: Namespace.ID
+    let onTap: () -> Void
+
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+    @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 3) {
+                Image(systemName: dest.icon)
+                    .font(.system(size: min(iconSize, 20), weight: isActive ? .bold : .regular))
+                    .foregroundStyle(isActive ? dest.activeColor : Color.white.opacity(0.45))
+                    .scaleEffect(isActive ? 1.08 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isActive)
+
+                Text(dest.title)
+                    .font(.system(size: min(labelSize, 10), weight: isActive ? .bold : .medium,
+                                  design: .rounded))
+                    .foregroundStyle(isActive ? dest.activeColor : Color.white.opacity(0.35))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(
+                Group {
+                    if isActive {
+                        RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous)
+                            .fill(dest.activeColor.opacity(0.14))
+                            .matchedGeometryEffect(id: "navPill", in: namespace)
+                            .shadow(color: dest.activeColor.opacity(0.25), radius: 8, x: 0, y: 2)
+                    }
+                }
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 4  Modifier
+
 private struct NavbarModifier: ViewModifier {
     let dest: NavDestination
     @ObservedObject private var router = NavRouter.shared
-    
+
     func body(content: Content) -> some View {
         Group {
             if router.current == dest {
                 content
                     .safeAreaInset(edge: .bottom) {
                         Navbar()
-                            .padding(.bottom, 8)
+                            .padding(.bottom, 6)
                     }
             } else {
                 Color.clear
@@ -132,17 +140,16 @@ private struct NavbarModifier: ViewModifier {
     }
 }
 
-// MARK: - 5  Publik helper
+// MARK: - 5  Public helper
+
 extension View {
-    /// Använd på din sida så här:
-    /// `.withNavbar(dest: .chat)`
     func withNavbar(dest: NavDestination) -> some View {
         modifier(NavbarModifier(dest: dest))
     }
 }
 
+// MARK: - 6  Root container
 
-// MARK: - 7  Root‑container som staplar alla vyer
 struct RootContainer: View {
     var body: some View {
         ZStack {
@@ -152,12 +159,13 @@ struct RootContainer: View {
             AssistantView().withNavbar(dest: .chat)
             Mood1View().withNavbar(dest: .mood)
         }
-        .animation(.easeInOut(duration: 0.25), value: NavRouter.shared.current)
+        .animation(.easeInOut(duration: 0.22), value: NavRouter.shared.current)
         .environment(\.colorScheme, .dark)
     }
 }
 
-// MARK: - 8  Preview
+// MARK: - 7  Preview
+
 #Preview {
     RootContainer()
         .preferredColorScheme(.dark)
