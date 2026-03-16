@@ -383,6 +383,7 @@ struct DiagnosisDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var aiInsight: String = ""
     @State private var loadingInsight = false
+    @State private var videoPlayer: AVPlayer?
 
     var body: some View {
         ZStack {
@@ -446,8 +447,8 @@ struct DiagnosisDetailView: View {
                         }
                     }
 
-                    if let url = Bundle.main.url(forResource: diagnosis.videoFile, withExtension: "mp4") {
-                        VideoPlayer(player: AVPlayer(url: url))
+                    if let player = videoPlayer {
+                        VideoPlayer(player: player)
                             .frame(height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .ljGlassCard(radius: 20)
@@ -495,6 +496,11 @@ struct DiagnosisDetailView: View {
                     Spacer(minLength: 50)
                 }
                 .padding()
+            }
+        }
+        .onAppear {
+            if let url = Bundle.main.url(forResource: diagnosis.videoFile, withExtension: "mp4") {
+                videoPlayer = AVPlayer(url: url)
             }
         }
     }

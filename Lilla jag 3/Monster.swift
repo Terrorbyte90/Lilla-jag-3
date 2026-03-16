@@ -171,21 +171,6 @@ final class LoopingPlayerUIView: UIView {
     override func layoutSubviews() { super.layoutSubviews(); layer.sublayers?.first?.frame = bounds }
 }
 
-// MARK: - 8  Stilknappar
-struct GradientButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity)
-            .background(LinearGradient(colors: [.pink, .purple], startPoint: .leading, endPoint: .trailing))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: .pink.opacity(0.35), radius: configuration.isPressed ? 2 : 6, y: 2)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .foregroundColor(.white)
-            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
-    }
-}
 
 struct OptionButton: View {
     let label: String
