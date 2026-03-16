@@ -310,6 +310,14 @@ let diagnoses: [Diagnosis] = [
 struct DiagnoserView: View {
     @State private var selected: Diagnosis?
     @State private var searchText = ""
+    @State private var appeared: Set<Int> = []
+
+    private let cardColors: [Color] = [
+        .warmLavender, .warmRose, Color(hex: 0x6ECFF6), .warmSage,
+        .warmGold, .warmCoral, Color(hex: 0x9B6FD6), .warmLavender,
+        .warmRose, Color(hex: 0x6ECFF6), .warmSage, .warmGold,
+        .warmCoral, Color(hex: 0x9B6FD6), .warmLavender
+    ]
 
     var filtered: [Diagnosis] {
         if searchText.isEmpty { return diagnoses }
@@ -321,58 +329,137 @@ struct DiagnoserView: View {
             WarmBackground()
 
             VStack(spacing: 0) {
+                // Header
                 HStack {
-                    LJTitle(text: "Diagnoser")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Diagnoser")
+                            .font(DesignSystem.Typography.titleMain)
+                            .foregroundStyle(DesignSystem.Colors.textPrimary)
+                        Text("\(diagnoses.count) tillstånd")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundStyle(DesignSystem.Colors.textTertiary)
+                    }
                     Spacer()
                 }
-                .padding(.horizontal)
-                .padding(.top, 20)
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.top, DesignSystem.Spacing.lg)
+                .padding(.bottom, DesignSystem.Spacing.sm)
 
-                HStack {
+                // Search field
+                HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DesignSystem.Colors.textTertiary)
                     TextField("Sök diagnos...", text: $searchText)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundStyle(DesignSystem.Colors.textPrimary)
                         .textFieldStyle(.plain)
-                        .foregroundColor(.white)
-                }
-                .padding()
-                .ljGlassCard(radius: 12)
-                .padding()
-
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(filtered) { diag in
-                            Button {
-                                selected = diag
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(diag.name)
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                        Text(diag.description)
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.7))
-                                            .lineLimit(2)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding()
-                                .ljGlassCard()
-                            }
-                            .buttonStyle(.plain)
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(DesignSystem.Colors.textTertiary)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 120)
+                }
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.vertical, 12)
+                .background(DesignSystem.Colors.glassMedium,
+                            in: RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DesignSystem.Radius.small, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.bottom, DesignSystem.Spacing.sm)
+
+                if filtered.isEmpty {
+                    LJEmptyState(
+                        icon: "magnifyingglass",
+                        title: "Ingen träff",
+                        subtitle: "Inget tillstånd matchar "\(searchText)"."
+                    )
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 12) {
+                            ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, diag in
+                                let color = cardColors[min(idx, cardColors.count - 1)]
+                                DiagnosisCard(diagnosis: diag, accentColor: color) {
+                                    selected = diag
+                                }
+                                .opacity(appeared.contains(idx) ? 1 : 0)
+                                .offset(y: appeared.contains(idx) ? 0 : 16)
+                                .onAppear {
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)
+                                        .delay(Double(min(idx, 8)) * 0.05)) {
+                                        appeared.insert(idx)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, DesignSystem.Spacing.md)
+                        .padding(.bottom, 120)
+                    }
                 }
             }
         }
         .fullScreenCover(item: $selected) { diag in
             DiagnosisDetailView(diagnosis: diag)
         }
+    }
+}
+
+// MARK: - Diagnosis Card
+
+private struct DiagnosisCard: View {
+    let diagnosis: Diagnosis
+    let accentColor: Color
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Color accent dot
+                Circle()
+                    .fill(accentColor)
+                    .frame(width: 8, height: 8)
+                    .padding(.leading, 4)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(diagnosis.name)
+                        .font(DesignSystem.Typography.headline)
+                        .foregroundStyle(DesignSystem.Colors.textPrimary)
+                    Text(diagnosis.description)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(accentColor.opacity(0.5))
+            }
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, 14)
+            .background(DesignSystem.Colors.glassMedium,
+                        in: RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.Radius.medium, style: .continuous)
+                    .stroke(accentColor.opacity(0.12), lineWidth: 1)
+            )
+            .scaleEffect(isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded   { _ in isPressed = false }
+        )
     }
 }
 
@@ -395,39 +482,43 @@ struct DiagnosisDetailView: View {
                         Button {
                             dismiss()
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.title)
-                                .foregroundColor(.white.opacity(0.5))
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(DesignSystem.Colors.textSecondary)
+                                .frame(width: 36, height: 36)
+                                .background(Color.white.opacity(0.09), in: Circle())
+                                .overlay(Circle().stroke(Color.white.opacity(0.09), lineWidth: 1))
                         }
+                        .buttonStyle(.plain)
                         Spacer()
 
                         Button {
                             loadAIInsight()
                         } label: {
-                            HStack {
+                            HStack(spacing: 6) {
                                 if loadingInsight {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .scaleEffect(0.8)
+                                    ProgressView().tint(.white).scaleEffect(0.75)
                                 } else {
-                                    Image(systemName: "brain.head.profile")
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 13, weight: .semibold))
                                 }
                                 Text(loadingInsight ? "Tänker..." : "AI-insikt")
+                                    .font(DesignSystem.Typography.caption)
                             }
-                            .font(.subheadline.bold())
-                            .padding(.horizontal, 16)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(Color.warmLavender.opacity(0.3), in: Capsule())
-                            .overlay(Capsule().stroke(Color.warmLavender, lineWidth: 1))
+                            .background(DesignSystem.Colors.accent.opacity(0.18), in: Capsule())
+                            .overlay(Capsule().stroke(DesignSystem.Colors.accent.opacity(0.3), lineWidth: 1))
                         }
                         .disabled(loadingInsight)
-                        .foregroundStyle(.white)
+                        .buttonStyle(.plain)
                     }
-                    .padding(.top, 20)
+                    .padding(.top, DesignSystem.Spacing.lg)
 
                     Text(diagnosis.name)
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.white)
+                        .font(DesignSystem.Typography.titleLarge)
+                        .foregroundStyle(DesignSystem.Colors.textPrimary)
 
                     if !aiInsight.isEmpty {
                         LJCard {
