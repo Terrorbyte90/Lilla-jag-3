@@ -58,10 +58,9 @@ struct AITherapistView: View {
                         if ai.isThinking { scrollToBottom(proxy) }
                     }
                 }
-
-                inputBar
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
         .preferredColorScheme(.dark)
     }
 
@@ -130,9 +129,9 @@ struct AITherapistView: View {
                 ZStack {
                     Circle()
                         .fill(Color.warmLavender.opacity(0.1))
-                        .frame(width: 80, height: 80)
+                        .frame(width: 64, height: 64)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 36))
+                        .font(.system(size: 28))
                         .foregroundStyle(Color.warmLavender)
                 }
                 .padding(.bottom, 4)
@@ -375,7 +374,7 @@ struct StarterChip: View {
             )
         }
         .buttonStyle(.plain)
-        .frame(minHeight: 70)
+        .frame(minHeight: 60)
     }
 }
 

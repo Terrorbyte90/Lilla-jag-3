@@ -295,12 +295,12 @@ struct EmotionBadge: View {
 
     private var color: Color {
         switch emotion {
-        case "Ångest":     return .warmLavender
+        case "Ångest":     return Color.warmLavender
         case "Nedstämdhet": return Color(hex: 0x6B8DD6)
-        case "Ilska":      return .warmCoral
+        case "Ilska":      return Color.warmCoral
         case "Skam":       return Color(hex: 0xFF8FAD)
         case "Ensamhet":   return Color(hex: 0x7EC8E3)
-        default:           return .warmGold
+        default:           return Color.warmGold
         }
     }
 
@@ -394,7 +394,7 @@ struct ABCEntryView: View {
     private var stepContent: some View {
         switch step {
         case 0:
-            stepCard(icon: "doc.text", color: .warmGold, title: "Ge din anteckning en titel") {
+            stepCard(icon: "doc.text", color: Color.warmGold, title: "Ge din anteckning en titel") {
                 TextField("Ex: Svårt möte med chef", text: $entry.title)
                     .abcField()
             }

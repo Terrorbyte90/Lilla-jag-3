@@ -6,7 +6,7 @@
 //  • Byt API‑nyckeln i OpenAIConfig.
 //  • Videomonstret loopar utan kontroller.
 //  • Logg‑guiden öppnas helskärm med 4 tydliga val, faktaruta och en kort mp4‑loop per steg.
-//  • GPT‑tipsen fokuserar på det som gått bra och pratar alltid i “du”-form.
+//  • GPT‑tipsen fokuserar på det som gått bra och pratar alltid i "du"-form.
 //
 import SwiftUI
 import AVKit
@@ -103,33 +103,33 @@ final class MonsterGPT {
 
         // Beröm det som gick bra (rating ≥ 3)
         if log.sleep >= 3 {
-            tips.append(Tip(text: “Monstret blev glad att du sov bra i natt – sömn är superkraft!”))
+            tips.append(Tip(text: "Monstret blev glad att du sov bra i natt – sömn är superkraft!"))
         }
         if log.meals >= 3 {
-            tips.append(Tip(text: “Bra jobbat med maten idag! Kroppen tackar dig.”))
+            tips.append(Tip(text: "Bra jobbat med maten idag! Kroppen tackar dig."))
         }
         if log.outdoor >= 3 {
-            tips.append(Tip(text: “Monstret älskar att du var utomhus – dagsljus gör underverk!”))
+            tips.append(Tip(text: "Monstret älskar att du var utomhus – dagsljus gör underverk!"))
         }
         if log.exercise >= 3 {
-            tips.append(Tip(text: “Du rörde på dig idag – monstret hoppar av glädje!”))
+            tips.append(Tip(text: "Du rörde på dig idag – monstret hoppar av glädje!"))
         }
         if log.social >= 3 {
-            tips.append(Tip(text: “Social kontakt gör monstret varmt i hjärtat. Bra att du umgicks!”))
+            tips.append(Tip(text: "Social kontakt gör monstret varmt i hjärtat. Bra att du umgicks!"))
         }
 
         // Om inget var ≥ 3, ge uppmuntran
         if tips.isEmpty {
-            tips.append(Tip(text: “Monstret vill bara säga: du klarade dagen, och det räcker.”))
-            tips.append(Tip(text: “Imorgon är en ny chans – ett litet steg i taget.”))
+            tips.append(Tip(text: "Monstret vill bara säga: du klarade dagen, och det räcker."))
+            tips.append(Tip(text: "Imorgon är en ny chans – ett litet steg i taget."))
         }
 
         // Ge ett förbättringsförslag för det lägsta
-        let scores = [(“sömnen”, log.sleep), (“maten”, log.meals),
-                      (“utomhustiden”, log.outdoor), (“träningen”, log.exercise),
-                      (“det sociala”, log.social)]
+        let scores = [("sömnen", log.sleep), ("maten", log.meals),
+                      ("utomhustiden", log.outdoor), ("träningen", log.exercise),
+                      ("det sociala", log.social)]
         if let lowest = scores.min(by: { $0.1 < $1.1 }), lowest.1 < 3 {
-            tips.append(Tip(text: “Monstret undrar: kan du satsa lite extra på \(lowest.0) imorgon?”))
+            tips.append(Tip(text: "Monstret undrar: kan du satsa lite extra på \(lowest.0) imorgon?"))
         }
 
         return Array(tips.prefix(3))

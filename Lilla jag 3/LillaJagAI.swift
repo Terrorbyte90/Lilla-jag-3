@@ -576,12 +576,12 @@ enum ConversationStarter: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .ångest:      return .warmLavender
+        case .ångest:      return Color.warmLavender
         case .nedstämdhet: return Color(hex: 0x6B8DD6)
         case .sömnproblem: return Color(hex: 0x9B8ED6)
-        case .ensamhet:    return .warmRose
-        case .stress:      return .warmGold
-        case .tankar:      return .warmSage
+        case .ensamhet:    return Color.warmRose
+        case .stress:      return Color.warmGold
+        case .tankar:      return Color.warmSage
         case .krisplan:    return Color(hex: 0xFF5B5B)
         }
     }

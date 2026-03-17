@@ -72,6 +72,13 @@ struct Dashboard: View {
                 viewModel.lastMonsterLog = log
             }
         }
+        .fullScreenCover(isPresented: $viewModel.showAchievements) {
+            AchievementsGridView()
+        }
+        .fullScreenCover(isPresented: $viewModel.showSOS) { CrisisSheetView() }
+        .task {
+            await NotificationManager.shared.requestPermission()
+        }
     }
 }
 
@@ -122,7 +129,7 @@ private extension Dashboard {
             HStack {
                 Image(systemName: viewModel.hasCheckedInToday ? "checkmark.circle.fill" : "sun.horizon.fill")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(viewModel.hasCheckedInToday ? .warmSage : .warmGold)
+                    .foregroundStyle(viewModel.hasCheckedInToday ? Color.warmSage : Color.warmGold)
                 Text(viewModel.hasCheckedInToday ? "Incheckat idag!" : "Hur mår du idag?")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
@@ -170,7 +177,7 @@ private extension Dashboard {
                         .foregroundStyle(.white.opacity(0.8))
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.warmSage)
+                        .foregroundStyle(Color.warmSage)
                 }
                 .transition(.scale.combined(with: .opacity))
             }
@@ -192,7 +199,7 @@ private extension Dashboard {
                         .frame(width: 38, height: 38)
                     Image(systemName: "flame.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(viewModel.currentStreak > 0 ? .warmGold : .white.opacity(0.3))
+                        .foregroundStyle(viewModel.currentStreak > 0 ? Color.warmGold : Color.white.opacity(0.3))
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text("\(viewModel.currentStreak)")
@@ -227,7 +234,7 @@ private extension Dashboard {
                         .foregroundStyle(.white.opacity(0.5))
                     Text("\(min(viewModel.currentStreak, 7))/7")
                         .font(.system(.caption, design: .rounded, weight: .bold))
-                        .foregroundStyle(.warmSage)
+                        .foregroundStyle(Color.warmSage)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -257,6 +264,11 @@ private extension Dashboard {
                                       label: "Psykolog",
                                       color: Color(hex: 0x6ECFF6)) {
                     viewModel.showPsykolog = true
+                }
+                DashboardActionButton(icon: "trophy.fill",
+                                      label: "Prestationer",
+                                      color: Color.warmGold) {
+                    viewModel.showAchievements = true
                 }
             }
         }
@@ -305,10 +317,10 @@ private extension Dashboard {
             HStack(spacing: 6) {
                 Image(systemName: "quote.opening")
                     .font(.system(size: 12))
-                    .foregroundStyle(.warmGold.opacity(0.6))
+                    .foregroundStyle(Color.warmGold.opacity(0.6))
                 Text("Dagens påminnelse")
                     .font(.system(.caption2, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.warmGold.opacity(0.6))
+                    .foregroundStyle(Color.warmGold.opacity(0.6))
                     .textCase(.uppercase)
                     .tracking(0.5)
             }
@@ -342,7 +354,7 @@ private extension Dashboard {
 
         return VStack(spacing: 12) {
             HStack(spacing: 12) {
-                LJIconCircle(icon: "pawprint.fill", color: .warmLavender, size: 44)
+                LJIconCircle(icon: "pawprint.fill", color: Color.warmLavender, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Ditt monster")
                         .font(.system(.headline, design: .rounded, weight: .bold))
@@ -379,7 +391,7 @@ private extension Dashboard {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
-                    LinearGradient(colors: [.warmLavender, .warmRose],
+                    LinearGradient(colors: [Color.warmLavender, Color.warmRose],
                                    startPoint: .leading, endPoint: .trailing),
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
@@ -450,64 +462,91 @@ private extension Dashboard {
     // MARK: - Ukraine & Social
 
     var ukraineBanner: some View {
-        HStack(spacing: 12) {
-            Button {
-                viewModel.showUkraine = true
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(.white.opacity(0.1))
-                            .frame(width: 40, height: 40)
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(LinearGradient(colors: [.blue, .yellow], startPoint: .top, endPoint: .bottom))
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                Button {
+                    viewModel.showUkraine = true
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(.white.opacity(0.1))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(LinearGradient(colors: [.blue, .yellow], startPoint: .top, endPoint: .bottom))
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Stöd Ukraina")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text("Gör skillnad")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
                     }
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Stöd Ukraina")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                        Text("Gör skillnad")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ljGlassCard(radius: 18)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .ljGlassCard(radius: 18)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Stöd Ukraina")
+                .buttonStyle(.plain)
+                .accessibilityLabel("Stöd Ukraina")
 
-            Button {
-                viewModel.showSocial = true
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(.white.opacity(0.1))
-                            .frame(width: 40, height: 40)
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white)
+                Button {
+                    viewModel.showSocial = true
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(.white.opacity(0.1))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.white)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Socialt")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text("Hitta vänner")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
                     }
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Socialt")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                        Text("Hitta vänner")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ljGlassCard(radius: 18)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .ljGlassCard(radius: 18)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Socialt, hitta vänner")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Socialt, hitta vänner")
+
+            // SOS-knapp centrerad
+            Button {
+                viewModel.showSOS = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "cross.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("Behöver du akut stöd?")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(colors: [Color(hex: 0xCC2222), Color(hex: 0xFF4444)],
+                                   startPoint: .leading, endPoint: .trailing),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
+                .shadow(color: Color(hex: 0xFF2222).opacity(0.35), radius: 8, y: 3)
+            }
+            .buttonStyle(LJPressableButtonStyle())
+            .accessibilityLabel("Akut stöd och krisnummer")
         }
     }
 }
@@ -690,8 +729,8 @@ struct BreathingQuickView: View {
         var color: Color {
             switch self {
             case .inhale: return Color(hex: 0x6ECFF6)
-            case .hold:   return .warmLavender
-            case .exhale: return .warmSage
+            case .hold:   return Color.warmLavender
+            case .exhale: return Color.warmSage
             }
         }
     }

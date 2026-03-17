@@ -16,7 +16,7 @@ import SwiftUI
 
 // MARK: - Emotion model
 
-struct EmotionResult {
+struct EmotionResult: Equatable {
     let glädje: Float
     let sorg: Float
     let ilska: Float
@@ -46,15 +46,15 @@ struct EmotionResult {
 
     var color: Color {
         switch dominant.name {
-        case "glädje":    return .warmGold
+        case "glädje":    return Color.warmGold
         case "sorg":      return Color(hex: 0x6B8DD6)
         case "ilska":     return Color(hex: 0xFF5B5B)
-        case "rädsla":    return .warmLavender
-        case "förvåning": return .warmSage
+        case "rädsla":    return Color.warmLavender
+        case "förvåning": return Color.warmSage
         case "äckel":     return Color(hex: 0x8B6F47)
-        case "förtroende": return .warmRose
-        case "förväntan": return .warmCoral
-        default:          return .warmLavender
+        case "förtroende": return Color.warmRose
+        case "förväntan": return Color.warmCoral
+        default:          return Color.warmLavender
         }
     }
 
