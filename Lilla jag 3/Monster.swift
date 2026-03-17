@@ -6,18 +6,11 @@
 //  • Byt API‑nyckeln i OpenAIConfig.
 //  • Videomonstret loopar utan kontroller.
 //  • Logg‑guiden öppnas helskärm med 4 tydliga val, faktaruta och en kort mp4‑loop per steg.
-//  • GPT‑tipsen fokuserar på det som gått bra och pratar alltid i “du”-form.
+//  • GPT‑tipsen fokuserar på det som gått bra och pratar alltid i "du"-form.
 //
 import SwiftUI
 import AVKit
 import Foundation
-
-// MARK: - 1  OpenAI‑inställningar (från Config)
-enum OpenAIConfig {
-    static var apiKey: String { Config.openAIAPIKey }
-    static let model  = "gpt-4o-mini"
-    static let temp: Double = 0.7
-}
 
 // MARK: - 2  Videofiler
 struct MonsterClips {
@@ -100,40 +93,46 @@ final class MonsterStore: ObservableObject {
                            let l = try? JSONDecoder().decode([DailyLog].self, from: d) { logs = l } }
 }
 
-// MARK: - 6  GPT‑service
+// MARK: - 6  AI-service (lokal – 100% offline via LillaJagAI)
 final class MonsterGPT {
     struct Tip: Identifiable { let id = UUID(); let text: String }
-    func fetch(for log: DailyLog) async throws -> [Tip] {
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
-        let body: [String: Any] = [
-            "model": OpenAIConfig.model,
-            "temperature": OpenAIConfig.temp,
-            "messages": [
-                ["role": "system",
-                 "content":
-                    """
-                    Du är ett snällt monster. Fokusera på det som användaren gjort **bra** \
-                    (högsta poängen ≥3). Ge exakt tre positiva rader \
-                    (max 18 ord) på svenska, i du‑tilltal: \
-                    “Monstret blev glad när du ...”. Var icke‑dömande.
-                    """
-                ],
-                ["role": "user", "content": log.prompt]
-            ]
-        ]
-        var r = URLRequest(url: url)
-        r.httpMethod = "POST"
-        r.addValue("Bearer \(OpenAIConfig.apiKey)", forHTTPHeaderField: "Authorization")
-        r.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        r.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, _) = try await URLSession.shared.data(for: r)
-        struct R: Codable { struct C: Codable { struct M: Codable { let content: String }; let message: M }; let choices: [C] }
-        let text = try JSONDecoder().decode(R.self, from: data).choices.first?.message.content ?? ""
-        return text
-            .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "•", with: "") }
-            .filter { !$0.isEmpty }
-            .prefix(3).map { Tip(text: $0) }
+
+    func fetch(for log: DailyLog) async -> [Tip] {
+        // Generera tips baserat på loggens innehåll – helt lokalt
+        var tips: [Tip] = []
+
+        // Beröm det som gick bra (rating ≥ 3)
+        if log.sleep >= 3 {
+            tips.append(Tip(text: "Monstret blev glad att du sov bra i natt – sömn är superkraft!"))
+        }
+        if log.meals >= 3 {
+            tips.append(Tip(text: "Bra jobbat med maten idag! Kroppen tackar dig."))
+        }
+        if log.outdoor >= 3 {
+            tips.append(Tip(text: "Monstret älskar att du var utomhus – dagsljus gör underverk!"))
+        }
+        if log.exercise >= 3 {
+            tips.append(Tip(text: "Du rörde på dig idag – monstret hoppar av glädje!"))
+        }
+        if log.social >= 3 {
+            tips.append(Tip(text: "Social kontakt gör monstret varmt i hjärtat. Bra att du umgicks!"))
+        }
+
+        // Om inget var ≥ 3, ge uppmuntran
+        if tips.isEmpty {
+            tips.append(Tip(text: "Monstret vill bara säga: du klarade dagen, och det räcker."))
+            tips.append(Tip(text: "Imorgon är en ny chans – ett litet steg i taget."))
+        }
+
+        // Ge ett förbättringsförslag för det lägsta
+        let scores = [("sömnen", log.sleep), ("maten", log.meals),
+                      ("utomhustiden", log.outdoor), ("träningen", log.exercise),
+                      ("det sociala", log.social)]
+        if let lowest = scores.min(by: { $0.1 < $1.1 }), lowest.1 < 3 {
+            tips.append(Tip(text: "Monstret undrar: kan du satsa lite extra på \(lowest.0) imorgon?"))
+        }
+
+        return Array(tips.prefix(3))
     }
 }
 
@@ -174,14 +173,19 @@ final class LoopingPlayerUIView: UIView {
 struct GradientButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.system(.headline, design: .rounded, weight: .bold))
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(LinearGradient(colors: [.pink, .purple], startPoint: .leading, endPoint: .trailing))
+            .background(
+                LinearGradient(
+                    colors: [Color.warmLavender, Color.warmRose],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: .pink.opacity(0.35), radius: configuration.isPressed ? 2 : 6, y: 2)
+            .shadow(color: Color.warmLavender.opacity(0.3), radius: configuration.isPressed ? 2 : 8, y: 2)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
@@ -191,14 +195,13 @@ struct OptionButton: View {
     let selected: Bool
     var body: some View {
         Text(label)
-            .fontWeight(.medium)
+            .font(.system(.body, design: .rounded, weight: .medium))
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(selected ? Color.pink.opacity(0.9) : Color(.secondarySystemBackground))
-            .foregroundColor(selected ? .white : .primary)
+            .background(selected ? Color.warmLavender : Color.white.opacity(0.08))
+            .foregroundStyle(selected ? .black : .white)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.white.opacity(selected ? 0 : 0.1), lineWidth: 1))
-            .shadow(color: .black.opacity(selected ? 0.25 : 0.05), radius: selected ? 6 : 2, y: selected ? 3 : 1)
     }
 }
 
@@ -276,13 +279,25 @@ struct MonsterLogWizard: View {
     
     var body: some View {
         VStack(spacing: 24) {
+            // Steg-indikator
+            HStack(spacing: 6) {
+                ForEach(0..<5, id: \.self) { i in
+                    Capsule()
+                        .fill(i <= step ? Color.warmLavender : Color.white.opacity(0.15))
+                        .frame(height: 4)
+                }
+            }
+            .padding(.horizontal, 32)
+            .animation(.easeOut(duration: 0.3), value: step)
+
             // Video högst upp
             MonsterVideoView(fileName: stepVideos[step])
                 .frame(height: 180)
                 .padding(.horizontal, 32)
-            
+
             Text(prompts[step])
-                .font(.title2.weight(.semibold))
+                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
@@ -290,7 +305,10 @@ struct MonsterLogWizard: View {
                 ForEach(options[step].indices, id: \.self) { i in
                     let opt = options[step][i]
                     OptionButton(label: opt.label, selected: selections[step] == opt.rating)
-                        .onTapGesture { selections[step] = opt.rating }
+                        .onTapGesture {
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            withAnimation(.easeOut(duration: 0.2)) { selections[step] = opt.rating }
+                        }
                 }
             }
             .padding(.horizontal)
@@ -309,14 +327,17 @@ struct MonsterLogWizard: View {
                 .disabled(selections[step] == nil)
         }
         .padding(.top, 44)
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .background(Color(hex: 0x1A1025).ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
     
     private func advance() {
         guard let _ = selections[step] else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         if step < 4 {
-            step += 1
+            withAnimation(.easeInOut(duration: 0.3)) { step += 1 }
         } else {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             let log = DailyLog(
                 date: .now,
                 sleep: selections[0] ?? 1,
@@ -334,6 +355,7 @@ struct MonsterLogWizard: View {
 struct MonsterPanel: View {
     @StateObject private var store = MonsterStore()
     @State private var tips: [MonsterGPT.Tip] = []
+    @State private var aiInsight: String = ""
     @State private var loading = false
     @State private var showWizard = false
     private let gpt = MonsterGPT()
@@ -344,10 +366,11 @@ struct MonsterPanel: View {
                 .frame(maxWidth: .infinity)
             
             Text(state.summary)
-                .font(.title3.weight(.semibold))
+                .font(.system(.title3, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
-                .background(Color(.secondarySystemBackground))
+                .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
             
             if loading {
@@ -355,6 +378,27 @@ struct MonsterPanel: View {
             } else if !tips.isEmpty {
                 TipsCard(tips: tips)
                     .transition(.opacity.combined(with: .scale))
+
+                if !aiInsight.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(Color.warmGold)
+                            Text("AI-insikt")
+                                .font(.system(.caption, design: .rounded, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        Text(aiInsight)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineSpacing(3)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+                    .transition(.opacity)
+                }
             }
             
             Button("Logga din dag") { showWizard = true }
@@ -378,8 +422,8 @@ struct MonsterPanel: View {
     @MainActor
     private func loadTips(for log: DailyLog) async {
         loading = true
-        do   { tips = try await gpt.fetch(for: log) }
-        catch{ tips = [ .init(text: "Monstret kunde inte hämta tips just nu.") ] }
+        tips = await gpt.fetch(for: log)
+        aiInsight = await LillaJagAIService.shared.monsterInsight(for: log)
         loading = false
     }
 }

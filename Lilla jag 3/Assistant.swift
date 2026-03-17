@@ -51,17 +51,16 @@ struct AITherapistView: View {
                         .padding(.bottom, 8)
                     }
                     .onAppear { scrollProxy = proxy }
-                    .onChange(of: ai.messages.count) { _ in
+                    .onChange(of: ai.messages.count) {
                         scrollToBottom(proxy)
                     }
-                    .onChange(of: ai.isThinking) { thinking in
-                        if thinking { scrollToBottom(proxy) }
+                    .onChange(of: ai.isThinking) {
+                        if ai.isThinking { scrollToBottom(proxy) }
                     }
                 }
-
-                inputBar
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { inputBar }
         .preferredColorScheme(.dark)
     }
 
@@ -103,6 +102,7 @@ struct AITherapistView: View {
             Spacer()
 
             Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 withAnimation(.spring(response: 0.3)) {
                     ai.newSession()
                     showStarters = true
@@ -115,6 +115,7 @@ struct AITherapistView: View {
                     .background(Color.white.opacity(0.08), in: Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Ny konversation")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -124,19 +125,24 @@ struct AITherapistView: View {
 
     private var welcomeSection: some View {
         VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 40))
-                    .foregroundStyle(Color.warmLavender)
-                    .padding(.bottom, 4)
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.warmLavender.opacity(0.1))
+                        .frame(width: 64, height: 64)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 28))
+                        .foregroundStyle(Color.warmLavender)
+                }
+                .padding(.bottom, 4)
 
                 Text("Jag är här för dig")
                     .font(.system(.title2, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text("Berätta vad du bär på, eller välj ett ämne nedan.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
             }
             .padding(.top, 20)
@@ -194,6 +200,7 @@ struct AITherapistView: View {
                 )
 
             Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 sendMessage(inputText)
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
@@ -203,6 +210,7 @@ struct AITherapistView: View {
             }
             .buttonStyle(.plain)
             .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || ai.isThinking)
+            .accessibilityLabel("Skicka meddelande")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -366,7 +374,7 @@ struct StarterChip: View {
             )
         }
         .buttonStyle(.plain)
-        .frame(minHeight: 70)
+        .frame(minHeight: 60)
     }
 }
 

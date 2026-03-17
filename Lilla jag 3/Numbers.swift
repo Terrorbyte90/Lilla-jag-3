@@ -26,6 +26,7 @@ private let contacts: [CrisisContact] = [
 
 struct NumbersView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var preCallText: String = ""
 
     var body: some View {
         NavigationStack {
@@ -35,6 +36,9 @@ struct NumbersView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         urgentBanner
+
+                        // AI-stöd innan samtal
+                        preCallSection
 
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Krisnummer")
@@ -62,6 +66,9 @@ struct NumbersView: View {
                     .padding(16)
                     .padding(.bottom, 40)
                 }
+                .task {
+                    preCallText = await LillaJagAIService.shared.preCallGrounding()
+                }
             }
             .preferredColorScheme(.dark)
             .navigationBarTitleDisplayMode(.inline)
@@ -72,6 +79,45 @@ struct NumbersView: View {
                 }
             }
         }
+    }
+
+    private var preCallSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(Color.warmLavender)
+                Text("Innan du ringer")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Task { preCallText = await LillaJagAIService.shared.preCallGrounding() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.warmLavender)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if preCallText.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView().tint(.white.opacity(0.5))
+                    Text("Förbereder...")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            } else {
+                Text(preCallText)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineSpacing(3)
+            }
+        }
+        .padding(14)
+        .background(Color.warmLavender.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmLavender.opacity(0.2), lineWidth: 1))
     }
 
     private var urgentBanner: some View {

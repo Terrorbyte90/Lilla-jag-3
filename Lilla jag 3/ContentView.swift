@@ -10,6 +10,7 @@ import AVKit
 
 struct ContentView: View {
     @State private var showText = false
+    @State private var showSubtitle = false
     @State private var navigateToAssistant = false
 
     var body: some View {
@@ -20,44 +21,65 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .aspectRatio(contentMode: .fill)
                 } else {
-                    Color.black.ignoresSafeArea()
+                    Color(hex: 0x1A1025).ignoresSafeArea()
                 }
 
                 GeometryReader { geo in
-                    VStack {
+                    VStack(spacing: 0) {
                         Spacer().frame(height: geo.size.height * 0.12)
 
                         Text("Lilla Jag")
-                            .font(.system(size: min(geo.size.width * 0.14, 56), weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .shadow(radius: 10)
+                            .font(.system(size: min(geo.size.width * 0.13, 52), weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                            .opacity(showText ? 1 : 0)
+                            .offset(y: showText ? 0 : 20)
 
                         Text("Appen för dig med psykisk ohälsa")
-                            .font(.system(size: min(geo.size.width * 0.065, 28)))
-                            .foregroundColor(.white)
+                            .font(.system(size: min(geo.size.width * 0.055, 22), design: .rounded))
+                            .foregroundStyle(.white.opacity(0.85))
                             .multilineTextAlignment(.center)
-                            .shadow(radius: 5)
+                            .shadow(color: .black.opacity(0.2), radius: 8)
+                            .padding(.top, 8)
+                            .opacity(showSubtitle ? 1 : 0)
+                            .offset(y: showSubtitle ? 0 : 12)
 
                         Spacer()
 
+                        // Tap hint
+                        if showText {
+                            VStack(spacing: 12) {
+                                Image(systemName: "hand.tap.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(.white.opacity(0.4))
+                                    .symbolEffect(.pulse, options: .repeating)
+                                Text("Tryck för att börja")
+                                    .font(.system(.caption, design: .rounded, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.4))
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
                         Text("Utvecklad av Ted Svärd")
-                            .font(.system(size: min(geo.size.width * 0.038, 16), weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
-                            .padding(.bottom, geo.safeAreaInsets.bottom + 32)
+                            .font(.system(size: min(geo.size.width * 0.035, 15), weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .padding(.top, 16)
+                            .padding(.bottom, geo.safeAreaInsets.bottom + 28)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .padding()
-                .opacity(showText ? 1 : 0)
-                .scaleEffect(showText ? 1 : 0.8)
-                .animation(.easeInOut(duration: 1.0), value: showText)
             }
             .onTapGesture {
-                navigateToAssistant = true
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                withAnimation(.easeOut(duration: 0.3)) {
+                    navigateToAssistant = true
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("VideoPaused"))) { _ in
-                showText = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                withAnimation(.easeOut(duration: 0.8)) { showText = true }
+                withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
                     navigateToAssistant = true
                 }
             }

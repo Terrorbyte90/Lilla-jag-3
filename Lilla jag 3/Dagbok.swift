@@ -139,19 +139,26 @@ struct DagbokDashboardView: View {
                     HStack {
                         Spacer()
                         Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             showNewEntry = true
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundStyle(.black)
                                 .frame(width: 56, height: 56)
-                                .background(Color.warmGold)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.warmGold, Color.warmGold.opacity(0.85)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    )
+                                )
                                 .clipShape(Circle())
-                                .shadow(color: Color.warmGold.opacity(0.4), radius: 12, y: 4)
+                                .shadow(color: Color.warmGold.opacity(0.35), radius: 12, y: 4)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LJPressableButtonStyle())
                         .padding(.trailing, 20)
-                        .padding(.bottom, 96)
+                        .padding(.bottom, 110)
+                        .accessibilityLabel("Ny dagboksanteckning")
                     }
                 }
             }
@@ -189,18 +196,28 @@ struct DagbokDashboardView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "book.closed")
-                .font(.system(size: 52))
-                .foregroundStyle(Color.warmGold.opacity(0.5))
+            ZStack {
+                Circle()
+                    .fill(Color.warmGold.opacity(0.08))
+                    .frame(width: 120, height: 120)
+                Circle()
+                    .fill(Color.warmGold.opacity(0.05))
+                    .frame(width: 160, height: 160)
+                Image(systemName: "book.closed")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Color.warmGold.opacity(0.6))
+            }
             Text("Din dagbok är tom")
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundStyle(.white)
             Text("Tryck på + för att skapa din första\nKBT-anteckning med ABC-modellen.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.6))
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
+                .lineSpacing(2)
             Spacer()
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -278,12 +295,12 @@ struct EmotionBadge: View {
 
     private var color: Color {
         switch emotion {
-        case "Ångest":     return .warmLavender
+        case "Ångest":     return Color.warmLavender
         case "Nedstämdhet": return Color(hex: 0x6B8DD6)
-        case "Ilska":      return .warmCoral
+        case "Ilska":      return Color.warmCoral
         case "Skam":       return Color(hex: 0xFF8FAD)
         case "Ensamhet":   return Color(hex: 0x7EC8E3)
-        default:           return .warmGold
+        default:           return Color.warmGold
         }
     }
 
@@ -377,7 +394,7 @@ struct ABCEntryView: View {
     private var stepContent: some View {
         switch step {
         case 0:
-            stepCard(icon: "doc.text", color: .warmGold, title: "Ge din anteckning en titel") {
+            stepCard(icon: "doc.text", color: Color.warmGold, title: "Ge din anteckning en titel") {
                 TextField("Ex: Svårt möte med chef", text: $entry.title)
                     .abcField()
             }

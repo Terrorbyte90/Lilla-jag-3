@@ -59,7 +59,7 @@ actor QwenEngine {
 
         guard let genCtx = llama_new_context_with_model(loadedModel, cparams) else {
             print("[QwenEngine] llama_new_context_with_model misslyckades")
-            llama_model_free(loadedModel)
+            llama_free_model(loadedModel)
             model = nil
             return
         }
@@ -72,7 +72,7 @@ actor QwenEngine {
 
     func unload() {
         if let c = ctx  { llama_free(c);        ctx   = nil }
-        if let m = model { llama_model_free(m); model = nil }
+        if let m = model { llama_free_model(m); model = nil }
         isLoaded     = false
         loadAttempted = false
         print("[QwenEngine] Modell urladdad")
@@ -120,7 +120,10 @@ actor QwenEngine {
         // Sampler-kedja
         let sparams = llama_sampler_chain_default_params()
         let sampler = llama_sampler_chain_init(sparams)
-        llama_sampler_chain_add(sampler, llama_sampler_init_penalties(64, 1.1, 0.0, 0.0))
+        let nVocabForPenalty = llama_n_vocab(mdl)
+        let eosForPenalty = llama_token_eos(mdl)
+        let nlForPenalty = llama_token_nl(mdl)
+        llama_sampler_chain_add(sampler, llama_sampler_init_penalties(nVocabForPenalty, eosForPenalty, nlForPenalty, 64, 1.1, 0.0, 0.0, false, false))
         llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40))
         llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.9, 1))
         llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature))
@@ -129,8 +132,8 @@ actor QwenEngine {
         // Generera tokens
         var outputTokens: [llama_token] = []
         var nPos = Int32(tokens.count)
-        let eosId = llama_vocab_eos(mdl)
-        let nVocab = llama_vocab_n_tokens(mdl)
+        let eosId = llama_token_eos(mdl)
+        let nVocab = llama_n_vocab(mdl)
 
         for _ in 0..<maxNewTokens {
             let newToken = llama_sampler_sample(sampler, genCtx, -1)

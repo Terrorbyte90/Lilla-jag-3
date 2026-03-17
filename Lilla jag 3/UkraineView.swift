@@ -16,7 +16,7 @@ struct UkraineView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: 0x0D1525).ignoresSafeArea()
+                WarmBackground()
 
                 ScrollView {
                     VStack(spacing: 20) {
