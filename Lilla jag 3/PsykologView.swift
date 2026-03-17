@@ -71,9 +71,9 @@ struct PsykologView: View {
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
-                statPill(label: "KBT", icon: "brain.head.profile", color: .warmLavender)
-                statPill(label: "Gratis via 1177", icon: "stethoscope", color: .warmSage)
-                statPill(label: "Online", icon: "video.fill", color: .warmGold)
+                statPill(label: "KBT", icon: "brain.head.profile", color: Color.warmLavender)
+                statPill(label: "Gratis via 1177", icon: "stethoscope", color: Color.warmSage)
+                statPill(label: "Online", icon: "video.fill", color: Color.warmGold)
             }
         }
         .padding(20)
@@ -178,7 +178,7 @@ struct PsykologView: View {
     }
 }
 
-private struct PsykResource {
+struct PsykResource {
     let icon: String
     let color: Color
     let title: String

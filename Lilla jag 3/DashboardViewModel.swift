@@ -14,6 +14,8 @@ final class DashboardViewModel: ObservableObject {
     @Published var showSocial = false
     @Published var showBreathing = false
     @Published var showMonster = false
+    @Published var showAchievements = false
+    @Published var showSOS = false
 
     // Monster
     let monsterStore = MonsterStore()
@@ -109,11 +111,11 @@ enum QuickMood: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .great: return .warmGold
-        case .good:  return .warmSage
-        case .okay:  return .warmLavender
-        case .low:   return .warmCoral
-        case .bad:   return .warmRose
+        case .great: return Color.warmGold
+        case .good:  return Color.warmSage
+        case .okay:  return Color.warmLavender
+        case .low:   return Color.warmCoral
+        case .bad:   return Color.warmRose
         }
     }
 }

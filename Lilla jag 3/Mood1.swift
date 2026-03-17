@@ -2,15 +2,15 @@
 //  Mood1.swift
 //  LillaJag
 //
-//  Skapad 24 jul 2025 av ChatGPT (o3)
-//  Reviderad 1 sep 2025 – Fix: bottenbarens safe area, vit text i alla sektioner,
-//  kortare segmentetiketter, kompaktare KPI & grid, lätt nedskalad logg.
+//  Redesignad mars 2026 – Premium dashboard med AHA-insikter, heatmap & flödeslogg.
+//  Datamodell och buisness-logik är oförändrad.
 //
 
 import SwiftUI
 import Charts
 import AVKit
 import Foundation
+import UIKit
 
 // MARK: - Datamodell
 struct MoodEntry: Identifiable, Codable, Hashable {
@@ -75,6 +75,12 @@ final class MoodStore: ObservableObject {
     var avgSocial  : Double { lastWeek.map(\.socialQuality ).average(default: 0.5) }
     var avgRoutine : Double { lastWeek.map(\.routineQuality).average(default: 0.5) }
     var avgEnergy  : Double { lastWeek.map(\.energyLevel   ).average(default: 0.5) }
+
+    var avgSleepHours: Double {
+        let d = lastWeek.filter { $0.sleepHours > 0 }
+        guard !d.isEmpty else { return 0 }
+        return Double(d.map(\.sleepHours).reduce(0, +)) / Double(d.count)
+    }
 
     var last30: [MoodEntry] {
         guard let since = Calendar.current.date(byAdding: .day, value: -29, to: .now) else { return [] }
@@ -174,6 +180,19 @@ final class MoodStore: ObservableObject {
         }
         return best
     }
+
+    // Topp-veckodagen (0=Måndag … 6=Söndag)
+    var bestWeekday: (name: String, avg: Double)? {
+        guard last30.count >= 3 else { return nil }
+        let names = ["Måndag","Tisdag","Onsdag","Torsdag","Fredag","Lördag","Söndag"]
+        var groups: [Int: [Double]] = [:]
+        for e in last30 {
+            let wd = (Calendar.current.component(.weekday, from: e.date) + 5) % 7
+            groups[wd, default: []].append(e.moodQuality)
+        }
+        guard let best = groups.max(by: { $0.value.average(default: 0) < $1.value.average(default: 0) }) else { return nil }
+        return (names[best.key], best.value.average(default: 0))
+    }
 }
 
 // MARK: - Bakgrund (konsekvent med resten av appen)
@@ -183,269 +202,629 @@ struct AppBackground: View {
     }
 }
 
+// MARK: - AHA Insight Model
+struct AHAInsight: Identifiable {
+    let id = UUID()
+    let emoji: String
+    let title: String
+    let detail: String
+    let accentColor: Color
+}
+
+// MARK: - AHA Insights Generator
+@MainActor
+struct AHAInsightsGenerator {
+    static func generate(store: MoodStore) -> [AHAInsight] {
+        let data = store.last30
+        guard data.count >= 3 else { return [] }
+
+        var insights: [AHAInsight] = []
+
+        // 1. Sömn-mående korrelation
+        let sleepCorr = store.correlations().first(where: { $0.name == "Sömn≥7h" })
+        if let sc = sleepCorr, abs(sc.delta) > 0.08 {
+            let dir = sc.delta > 0 ? "förbättrar" : "sänker"
+            let pct = Int(abs(sc.delta) * 100)
+            insights.append(AHAInsight(
+                emoji: "🌙",
+                title: "Sömn \(dir) ditt mående med \(pct)%",
+                detail: "När du sover 7+ timmar är ditt snittmående märkbart \(sc.delta > 0 ? "högre" : "lägre").",
+                accentColor: Color.warmLavender
+            ))
+        }
+
+        // 2. Tränings-mående korrelation
+        let trainCorrs = store.correlations().filter { $0.name.hasPrefix("Träning:") || $0.name.hasPrefix("Aktivitet: Tränat") }
+        if let tc = trainCorrs.first, tc.delta > 0.05 {
+            let pct = Int(tc.delta * 100)
+            insights.append(AHAInsight(
+                emoji: "💪",
+                title: "Du är \(pct)% gladare på träningsdagar",
+                detail: "Rörelse har en tydlig positiv effekt på ditt humör.",
+                accentColor: Color.warmSage
+            ))
+        }
+
+        // 3. Utomhus-korrelation
+        let outdoorCorr = store.correlations().first(where: { $0.name == "Utomhus≥30m" })
+        if let oc = outdoorCorr, oc.delta > 0.05 {
+            let pct = Int(oc.delta * 100)
+            insights.append(AHAInsight(
+                emoji: "🌿",
+                title: "Utomhustid = +\(pct)% bättre humör",
+                detail: "30+ minuter utomhus korrelerar starkt med bättre mående för dig.",
+                accentColor: Color.warmSage
+            ))
+        }
+
+        // 4. Bästa veckodag
+        if let best = store.bestWeekday {
+            let pct = Int(best.avg * 100)
+            insights.append(AHAInsight(
+                emoji: "📅",
+                title: "Du mår bäst på \(best.name)",
+                detail: "Snittmående \(pct)/100 – ditt bästa mönster i veckan.",
+                accentColor: Color.warmGold
+            ))
+        }
+
+        // 5. Trenderinsikt (senaste 7 vs föregående 7)
+        let last7 = store.last7()
+        let prev7 = store.entries
+            .filter {
+                guard let from = Calendar.current.date(byAdding: .day, value: -14, to: .now),
+                      let to = Calendar.current.date(byAdding: .day, value: -7, to: .now) else { return false }
+                return $0.date >= from && $0.date < to
+            }
+        if last7.count >= 3, prev7.count >= 3 {
+            let delta = last7.map(\.moodQuality).average(default: 0) - prev7.map(\.moodQuality).average(default: 0)
+            if abs(delta) > 0.06 {
+                let dir = delta > 0 ? "bättre" : "svårare"
+                let pct = Int(abs(delta) * 100)
+                insights.append(AHAInsight(
+                    emoji: delta > 0 ? "📈" : "📉",
+                    title: "Senaste veckan: \(pct)% \(dir) än förra",
+                    detail: delta > 0
+                        ? "Bra jobbat – trenden pekar uppåt!"
+                        : "Du verkar ha en tuffare period just nu. Ta hand om dig.",
+                    accentColor: delta > 0 ? Color.warmSage : Color.warmCoral
+                ))
+            }
+        }
+
+        // 6. Social korrelation
+        let socialCorr = store.correlations().first(where: { $0.name == "Socialt≥medel" })
+        if let sc = socialCorr, sc.delta > 0.05 {
+            let pct = Int(sc.delta * 100)
+            insights.append(AHAInsight(
+                emoji: "🤝",
+                title: "Sociala dagar ger +\(pct)% bättre mående",
+                detail: "Meningsfulla samtal verkar ha stor inverkan på hur du mår.",
+                accentColor: Color.warmRose
+            ))
+        }
+
+        return Array(insights.prefix(4))
+    }
+}
+
 // MARK: - Dashboard
 struct Mood1View: View {
     @StateObject private var viewModel = MoodViewModel()
-    @StateObject private var store = MoodStore() // Behövs för att skicka till logger och andra vyer om de inte använder VM än
+    @StateObject private var store = MoodStore()
+    @State private var heroAppeared = false
+
+    private var todayLogged: Bool {
+        store.entries.contains { Calendar.current.isDateInToday($0.date) }
+    }
+
+    private var todayDateString: String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "sv_SE")
+        df.dateFormat = "EEEE d MMMM"
+        return df.string(from: Date()).capitalized(with: df.locale)
+    }
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 AppBackground()
                 ScrollView {
-                    VStack(spacing: DesignSystem.Spacing.cardSpacing(for: geo.size.height)) {
-                        heroWelcomeCard
+                    VStack(spacing: 20) {
+                        heroCard
                         kpiRow
-                        metricChart
-                        calendarSection
-                        statsSection
-                        insightsSection
-                        weeklyAISection
-                        Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            viewModel.showLogger = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Logga mående")
-                                    .font(.system(.body, design: .rounded, weight: .bold))
-                            }
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.warmGold, in: RoundedRectangle(cornerRadius: 14))
-                        }
-                        .buttonStyle(LJPressableButtonStyle())
+                        ahaInsightsSection
+                        calendarHeatmap
+                        trendChartSection
+                        logButton
                     }
                     .frame(maxWidth: 640)
-                    .padding(.vertical, 20)
+                    .padding(.top, 20)
                     .padding(.horizontal, DesignSystem.Spacing.horizontalPadding(for: geo.size.width))
                     .padding(.bottom, 110)
                 }
                 .scrollIndicators(.hidden)
             }
         }
+        .preferredColorScheme(.dark)
         .fullScreenCover(isPresented: $viewModel.showLogger) {
-            MoodLogFlowView { newEntry in store.add(newEntry) }
+            MoodLogFlowView(store: store) { newEntry in store.add(newEntry) }
+        }
+        .fullScreenCover(item: $viewModel.popupEntry) { entry in
+            SummaryPopup(entry: entry)
         }
     }
 
-    // MARK: Hero
-    private var heroWelcomeCard: some View {
-        VStack(spacing: 14) {
-            LJIconCircle(icon: "face.smiling.fill", color: .warmSage, size: 56, iconScale: 0.5)
-            Text("Välkommen tillbaka")
-                .font(DesignSystem.Typography.titleMain)
-                .foregroundStyle(.white)
-            Text("Redo att logga hur du mår idag? Dina insikter uppdateras direkt.")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-            Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                viewModel.showLogger = true
-            } label: {
-                Text("Börja logga")
-                    .font(.system(.body, design: .rounded, weight: .bold))
-                    .foregroundStyle(.black)
+    // MARK: - Hero Card helpers
+
+    private var heroQuickMoodRow: some View {
+        HStack(spacing: 0) {
+            ForEach(quickMoodOptions, id: \.emoji) { opt in
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    viewModel.showLogger = true
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(opt.emoji).font(.system(size: 34))
+                        Text(opt.label)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.warmGold, in: RoundedRectangle(cornerRadius: 14))
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(LJPressableButtonStyle())
             }
-            .buttonStyle(LJPressableButtonStyle())
         }
-        .ljGlassCard()
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 18))
     }
 
+    private var heroCheckedInBadge: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.warmSage)
+            Text("Loggat idag ✓")
+                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .foregroundStyle(Color.warmSage)
+            Spacer()
+            Text("Logga igen")
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(.white.opacity(0.4))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.warmSage.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: - Hero Card
+    private var heroCard: some View {
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(hex: 0x3D1A6E), Color(hex: 0x1A1025), Color(hex: 0x2A1A3E)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(Color.warmLavender.opacity(0.25), lineWidth: 1))
+
+            VStack(spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Hur mår du idag?")
+                            .font(.system(.title2, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text(todayDateString)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.55))
+                    }
+                    Spacer()
+                    if store.currentStreak > 0 {
+                        VStack(spacing: 2) {
+                            Text("🔥").font(.title2)
+                            Text("\(store.currentStreak)d")
+                                .font(.system(.caption, design: .rounded, weight: .bold))
+                                .foregroundStyle(Color.warmGold)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(Color.warmGold.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmGold.opacity(0.3), lineWidth: 1))
+                    }
+                }
+                heroQuickMoodRow
+                if todayLogged { heroCheckedInBadge }
+            }
+            .padding(22)
+        }
+        .shadow(color: Color.warmLavender.opacity(0.15), radius: 20, y: 8)
+        .opacity(heroAppeared ? 1 : 0)
+        .offset(y: heroAppeared ? 0 : 12)
+        .onAppear {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.05)) { heroAppeared = true }
+        }
+    }
+
+    private let quickMoodOptions: [(emoji: String, label: String)] = [
+        ("😊", "Bra"),
+        ("🙂", "Okej"),
+        ("😐", "Neutralt"),
+        ("😔", "Lågt"),
+        ("😢", "Svårt")
+    ]
+
+    // MARK: - KPI Row
     private var kpiRow: some View {
         HStack(spacing: 10) {
-            kpi("Mående", store.avgMood)
-            kpi("Sömn", store.avgSleep)
-            kpi("Socialt", store.avgSocial)
-            kpi("Energi", store.avgEnergy)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Streak").font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
-                HStack(spacing: 2) {
-                    Text("\(store.currentStreak)").font(.headline).monospacedDigit().foregroundStyle(.white)
-                    Text("d /").font(.caption2).foregroundStyle(.secondary)
-                    Text("\(store.longestStreak)").font(.headline).monospacedDigit().foregroundStyle(.white)
-                    Text("d").font(.caption2).foregroundStyle(.secondary)
-                }.lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
-            }
-            .padding(8)
-            .ljGlassCard(radius: 12)
-        }
-        .ljGlassCard()
-    }
-    private func kpi(_ title: String, _ value: Double) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-                .lineLimit(1).minimumScaleFactor(0.65).allowsTightening(true)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(String(format: "%.0f", value * 100)).font(.headline).monospacedDigit().foregroundStyle(.white)
-                Text("/100").font(.caption2).foregroundStyle(.secondary)
-            }.lineLimit(1).minimumScaleFactor(0.7).allowsTightening(true)
-        }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .ljGlassCard(radius: 12)
-    }
-
-    // MARK: Linjediagram
-    private var metricChart: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Kortare etiketter så allt ryms
-            Picker("", selection: $viewModel.selectedMetric) {
-                ForEach(Metric.allCases) { Text($0.shortLabel).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .tint(.pink)
-            .ljGlassCard()
-
-            Chart(store.last30) { entry in
-                LineMark(
-                    x: .value("Datum", entry.date, unit: .day),
-                    y: .value(viewModel.selectedMetric.label, viewModel.selectedMetric.value(entry))
-                )
-                PointMark(
-                    x: .value("Datum", entry.date, unit: .day),
-                    y: .value(viewModel.selectedMetric.label, viewModel.selectedMetric.value(entry))
-                )
-            }
-            .chartYScale(domain: 0...1)
-            .frame(height: UIScreen.main.bounds.height > 800 ? 180 : 140)
-        }
-        .foregroundStyle(.white)
-        .ljGlassCard()
-    }
-
-    // MARK: AI-insikter
-    private var insightsSection: some View {
-        if let latest = store.entries.last, !(latest.insights.isEmpty && latest.advice.isEmpty && latest.summary.isEmpty) {
-            return AnyView(
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("AI-sammanfattning").font(.title3.bold())
-                    if !latest.summary.isEmpty {
-                        Text(latest.summary).foregroundStyle(.white).ljGlassCard()
-                    }
-                    if !latest.insights.isEmpty {
-                        Divider().background(.white.opacity(0.25))
-                        Text("Insikter").font(.headline).foregroundStyle(.white)
-                        ForEach(latest.insights, id: \.self) { Text("• \($0)").foregroundStyle(.white) }
-                    }
-                    if !latest.advice.isEmpty {
-                        Divider().background(.white.opacity(0.25))
-                        Text("Rekommendationer").font(.headline).foregroundStyle(.white)
-                        ForEach(latest.advice, id: \.self) { Text("→ \($0)").foregroundStyle(.white) }
-                    }
-                }
-                .ljGlassCard()
+            kpiCard(
+                icon: "heart.fill",
+                color: Color.warmRose,
+                value: String(format: "%.1f", store.avgMood * 10),
+                unit: "/10",
+                label: "Veckosnitt"
+            )
+            kpiCard(
+                icon: "moon.fill",
+                color: Color.warmLavender,
+                value: String(format: "%.1f", store.avgSleepHours),
+                unit: "h",
+                label: "Sömnsnitt"
+            )
+            kpiCard(
+                icon: "flame.fill",
+                color: Color.warmGold,
+                value: "\(store.currentStreak)",
+                unit: "d",
+                label: "Streak"
             )
         }
-        return AnyView(EmptyView())
     }
 
-    // MARK: Kalender
-    private var calendarSection: some View {
-        VStack(spacing: 8) {
-            Text(monthTitle(for: viewModel.calendarMonth))
-                .font(.headline).foregroundStyle(.white)
-                .frame(maxWidth: .infinity, alignment: .center)
-            if viewModel.calendarExpanded {
-                CalendarGridView(entries: store.entries, currentMonth: $viewModel.calendarMonth) { tapped in
-                    viewModel.popupEntry = tapped
-                }
-                .frame(maxHeight: 360)
-                .padding(.horizontal, 2) // gör plats för pilarna även på smala skärmar
+    private func kpiCard(icon: String, color: Color, value: String, unit: String, label: String) -> some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 42, height: 42)
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(color)
             }
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Text(unit)
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            Text(label)
+                .font(.system(.caption2, design: .rounded, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
         }
-        .onTapGesture { withAnimation { viewModel.calendarExpanded.toggle() } }
-        .ljGlassCard()
-        .fullScreenCover(item: $viewModel.popupEntry) { entry in SummaryPopup(entry: entry) }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(color.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: color.opacity(0.08), radius: 8, y: 4)
     }
 
-    // MARK: Statistik
-    private var statsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Statistik").font(.title2.bold()).foregroundStyle(.white)
-            if !store.last30.isEmpty {
-                let topCounts = Array(store.activityFrequencies().prefix(10))
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Vanligaste aktiviteter & vanor (30 dagar)").font(.headline).foregroundStyle(.white)
-                    Chart(topCounts, id: \.id) { item in
-                        BarMark(x: .value("Frekvens", item.count), y: .value("Aktivitet", item.name))
-                    }
-                    .frame(height: CGFloat(24 * max(4, topCounts.count)))
+    // MARK: - AHA Insights
+    private var ahaInsightsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header
+            HStack(spacing: 10) {
+                Text("🔍")
+                    .font(.title2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Dina mönster & insikter")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text("Genererat från dina loggade dagar")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
                 }
-                .ljGlassCard()
+                Spacer()
             }
-            if !store.last90.isEmpty {
-                let corrs = store.correlations()
-                let topPos = Array(corrs.filter { $0.delta > 0 }.prefix(5))
-                let topNeg = Array(corrs.filter { $0.delta < 0 }.prefix(5))
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Korrelationer (90 dagar)").font(.headline).foregroundStyle(.white)
-                    if topPos.isEmpty && topNeg.isEmpty {
-                        Text("För lite data ännu – logga fler dagar.").foregroundStyle(.secondary)
-                    } else {
-                        if !topPos.isEmpty {
-                            Text("Topp +").font(.subheadline.bold()).foregroundStyle(.white)
-                            ForEach(topPos) { c in
-                                HStack {
-                                    Text(c.name)
-                                    Spacer()
-                                    Text(String(format: "%+.0f", c.delta * 100)) + Text(" p").foregroundStyle(.secondary)
-                                }.foregroundStyle(.white)
-                            }
-                        }
-                        if !topNeg.isEmpty {
-                            Divider().background(.white.opacity(0.12))
-                            Text("Topp −").font(.subheadline.bold()).foregroundStyle(.white)
-                            ForEach(topNeg) { c in
-                                HStack {
-                                    Text(c.name)
-                                    Spacer()
-                                    Text(String(format: "%+.0f", c.delta * 100)) + Text(" p").foregroundStyle(.secondary)
-                                }.foregroundStyle(.white)
-                            }
-                        }
-                        Text("Δ = skillnad i snittmående när faktor finns vs saknas.")
-                            .font(.footnote).foregroundStyle(.secondary)
+
+            let insights = AHAInsightsGenerator.generate(store: store)
+
+            if insights.isEmpty {
+                // Placeholder
+                HStack(spacing: 14) {
+                    Text("🌱")
+                        .font(.title)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Logga 3 dagar för att se dina mönster")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text("Dina personliga insikter dyker upp här efter ett par dagar.")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.5))
                     }
                 }
-                .ljGlassCard()
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(insights.enumerated()), id: \.element.id) { idx, insight in
+                        ahaInsightRow(insight: insight, delay: Double(idx) * 0.07)
+                    }
+                }
             }
         }
-        .ljGlassCard()
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.warmGold.opacity(0.5), Color.warmGold.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.2
+                        )
+                )
+        )
+        .shadow(color: Color.warmGold.opacity(0.08), radius: 16, y: 6)
     }
 
-    // MARK: Vecko-AI
-    private var weeklyAISection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("AI-Veckorapport").font(.title3.bold()).foregroundStyle(.white)
-            if !viewModel.weeklyReportText.isEmpty {
-                Text(viewModel.weeklyReportText).foregroundStyle(.white).ljGlassCard()
+    private func ahaInsightRow(insight: AHAInsight, delay: Double) -> some View {
+        HStack(spacing: 14) {
+            // Färgad vänsterkant
+            RoundedRectangle(cornerRadius: 3)
+                .fill(insight.accentColor)
+                .frame(width: 4)
+                .frame(height: 46)
+
+            Text(insight.emoji)
+                .font(.title2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(insight.title)
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Text(insight.detail)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .lineLimit(2)
             }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    // MARK: - Calendar Heatmap helpers
+
+    private func heatmapCell(day: Date) -> some View {
+        let mood = store.moodOn(day)
+        let isToday = Calendar.current.isDateInToday(day)
+        return ZStack {
+            Circle().fill(heatmapColor(for: mood)).frame(width: 28, height: 28)
+            if isToday {
+                Circle().stroke(Color.white.opacity(0.8), lineWidth: 1.5).frame(width: 30, height: 30)
+            }
+            Text(String(Calendar.current.component(.day, from: day)))
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(mood != nil ? .white : .white.opacity(0.2))
+        }
+        .frame(width: 28, height: 28)
+        .onTapGesture {
+            if let e = store.entries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: day) }) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                viewModel.popupEntry = e
+            }
+        }
+    }
+
+    private var calendarGrid: some View {
+        let weekdays = ["Må","Ti","On","To","Fr","Lö","Sö"]
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
+            ForEach(weekdays, id: \.self) { wd in
+                Text(wd)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .frame(height: 16)
+            }
+            ForEach(Array(heatmapCells.enumerated()), id: \.offset) { _, cellDate in
+                if let day = cellDate { heatmapCell(day: day) }
+                else { Color.clear.frame(width: 28, height: 28) }
+            }
+        }
+    }
+
+    // MARK: - Calendar Heatmap
+    private var calendarHeatmap: some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                if viewModel.generatingWeekly { ProgressView().progressViewStyle(.circular) }
-                Button("Generera veckorapport") {
-                    Task {
-                        await viewModel.generateWeeklyReport()
+                Text(heatmapMonthTitle)
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                HStack(spacing: 6) {
+                    ForEach(heatmapLegend, id: \.label) { item in
+                        HStack(spacing: 4) {
+                            Circle().fill(item.color).frame(width: 8, height: 8)
+                            Text(item.label)
+                                .font(.system(.caption2, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.4))
+                        }
                     }
                 }
-                .buttonStyle(GradientButtonStyle())
             }
+            calendarGrid
         }
-        .ljGlassCard()
+        .padding(20)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.1), lineWidth: 1))
     }
 
-    private func monthTitle(for date: Date) -> String {
+    private var heatmapMonthTitle: String {
         let df = DateFormatter()
         df.locale = Locale(identifier: "sv_SE")
         df.dateFormat = "LLLL yyyy"
-        return df.string(from: date).capitalized(with: df.locale)
+        return df.string(from: Date()).capitalized(with: df.locale)
+    }
+
+    private var heatmapCells: [Date?] {
+        var cells: [Date?] = []
+        let cal = Calendar.current
+        guard let interval = cal.dateInterval(of: .month, for: Date()) else { return cells }
+        let first = interval.start
+        let weekdayOfFirst = (cal.component(.weekday, from: first) + 5) % 7
+        cells.append(contentsOf: Array(repeating: nil, count: weekdayOfFirst))
+        var day = first
+        while day < interval.end {
+            cells.append(day)
+            guard let next = cal.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return cells
+    }
+
+    private func heatmapColor(for mood: Double?) -> Color {
+        guard let m = mood else { return Color.white.opacity(0.08) }
+        if m >= 0.75 { return Color.warmSage.opacity(0.8) }
+        if m >= 0.5  { return Color.warmGold.opacity(0.7) }
+        if m >= 0.3  { return Color.warmCoral.opacity(0.65) }
+        return Color(hex: 0xFF5B5B).opacity(0.6)
+    }
+
+    private let heatmapLegend: [(label: String, color: Color)] = [
+        ("Bra", Color.warmSage.opacity(0.8)),
+        ("Ok", Color.warmGold.opacity(0.7)),
+        ("Lågt", Color.warmCoral.opacity(0.65))
+    ]
+
+    // MARK: - Trend Chart helpers
+
+    private func trendBarEntry(_ entry: MoodEntry, barW: CGFloat, h: CGFloat) -> some View {
+        VStack(spacing: 4) {
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 4).fill(Color.warmLavender.opacity(0.3))
+                    .frame(width: barW * 0.45, height: h * 0.88)
+                RoundedRectangle(cornerRadius: 4).fill(Color.warmLavender.opacity(0.7))
+                    .frame(width: barW * 0.45, height: max(4, h * 0.88 * entry.sleepQuality))
+            }
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 6).fill(Color.warmRose.opacity(0.2))
+                    .frame(width: barW, height: h * 0.88)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(LinearGradient(colors: [Color.warmRose, Color.warmCoral], startPoint: .bottom, endPoint: .top))
+                    .frame(width: barW, height: max(4, h * 0.88 * entry.moodQuality))
+            }
+        }
+        .frame(width: barW)
+        .overlay(alignment: .bottom) {
+            Text(dayLabel(entry.date))
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.4))
+                .offset(y: 16)
+        }
+    }
+
+    private func trendBarsGeometry(days: [MoodEntry]) -> some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let barW: CGFloat = min(24, (w - CGFloat(days.count - 1) * 8) / CGFloat(days.count))
+            let spacing: CGFloat = days.count > 1 ? (w - barW * CGFloat(days.count)) / CGFloat(days.count - 1) : 0
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    ForEach([0.75, 0.5, 0.25], id: \.self) { _ in
+                        Spacer()
+                        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+                    }
+                    Spacer()
+                }
+                HStack(alignment: .bottom, spacing: spacing) {
+                    ForEach(Array(days.enumerated()), id: \.element.id) { _, entry in
+                        trendBarEntry(entry, barW: barW, h: h)
+                    }
+                }
+            }
+        }
+        .frame(height: 110)
+        .padding(.bottom, 22)
+    }
+
+    // MARK: - Trend Chart (senaste 7 dagar)
+    private var trendChartSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Senaste 7 dagarna")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                HStack(spacing: 12) {
+                    legendDot(color: Color.warmRose, label: "Mående")
+                    legendDot(color: Color.warmLavender, label: "Sömn")
+                }
+            }
+            let days = store.last7()
+            if days.isEmpty {
+                Text("Logga ditt första mående för att se din trend.")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 30)
+            } else {
+                trendBarsGeometry(days: days)
+            }
+        }
+        .padding(20)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.1), lineWidth: 1))
+    }
+
+    private func legendDot(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(label)
+                .font(.system(.caption2, design: .rounded))
+                .foregroundStyle(.white.opacity(0.5))
+        }
+    }
+
+    private func dayLabel(_ date: Date) -> String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "sv_SE")
+        df.dateFormat = "EE"
+        return String(df.string(from: date).prefix(2))
+    }
+
+    // MARK: - Log Button
+    private var logButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            viewModel.showLogger = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                Text("Logga ditt mående →")
+                    .font(.system(.body, design: .rounded, weight: .bold))
+            }
+            .foregroundStyle(.black)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 17)
+            .background(
+                LinearGradient(
+                    colors: [Color.warmGold, Color.warmCoral],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .shadow(color: Color.warmGold.opacity(0.3), radius: 12, y: 6)
+        }
+        .buttonStyle(LJPressableButtonStyle())
     }
 }
 
@@ -474,7 +853,6 @@ enum Metric: String, CaseIterable, Identifiable {
         case .energy: return "Energi"
         }
     }
-    /// Kortare etiketter för segmentkontrollen
     var shortLabel: String {
         switch self {
         case .mood: return "Må."
@@ -497,7 +875,7 @@ enum Metric: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Kalender-grid
+// MARK: - Kalender-grid (legacy, används i SummaryPopup)
 struct CalendarGridView: View {
     let entries: [MoodEntry]
     @Binding var currentMonth: Date
@@ -508,7 +886,7 @@ struct CalendarGridView: View {
         let cal = Calendar.current
         guard let interval = cal.dateInterval(of: .month, for: currentMonth) else { return cells }
         let first = interval.start
-        let weekdayOfFirst = (cal.component(.weekday, from: first) + 6) % 7  // måndag=0
+        let weekdayOfFirst = (cal.component(.weekday, from: first) + 6) % 7
         cells.append(contentsOf: Array(repeating: nil, count: weekdayOfFirst))
         var day = first
         while day < interval.end {
@@ -654,7 +1032,7 @@ struct SummaryPopup: View {
     }
 }
 
-// MARK: - Humörlogg
+// MARK: - Humörlogg (MoodLogFlowView)
 struct MoodLogFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var step = 0
@@ -668,6 +1046,7 @@ struct MoodLogFlowView: View {
         positives: [], negatives: [], wished: [],
         summary: "", insights: [], advice: []
     )
+    let store: MoodStore
     let onSave: (MoodEntry) -> Void
 
     // selections
@@ -689,53 +1068,61 @@ struct MoodLogFlowView: View {
     @State private var positivesSel: [String] = []
     @State private var negativesSel: [String] = []
     @State private var wishedSel: [String] = []
-    // new fields
     @State private var energySel = ""
     @State private var emotionsSel: [String] = []
     @State private var habitsSel: [String] = []
     @State private var tagsSel: [String] = []
     @State private var notesTxt: String = ""
-    // loading / GPT
     @State private var loadingProgress = 0
     @State private var gptSummary = ""
     @State private var gptInsights: [String] = []
     @State private var gptAdvice  : [String] = []
     private let habitCandidates = ["7+ timmar sömn","30+ min utomhus","10+ min meditation","Träning","Grönsaker till 2 måltider"]
 
+    private let totalSteps = 12
+
     var body: some View {
         ZStack {
             AppBackground()
-            ScrollView {
-                VStack(spacing: 20) {
-                    switch step {
-                    case 0: generalStep
-                    case 1: sleepStep
-                    case 2: dayStep
-                    case 3: socialStep
-                    case 4: outdoorStep
-                    case 5: trainingStep
-                    case 6: foodStep
-                    case 7: energyStep
-                    case 8: emotionsStep
-                    case 9: habitsStep
-                    case 10: tagsStep
-                    case 11: notesStep
-                    case 12: loadingStep
-                    case 13: summaryStep
-                    case 14: recommendationsStep
-                    default: EmptyView()
-                    }
+
+            VStack(spacing: 0) {
+                // Progress pill
+                if step < 12 {
+                    progressPill
+                        .padding(.top, 16)
+                        .padding(.horizontal, 20)
                 }
-                .frame(maxWidth: 620)
-                .padding(.vertical, 22)
-                .padding(.horizontal, 18)
-                .scaleEffect(0.96) // kompakt så allt ryms
+
+                ScrollView {
+                    VStack(spacing: 24) {
+                        switch step {
+                        case 0:  generalStep
+                        case 1:  sleepStep
+                        case 2:  dayStep
+                        case 3:  socialStep
+                        case 4:  outdoorStep
+                        case 5:  trainingStep
+                        case 6:  foodStep
+                        case 7:  energyStep
+                        case 8:  emotionsStep
+                        case 9:  habitsStep
+                        case 10: tagsStep
+                        case 11: notesStep
+                        case 12: loadingStep
+                        case 13: summaryStep
+                        case 14: recommendationsStep
+                        default: EmptyView()
+                        }
+                    }
+                    .frame(maxWidth: 620)
+                    .padding(.top, 20)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 140)
+                }
+                .scrollIndicators(.hidden)
+                .animation(.easeInOut(duration: 0.3), value: step)
             }
-            .scrollIndicators(.hidden)
-            .safeAreaPadding([.horizontal], 16)
-            .animation(.easeInOut, value: step)
         }
-        // Bottenbar som alltid lämnar plats för home-indikatorn
         .safeAreaInset(edge: .bottom) {
             FooterContainer {
                 HStack {
@@ -745,8 +1132,7 @@ struct MoodLogFlowView: View {
                             withAnimation(.easeInOut(duration: 0.3)) { step -= 1 }
                         } label: {
                             HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(.caption.weight(.semibold))
+                                Image(systemName: "chevron.left").font(.caption.weight(.semibold))
                                 Text("Bakåt")
                             }
                         }
@@ -754,183 +1140,374 @@ struct MoodLogFlowView: View {
                         .foregroundStyle(.white)
                     }
                     Spacer()
-                    if step < 12 {
-                        // Steg-indikator
-                        Text("\(step + 1)/12")
-                            .font(.system(.caption2, design: .rounded, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                    Spacer()
                     if step < 11 {
                         Button {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             withAnimation(.easeInOut(duration: 0.3)) { step += 1 }
-                        } label: { Text("Nästa") }
+                        } label: { Text("Nästa →") }
                             .buttonStyle(GradientButtonStyle())
                             .frame(maxWidth: 220)
                     } else if step == 11 {
                         Button {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             withAnimation(.easeInOut(duration: 0.3)) { step = 12 }
-                        } label: { Text("Sammanfatta") }
+                        } label: { Text("Sammanfatta ✨") }
                             .buttonStyle(GradientButtonStyle())
                             .frame(maxWidth: 260)
                     }
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
-    // MARK: Steg
-    private var generalStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Hur har du mått idag?")
-            ButtonGrid(single: true,
-                       options: ["Fantastiskt","Bra","Helt okej","Lite låg","Mycket låg","Energifylld"],
-                       selection: $generalMood)
-
-            Divider().background(.white.opacity(0.2))
-
-            TitleText("Har du haft ångest idag?")
-            ButtonGrid(single: true,
-                       options: ["Inte alls","Lite","Mellan","Hög","Mycket hög","Extrem"],
-                       selection: $hadAnxiety)
-
-            TitleText("Andra negativa känslor?")
-            ButtonGrid(single: true,
-                       options: ["Inga","Oro","Ilska","Sorg","Besvikelse","Stress"],
-                       selection: $negativeFeel)
-
-            InfoText("Det är normalt att uppleva olika känslor under olika dagar – du är bara människa. Kämpa på!")
+    // MARK: Progress Pill
+    private var progressPill: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Steg \(step + 1) av \(totalSteps)")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.5))
+                Spacer()
+                Button {
+                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.35))
+                }
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(height: 6)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.warmLavender, Color.warmRose],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * (CGFloat(step + 1) / CGFloat(totalSteps)), height: 6)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: step)
+                }
+            }
+            .frame(height: 6)
         }
     }
 
-    private var sleepStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Hur många timmar sov du?")
-            ButtonGrid(single: true,
-                       options: ["0-3 h","4-5 h","6-7 h","8 h","9-10 h","11+ h"],
-                       selection: $sleepHourSel)
+    // MARK: - Steg 0 helpers
+    private func moodTile(opt: (emoji: String, label: String, value: String)) -> some View {
+        let isSelected = generalMood == opt.value
+        return Button {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            withAnimation(.spring(response: 0.3)) { generalMood = opt.value }
+        } label: {
+            VStack(spacing: 8) {
+                Text(opt.emoji).font(.system(size: 32))
+                Text(opt.label)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(isSelected ? .white : .white.opacity(0.6))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                isSelected
+                    ? LinearGradient(colors: [Color.warmLavender.opacity(0.4), Color.warmRose.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    : LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom),
+                in: RoundedRectangle(cornerRadius: 16)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 16)
+                .stroke(isSelected ? Color.warmLavender.opacity(0.6) : Color.clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+    }
 
-            TitleText("Kvalitet på nattsömn")
+    private var moodEmojiTilesRow: some View {
+        HStack(spacing: 10) {
+            ForEach(moodEmojiOptions, id: \.value) { opt in moodTile(opt: opt) }
+        }
+    }
+
+    // MARK: - Steg 0: Generellt mående
+    private var generalStep: some View {
+        VStack(spacing: 20) {
+            stepHeader(emoji: "💭", title: "Hur har du mått idag?", subtitle: "Välj det som stämmer bäst")
+            moodEmojiTilesRow
+            logDivider("Ångest idag?")
+            ButtonGrid(single: true,
+                       options: ["Inte alls","Lite","Mellan","Hög","Mycket hög","Extrem"],
+                       selection: $hadAnxiety)
+            logDivider("Andra negativa känslor?")
+            ButtonGrid(single: true,
+                       options: ["Inga","Oro","Ilska","Sorg","Besvikelse","Stress"],
+                       selection: $negativeFeel)
+            InfoText("Det är normalt att uppleva olika känslor under olika dagar – du är bara människa.")
+        }
+        .logCard()
+    }
+
+    private let moodEmojiOptions: [(emoji: String, label: String, value: String)] = [
+        ("😊", "Bra", "Bra"),
+        ("🙂", "Okej", "Helt okej"),
+        ("😐", "Neutralt", "Neutralt"),
+        ("😔", "Lågt", "Lite låg"),
+        ("😢", "Svårt", "Mycket låg")
+    ]
+
+    // MARK: - Steg 1: Sömn
+    private var sleepStep: some View {
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🌙", title: "Hur sov du?", subtitle: "Sömn är grunden för välmående")
+
+            logDivider("Antal timmar")
+            // Visuell timmar-väljare
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 10) {
+                ForEach(["0-3 h","4-5 h","6-7 h","8 h","9-10 h","11+ h"], id: \.self) { opt in
+                    sleepHourTile(opt)
+                }
+            }
+
+            logDivider("Sömnkvalitet")
             ButtonGrid(single: true,
                        options: ["Utmärkt","Bra","Godkänd","Orolig","Dålig","Mycket dålig"],
                        selection: $sleepState)
 
             InfoText("Tillräcklig sömn förbättrar minne, immunförsvar och humör.")
         }
+        .logCard()
     }
 
+    private func sleepHourTile(_ opt: String) -> some View {
+        let selected = sleepHourSel == opt
+        return Button {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            withAnimation(.spring(response: 0.3)) { sleepHourSel = opt }
+        } label: {
+            VStack(spacing: 6) {
+                Text("🌙")
+                    .font(.title2)
+                    .opacity(selected ? 1 : 0.4)
+                Text(opt)
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(selected ? .white : .white.opacity(0.6))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                selected
+                    ? Color.warmLavender.opacity(0.25)
+                    : Color.white.opacity(0.05),
+                in: RoundedRectangle(cornerRadius: 14)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(selected ? Color.warmLavender.opacity(0.5) : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Steg 2: Aktiviteter
     private var dayStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Vad har du gjort idag?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🌟", title: "Vad har du gjort idag?", subtitle: "Välj alla som stämmer")
             ButtonGrid(single: false,
                        options: ["Jobbat","Studerat","Tränat","Läst","Skapat","Umgåtts familj","Spelat","Tagit det lugnt","Städat","Handlat","Promenerat","Meditation","Lagat mat","Sett film","Volontärarbete"],
                        selection: $selectedActivities)
             InfoText("Mening + framsteg → bättre välmående.")
         }
+        .logCard()
     }
 
+    // MARK: - Steg 3: Socialt
     private var socialStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Meningsfulla sociala samtal?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🤝", title: "Sociala kontakter", subtitle: "Relationer påverkar ditt mående")
+            logDivider("Meningsfulla samtal?")
             ButtonGrid(single: true,
                        options: ["Flera samtal","Ett par samtal","Ett kort samtal","Inga samtal","Djupa samtal","Småprat"],
                        selection: $meaningfulSocial)
-            TitleText("Vilka har du pratat med?")
+            logDivider("Vilka har du pratat med?")
             ButtonGrid(single: false,
                        options: ["Familj","Partner","Barn","Vänner","Kollegor","Nya bekanta","Grannar","Online-vänner","Husdjur"],
                        selection: $socialPeopleSel)
         }
+        .logCard()
     }
 
+    // MARK: - Steg 4: Utomhus
     private var outdoorStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Har du varit utomhus idag?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🌿", title: "Utomhus & natur", subtitle: "Frisk luft gör skillnad")
+            logDivider("Har du varit utomhus idag?")
             ButtonGrid(single: true, options: ["Ja","Nej"], selection: $beenOutside)
-            TitleText("Hur länge?")
+            logDivider("Hur länge?")
             ButtonGrid(single: true,
                        options: ["<10 min","10-30 min","30-60 min","60-90 min","90+ min","2+ tim"],
                        selection: $outsideDuration)
-            TitleText("Solljus på huden?")
+            logDivider("Solljus på huden?")
             ButtonGrid(single: true, options: ["Ja","Litegrann","Nej"], selection: $hadSun)
         }
+        .logCard()
     }
 
+    // MARK: - Steg 5: Träning
     private var trainingStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Har du tränat idag?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "💪", title: "Träning & rörelse", subtitle: "Rörelse boostar humöret")
+            logDivider("Har du tränat idag?")
             ButtonGrid(single: true,
                        options: ["Ingen","Stretching","Lätt","Mellan","Hård","Återhämtning"],
                        selection: $trained)
-            TitleText("Hur kändes träningen?")
+            logDivider("Hur kändes träningen?")
             ButtonGrid(single: true,
                        options: ["Energigivande","Kul","Neutralt","Utmanande","Tungt","Lättsamt"],
                        selection: $trainingFeel)
         }
+        .logCard()
     }
 
+    // MARK: - Steg 6: Mat
     private var foodStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Hur bra upplevde du dagens mat?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🥗", title: "Mat & näring", subtitle: "Vad du äter påverkar hur du mår")
+            logDivider("Hur var dagens mat?")
             ButtonGrid(single: true,
                        options: ["Utmärkt","Mycket bra","Bra","Okej","Behövde förbättras","Dålig"],
                        selection: $ateToday)
-            TitleText("Hur många måltider?")
+            logDivider("Hur många måltider?")
             ButtonGrid(single: true, options: ["1","2","3","4","5","6+"], selection: $mealsToday)
         }
+        .logCard()
     }
 
-    private var energyStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Hur var din energi idag?")
-            ButtonGrid(single: true, options: ["Mycket låg","Låg","Lagom","Hög","Mycket hög"], selection: $energySel)
+    // MARK: - Steg 7 helpers
+    private func energyTile(opt: (emoji: String, label: String)) -> some View {
+        let isSelected = energySel == opt.label
+        return Button {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            withAnimation { energySel = opt.label }
+        } label: {
+            VStack(spacing: 8) {
+                Text(opt.emoji).font(.title)
+                Text(opt.label)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(isSelected ? Color.warmGold.opacity(0.2) : Color.white.opacity(0.05),
+                        in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .stroke(isSelected ? Color.warmGold.opacity(0.5) : Color.clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var energyTilesRow: some View {
+        HStack(spacing: 10) {
+            ForEach(energyOptions, id: \.label) { opt in energyTile(opt: opt) }
         }
     }
 
+    // MARK: - Steg 7: Energi
+    private var energyStep: some View {
+        VStack(spacing: 20) {
+            stepHeader(emoji: "⚡", title: "Din energi idag", subtitle: "Hur pigg och levande kändes du?")
+            energyTilesRow
+        }
+        .logCard()
+    }
+
+    private let energyOptions: [(emoji: String, label: String)] = [
+        ("😴", "Mycket låg"),
+        ("😑", "Låg"),
+        ("😊", "Lagom"),
+        ("⚡", "Hög"),
+        ("🚀", "Mycket hög")
+    ]
+
+    // MARK: - Steg 8: Känslor
     private var emotionsStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Vilka känslor kände du idag?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🎭", title: "Dina känslor idag", subtitle: "Välj alla du kände")
             ButtonGrid(single: false,
                        options: ["Glad","Tacksam","Lugn","Fokuserad","Motiverad","Stressad","Orolig","Arg","Ledsen","Trött","Överväldigad","Hoppfull"],
                        selection: $emotionsSel)
         }
+        .logCard()
     }
 
+    // MARK: - Steg 9: Vanor
     private var habitsStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Vanor du klarade idag?")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "✅", title: "Vanor du klarade", subtitle: "Små steg bygger stora resultat")
             ButtonGrid(single: false, options: habitCandidates, selection: $habitsSel)
         }
+        .logCard()
     }
 
+    // MARK: - Steg 10: Taggar
     private var tagsStep: some View {
-        VStack(spacing: 16) {
-            TitleText("Taggar (välj det som passar)")
+        VStack(spacing: 20) {
+            stepHeader(emoji: "🏷️", title: "Taggar", subtitle: "Välj det som passar dagen")
             ButtonGrid(single: false,
                        options: ["Rutiner","Fokus","Återhämtning","Relationer","Kreativitet","Jobb","Hälsa","Ekonomi"],
                        selection: $tagsSel)
         }
+        .logCard()
     }
 
+    // MARK: - Steg 11: Anteckningar
     private var notesStep: some View {
-        VStack(spacing: 8) {
-            TitleText("Anteckning (valfritt)")
+        VStack(spacing: 16) {
+            stepHeader(emoji: "📝", title: "Fri anteckning", subtitle: "Skriv vad som helst om din dag")
             TextEditor(text: $notesTxt)
-                .frame(minHeight: 120)
-                .padding()
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 0.5))
+                .frame(minHeight: 140)
+                .padding(14)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
                 .foregroundStyle(.white)
-            InfoText("Skriv några rader om något viktigt från dagen (valfritt).")
+                .scrollContentBackground(.hidden)
+            InfoText("Valfritt – skriv några rader om något viktigt från dagen.")
         }
+        .logCard()
     }
 
+    // MARK: - Steg 12: Laddning
     private var loadingStep: some View {
-        VStack(spacing: 20) {
-            ProgressView().progressViewStyle(.circular).scaleEffect(2)
-            Text(statusText).foregroundStyle(.white).font(.headline)
+        VStack(spacing: 28) {
+            Spacer()
+            ZStack {
+                Circle()
+                    .fill(Color.warmLavender.opacity(0.1))
+                    .frame(width: 100, height: 100)
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .scaleEffect(1.8)
+                    .tint(Color.warmLavender)
+            }
+            VStack(spacing: 8) {
+                Text(statusText)
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("Din dag analyseras…")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
         .onAppear {
             Task {
                 for i in 1...4 { try await Task.sleep(nanoseconds: 800_000_000); loadingProgress = i }
@@ -939,28 +1516,50 @@ struct MoodLogFlowView: View {
         }
     }
 
+    // MARK: - Steg 13: Sammanfattning
     private var summaryStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            TitleText("Sammanfattning av din dag")
-            Text(gptSummary).multilineTextAlignment(.leading).foregroundStyle(.white).glass()
-            if let url = Bundle.main.url(forResource: "bipolar", withExtension: "mp4") {
-                VideoPlayer(player: AVPlayer(url: url))
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .padding(.bottom, 12)
-            }
-            Button("Gå vidare") { step = 14 }.buttonStyle(GradientButtonStyle())
+        VStack(alignment: .leading, spacing: 20) {
+            stepHeader(emoji: "✨", title: "Sammanfattning av din dag", subtitle: "Genererat av din lokala AI")
+            Text(gptSummary)
+                .multilineTextAlignment(.leading)
+                .foregroundStyle(.white)
+                .padding(16)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+            Button("Gå vidare →") { step = 14 }
+                .buttonStyle(GradientButtonStyle())
         }
+        .logCard()
     }
 
+    // MARK: - Steg 14: Rekommendationer + AHA
     private var recommendationsStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            TitleText("Insikter")
-            ForEach(gptInsights, id: \.self) { Text("• \($0)").foregroundStyle(.white) }
-            Divider().background(.white.opacity(0.25))
-            TitleText("Rekommendationer")
-            ForEach(gptAdvice, id: \.self) { Text("→ \($0)").foregroundStyle(.white) }
-            Spacer()
+        VStack(alignment: .leading, spacing: 20) {
+            stepHeader(emoji: "💡", title: "Dina insikter", subtitle: "Baserat på dagens logg")
+
+            // AHA-insikt för just denna post
+            personalAHACard
+
+            if !gptInsights.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Insikter")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    ForEach(gptInsights, id: \.self) {
+                        insightRow($0)
+                    }
+                }
+            }
+            if !gptAdvice.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Rekommendationer")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    ForEach(gptAdvice, id: \.self) {
+                        adviceRow($0)
+                    }
+                }
+            }
+
             Button {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 onSave(entry)
@@ -973,11 +1572,127 @@ struct MoodLogFlowView: View {
             }
             .buttonStyle(GradientButtonStyle())
         }
-        .glass()
+        .logCard()
         .foregroundStyle(.white)
     }
 
-    // Status-text
+    // Den personliga AHA-kortet i slutet av loggen
+    private var personalAHACard: some View {
+        let avgStoreSleep = store.avgSleepHours
+        let todaySleep = Double(entry.sleepHours)
+        let sleepDiff = todaySleep - avgStoreSleep
+        let trainDays = store.last30.filter { $0.trainingType != nil && $0.trainingType != "Ingen" && $0.trainingType != "" }.count
+        let trainAvgMood = trainDays > 0
+            ? store.last30.filter { $0.trainingType != nil && $0.trainingType != "Ingen" && $0.trainingType != "" }.map(\.moodQuality).average(default: 0)
+            : 0.0
+        let didTrain = entry.trainingType != nil && entry.trainingType != "Ingen" && entry.trainingType != ""
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("⭐")
+                    .font(.title2)
+                Text("Din personliga AHA-insikt")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Color.warmGold)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                if abs(sleepDiff) >= 0.5 && avgStoreSleep > 0 {
+                    let dir = sleepDiff > 0 ? "mer" : "mindre"
+                    let h = String(format: "%.1f", abs(sleepDiff))
+                    insightChip("🌙 Idag sov du \(h)h \(dir) än ditt snitt (\(String(format: "%.1f", avgStoreSleep))h)")
+                }
+                if didTrain && trainDays >= 3 {
+                    let pct = Int(trainAvgMood * 100)
+                    insightChip("💪 Du tränade idag – ditt mående är i snitt \(pct)/100 på träningsdagar")
+                }
+                if entry.outdoorMinutes >= 30 {
+                    insightChip("🌿 Bra jobbat med utomhustiden idag!")
+                }
+                if entry.moodQuality >= 0.75 {
+                    insightChip("😊 Du mådde riktigt bra idag – vad bidrog till det?")
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.warmGold.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color.warmGold.opacity(0.4), lineWidth: 1.5)
+                )
+        )
+    }
+
+    private func insightChip(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.warmGold)
+                .frame(width: 3, height: 30)
+            Text(text)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func insightRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "sparkle")
+                .font(.caption)
+                .foregroundStyle(Color.warmLavender)
+                .padding(.top, 2)
+            Text(text)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func adviceRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "arrow.right.circle.fill")
+                .font(.caption)
+                .foregroundStyle(Color.warmSage)
+                .padding(.top, 2)
+            Text(text)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white)
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Hjälpvyer
+    private func stepHeader(emoji: String, title: String, subtitle: String) -> some View {
+        VStack(spacing: 8) {
+            Text(emoji)
+                .font(.system(size: 44))
+            Text(title)
+                .font(.system(.title2, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+            Text(subtitle)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white.opacity(0.5))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 4)
+    }
+
+    private func logDivider(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.5))
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
+        }
+    }
+
+    // MARK: - Status
     private var statusText: String {
         switch loadingProgress {
         case 0: "Sammanställer din dag…"
@@ -988,7 +1703,7 @@ struct MoodLogFlowView: View {
         }
     }
 
-    // GPT-anrop
+    // MARK: - GPT
     private func summariseWithGPT() async {
         mapSelectionsToEntry()
         do {
@@ -1005,9 +1720,9 @@ struct MoodLogFlowView: View {
     }
 
     private func mapSelectionsToEntry() {
-        entry.moodQuality   = scale(["Mycket låg":0.15,"Lite låg":0.35,"Helt okej":0.55,"Bra":0.75,"Fantastiskt":0.92,"Energifylld":0.85], key: generalMood)
+        entry.moodQuality   = scale(["Mycket låg":0.15,"Lite låg":0.35,"Helt okej":0.55,"Bra":0.75,"Fantastiskt":0.92,"Energifylld":0.85,"Okej":0.55,"Neutralt":0.5,"Lågt":0.35,"Svårt":0.2], key: generalMood)
         entry.anxietyLevel  = scale(["Inte alls":0.05,"Lite":0.25,"Mellan":0.5,"Hög":0.7,"Mycket hög":0.85,"Extrem":0.95], key: hadAnxiety)
-        entry.sleepQuality   = scale(["Mycket dålig":0.15,"Dålig":0.3,"Orolig":0.45,"Godkänd":0.6,"Bra":0.78,"Utmärkt":0.92], key: sleepState)
+        entry.sleepQuality  = scale(["Mycket dålig":0.15,"Dålig":0.3,"Orolig":0.45,"Godkänd":0.6,"Bra":0.78,"Utmärkt":0.92], key: sleepState)
         entry.outdoorQuality = scale(["Nej":0.2,"Litegrann":0.5,"Ja":0.8], key: hadSun)
         entry.socialQuality  = scale(["Inga samtal":0.2,"Ett kort samtal":0.4,"Ett par samtal":0.6,"Flera samtal":0.78,"Djupa samtal":0.9,"Småprat":0.5], key: meaningfulSocial)
         entry.routineQuality = scale(["Mycket låg":0.2,"Lite låg":0.4,"Helt okej":0.6,"Bra":0.8,"Fantastiskt":0.92,"Energifylld":0.82], key: generalMood)
@@ -1036,13 +1751,24 @@ struct MoodLogFlowView: View {
         entry.negatives = negativesSel
         entry.wished = wishedSel
     }
-    private func scale(_ dict:[String:Double], key:String)->Double { dict[key] ?? 0.5 }
+    private func scale(_ dict: [String:Double], key: String) -> Double { dict[key] ?? 0.5 }
+}
+
+// MARK: - Log Card Modifier
+extension View {
+    func logCard() -> some View {
+        self
+            .padding(20)
+            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+    }
 }
 
 // MARK: - AI-service (lokal – 100% offline via LillaJagAI)
 struct OpenAIService {
-    /// Analyserar en moodEntry och returnerar (sammanfattning, insikter, råd)
-    /// via den lokala KBT-motorn – ingen nätverkstrafik.
     static func summarise(entry: MoodEntry) async throws -> (String, [String], [String]) {
         var parts: [String] = [
             "Mående: \(Int(entry.moodQuality * 100))%",
@@ -1057,7 +1783,6 @@ struct OpenAIService {
         return await LillaJagAIService.shared.analyzeMoodEntry(parts.joined(separator: ". "))
     }
 
-    /// Vecklig rapport – delegerar till LillaJagAIService
     static func weeklyReport(entries: [MoodEntry], correlations: [MoodStore.MoodCorrelation]) async throws -> String {
         let avgMood = entries.map(\.moodQuality).average(default: 0)
         let summary = "Veckosnitt mående: \(Int(avgMood * 100))% (\(entries.count) dagar loggade)"
@@ -1076,14 +1801,17 @@ struct MoodOptionButton: View {
             .padding(.vertical, 12).padding(.horizontal, 8)
             .frame(maxWidth: .infinity)
             .background(
-                LinearGradient(colors: selected ? [.pink, .purple]
-                               : [Color.white.opacity(0.08),
-                                  Color.white.opacity(0.08)],
+                LinearGradient(colors: selected ? [Color.warmLavender.opacity(0.5), Color.warmRose.opacity(0.4)]
+                               : [Color.white.opacity(0.07), Color.white.opacity(0.07)],
                                startPoint: .leading, endPoint: .trailing)
             )
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(color: .black.opacity(selected ? 0.25 : 0.05), radius: selected ? 6 : 2, y: selected ? 3 : 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(selected ? Color.warmLavender.opacity(0.5) : Color.clear, lineWidth: 1.2)
+            )
+            .shadow(color: .black.opacity(selected ? 0.2 : 0.04), radius: selected ? 5 : 2, y: selected ? 2 : 1)
     }
 }
 
@@ -1134,6 +1862,7 @@ struct WrapChips: View {
                     .font(.footnote)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(Color.white.opacity(0.08), in: Capsule())
+                    .foregroundStyle(.white)
             }
         }
     }
@@ -1156,7 +1885,7 @@ struct InfoText: View {
     var body: some View {
         Text(text)
             .font(.footnote)
-            .foregroundStyle(.white.opacity(0.8))
+            .foregroundStyle(.white.opacity(0.7))
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1172,7 +1901,7 @@ extension View {
     }
 }
 
-// En kapsel för bottenbaren som tar höjd för home-indikatorn även på äldre iOS
+// Bottenbar med safe area
 struct FooterContainer<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {
@@ -1210,7 +1939,6 @@ extension Calendar {
     }
 }
 
-// Hjälp: senaste 7 dagar
 extension MoodStore {
     func last7() -> [MoodEntry] {
         guard let since = Calendar.current.date(byAdding: .day, value: -6, to: .now) else { return [] }

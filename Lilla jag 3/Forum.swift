@@ -157,7 +157,7 @@ struct ForumView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             LJIconCircle(icon: "bubble.left.and.bubble.right", color: .white.opacity(0.5), size: 56)
-            Text("Inga inlägg med taggen "\(selectedTag)"")
+            Text("Inga inlägg med taggen \"\(selectedTag)\"")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(.white.opacity(0.5))
             Button("Skapa ett") { showNewPost = true }
@@ -266,9 +266,9 @@ struct NewPostView: View {
 
     private let tagOptions = ["Ångest", "Depression", "Tips", "Återhämtning", "Relationer", "Övrigt"]
     private let tagColors: [String: Color] = [
-        "Ångest": .warmLavender, "Depression": Color(hex: 0x6B8DD6),
-        "Tips": .warmSage, "Återhämtning": .warmGold,
-        "Relationer": .warmRose, "Övrigt": Color.white.opacity(0.5)
+        "Ångest": Color.warmLavender, "Depression": Color(hex: 0x6B8DD6),
+        "Tips": Color.warmSage, "Återhämtning": Color.warmGold,
+        "Relationer": Color.warmRose, "Övrigt": Color.white.opacity(0.5)
     ]
 
     private var canPost: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty && !content.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -308,7 +308,7 @@ struct NewPostView: View {
                                                 .padding(.vertical, 6)
                                                 .background(
                                                     selectedTag == tag
-                                                    ? AnyShapeStyle(tagColors[tag] ?? .warmLavender)
+                                                    ? AnyShapeStyle(tagColors[tag] ?? Color.warmLavender)
                                                     : AnyShapeStyle(Color.white.opacity(0.1)),
                                                     in: Capsule()
                                                 )
@@ -413,7 +413,7 @@ struct NewPostView: View {
                             content: content.trimmingCharacters(in: .whitespaces),
                             timeAgo: "Nu",
                             tag: selectedTag,
-                            tagColor: tagColors[selectedTag] ?? .warmLavender,
+                            tagColor: tagColors[selectedTag] ?? Color.warmLavender,
                             likes: 0,
                             comments: 0
                         )
