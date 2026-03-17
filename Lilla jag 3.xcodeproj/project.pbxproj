@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		LJ001001001001001001001A /* llama in Frameworks */ = {isa = PBXBuildFile; productRef = LJ003003003003003003003A /* llama */; };
 		9BD21CEE2E43EB4A00A39176 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BD21CED2E43EB4A00A39176 /* StoreKit.framework */; };
 		9BEE2D932E4D38F400F671E1 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D922E4D38F400F671E1 /* FirebaseAI */; };
 		9BEE2D952E4D38F400F671E1 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2D942E4D38F400F671E1 /* FirebaseAnalytics */; };
@@ -20,8 +19,6 @@
 		9BEE2DA72E4D3B7600F671E1 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA62E4D3B7600F671E1 /* FirebaseCore */; };
 		9BEE2DA92E4D3B7600F671E1 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DA82E4D3B7600F671E1 /* FirebaseCrashlytics */; };
 		9BEE2DAB2E4D3B7600F671E1 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DAA2E4D3B7600F671E1 /* FirebaseDatabase */; };
-		9BEE2DAD2E4D3B7600F671E1 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DAC2E4D3B7600F671E1 /* FirebaseFirestore */; };
-		9BEE2DAF2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DAE2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community */; };
 		9BEE2DB12E4D3B7600F671E1 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB02E4D3B7600F671E1 /* FirebaseFunctions */; };
 		9BEE2DB32E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB22E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community */; };
 		9BEE2DB52E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DB42E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta */; };
@@ -33,6 +30,7 @@
 		9BEE2DC12E4D3B7600F671E1 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DC02E4D3B7600F671E1 /* FirebaseStorage */; };
 		9BEE2DC32E4D3B7600F671E1 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9BEE2DC22E4D3B7600F671E1 /* FirebaseStorageCombine-Community */; };
 		9BF139832E247031009A0196 /* ElevenLabsSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 9BF139822E247031009A0196 /* ElevenLabsSDK */; };
+		LJ001001001001001001001A /* llama in Frameworks */ = {isa = PBXBuildFile; productRef = LJ003003003003003003003A /* llama */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,7 +87,6 @@
 				9BF139832E247031009A0196 /* ElevenLabsSDK in Frameworks */,
 				9BD21CEE2E43EB4A00A39176 /* StoreKit.framework in Frameworks */,
 				9BEE2DC12E4D3B7600F671E1 /* FirebaseStorage in Frameworks */,
-				9BEE2DAF2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community in Frameworks */,
 				9BEE2DA72E4D3B7600F671E1 /* FirebaseCore in Frameworks */,
 				9BEE2D992E4D38F400F671E1 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
 				9BEE2DB92E4D3B7600F671E1 /* FirebaseMLModelDownloader in Frameworks */,
@@ -107,7 +104,6 @@
 				9BEE2DA12E4D3B7600F671E1 /* FirebaseAppDistribution-Beta in Frameworks */,
 				9BEE2DC32E4D3B7600F671E1 /* FirebaseStorageCombine-Community in Frameworks */,
 				9BEE2DA52E4D3B7600F671E1 /* FirebaseAuthCombine-Community in Frameworks */,
-				9BEE2DAD2E4D3B7600F671E1 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,8 +185,6 @@
 				9BEE2DA62E4D3B7600F671E1 /* FirebaseCore */,
 				9BEE2DA82E4D3B7600F671E1 /* FirebaseCrashlytics */,
 				9BEE2DAA2E4D3B7600F671E1 /* FirebaseDatabase */,
-				9BEE2DAC2E4D3B7600F671E1 /* FirebaseFirestore */,
-				9BEE2DAE2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community */,
 				9BEE2DB02E4D3B7600F671E1 /* FirebaseFunctions */,
 				9BEE2DB22E4D3B7600F671E1 /* FirebaseFunctionsCombine-Community */,
 				9BEE2DB42E4D3B7600F671E1 /* FirebaseInAppMessaging-Beta */,
@@ -288,7 +282,7 @@
 			packageReferences = (
 				9BF139812E247031009A0196 /* XCRemoteSwiftPackageReference "ElevenLabsSwift" */,
 				9BEE2D912E4D38F400F671E1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-				LJ002002002002002002002A /* XCRemoteSwiftPackageReference "llama.cpp" */,
+				LJ002002002002002002002A /* XCRemoteSwiftPackageReference "llama" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9BF1394A2E232B13009A0196 /* Products */;
@@ -693,7 +687,7 @@
 				kind = branch;
 			};
 		};
-		LJ002002002002002002002A /* XCRemoteSwiftPackageReference "llama.cpp" */ = {
+		LJ002002002002002002002A /* XCRemoteSwiftPackageReference "llama" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ggml-org/llama.cpp";
 			requirement = {
@@ -753,14 +747,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = FirebaseDatabase;
 		};
-		9BEE2DAC2E4D3B7600F671E1 /* FirebaseFirestore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FirebaseFirestore;
-		};
-		9BEE2DAE2E4D3B7600F671E1 /* FirebaseFirestoreCombine-Community */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = "FirebaseFirestoreCombine-Community";
-		};
 		9BEE2DB02E4D3B7600F671E1 /* FirebaseFunctions */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FirebaseFunctions;
@@ -808,7 +794,7 @@
 		};
 		LJ003003003003003003003A /* llama */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = LJ002002002002002002002A /* XCRemoteSwiftPackageReference "llama.cpp" */;
+			package = LJ002002002002002002002A /* XCRemoteSwiftPackageReference "llama" */;
 			productName = llama;
 		};
 /* End XCSwiftPackageProductDependency section */

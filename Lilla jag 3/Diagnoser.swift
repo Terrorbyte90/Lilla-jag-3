@@ -13,6 +13,8 @@ struct Diagnosis: Identifiable, Hashable {
     let name, description: String
     let symptoms, help: [String]
     let videoFile: String
+    let icon: String
+    let color: Color
 }
 
 // MARK: - Fasta data (15 vanliga diagnoser)
@@ -35,7 +37,9 @@ let diagnoses: [Diagnosis] = [
             "Socialt stöd & meningsfulla aktiviteter",
             "Ljus- eller sömnbehandling vid behov"
         ],
-        videoFile: "depression"
+        videoFile: "depression",
+        icon: "cloud.rain.fill",
+        color: Color(hex: 0x6B8DD6)
     ),
     Diagnosis(
         name: "Generaliserat ångestsyndrom (GAD)",
@@ -54,7 +58,9 @@ let diagnoses: [Diagnosis] = [
             "Stresshantering & planering",
             "Regelbunden motion"
         ],
-        videoFile: "gad"
+        videoFile: "gad",
+        icon: "waveform.path.ecg",
+        color: Color.warmLavender
     ),
     Diagnosis(
         name: "Bipolär sjukdom",
@@ -73,7 +79,9 @@ let diagnoses: [Diagnosis] = [
             "Sömnhygien och stressreduktion",
             "Undvik alkohol & droger"
         ],
-        videoFile: "bipolar"
+        videoFile: "bipolar",
+        icon: "arrow.up.arrow.down.circle.fill",
+        color: Color.warmCoral
     ),
     Diagnosis(
         name: "ADHD",
@@ -92,7 +100,9 @@ let diagnoses: [Diagnosis] = [
             "Fysisk aktivitet",
             "Psykoedukation för omgivningen"
         ],
-        videoFile: "adhd"
+        videoFile: "adhd",
+        icon: "bolt.circle.fill",
+        color: Color.warmGold
     ),
     Diagnosis(
         name: "Autismspektrumtillstånd (AST)",
@@ -111,7 +121,9 @@ let diagnoses: [Diagnosis] = [
             "Ergoterapi & sensoriska strategier",
             "Stöd för anhöriga"
         ],
-        videoFile: "autism"
+        videoFile: "autism",
+        icon: "puzzlepiece.fill",
+        color: Color.warmSage
     ),
     Diagnosis(
         name: "Posttraumatiskt stressyndrom (PTSD)",
@@ -130,7 +142,9 @@ let diagnoses: [Diagnosis] = [
             "Grounding- och stabiliseringstekniker",
             "Socialt stöd & trygghet"
         ],
-        videoFile: "ptsd"
+        videoFile: "ptsd",
+        icon: "bolt.heart.fill",
+        color: Color(hex: 0xFF8C69)
     ),
     Diagnosis(
         name: "Tvångssyndrom (OCD)",
@@ -149,7 +163,9 @@ let diagnoses: [Diagnosis] = [
             "Stresshantering",
             "Mindfulness"
         ],
-        videoFile: "ocd"
+        videoFile: "ocd",
+        icon: "arrow.triangle.2.circlepath.circle.fill",
+        color: Color(hex: 0x6ECFF6)
     ),
     Diagnosis(
         name: "Emotionellt instabil personlighetsstörning (EIPS)",
@@ -168,7 +184,9 @@ let diagnoses: [Diagnosis] = [
             "Känsloregleringsfärdigheter",
             "Farmakologiskt stöd vid samsjuklighet"
         ],
-        videoFile: "eips"
+        videoFile: "eips",
+        icon: "flame.fill",
+        color: Color.warmRose
     ),
     Diagnosis(
         name: "Paniksyndrom",
@@ -187,7 +205,9 @@ let diagnoses: [Diagnosis] = [
             "Regelbunden konditionsträning",
             "Psykoedukation"
         ],
-        videoFile: "panic"
+        videoFile: "panic",
+        icon: "heart.circle.fill",
+        color: Color(hex: 0xFF5B5B)
     ),
     Diagnosis(
         name: "Social ångest",
@@ -206,7 +226,9 @@ let diagnoses: [Diagnosis] = [
             "Social färdighetsträning",
             "Mindfulness & ACT-tekniker"
         ],
-        videoFile: "social_anxiety"
+        videoFile: "social_anxiety",
+        icon: "person.fill.questionmark",
+        color: Color(hex: 0xFF8FAD)
     ),
     Diagnosis(
         name: "Schizofreni",
@@ -225,7 +247,9 @@ let diagnoses: [Diagnosis] = [
             "Familjeintervention",
             "Stödd sysselsättning"
         ],
-        videoFile: "schizophrenia"
+        videoFile: "schizophrenia",
+        icon: "eye.trianglebadge.exclamationmark.fill",
+        color: Color(hex: 0x9B59B6)
     ),
     Diagnosis(
         name: "Ätstörningar",
@@ -244,7 +268,9 @@ let diagnoses: [Diagnosis] = [
             "Farmakologisk samsjuklighetsbehandling",
             "Kroppsacceptans-övningar"
         ],
-        videoFile: "eating_disorder"
+        videoFile: "eating_disorder",
+        icon: "fork.knife.circle.fill",
+        color: Color(hex: 0xE8A87C)
     ),
     Diagnosis(
         name: "Substansbrukssyndrom",
@@ -263,7 +289,9 @@ let diagnoses: [Diagnosis] = [
             "Självhjälpsgrupper (12-steg, SMART)",
             "Social rehabilitering"
         ],
-        videoFile: "substance_use"
+        videoFile: "substance_use",
+        icon: "drop.triangle.fill",
+        color: Color(hex: 0x8B6F47)
     ),
     Diagnosis(
         name: "Specifika fobier",
@@ -282,7 +310,9 @@ let diagnoses: [Diagnosis] = [
             "Avslappningstekniker",
             "Korttidsfarmaka vid behov"
         ],
-        videoFile: "phobia"
+        videoFile: "phobia",
+        icon: "exclamationmark.triangle.fill",
+        color: Color.warmCoral
     ),
     Diagnosis(
         name: "Insomni",
@@ -301,7 +331,9 @@ let diagnoses: [Diagnosis] = [
             "Korttidsverkande insomnimedicin",
             "Behandla bakomliggande orsaker"
         ],
-        videoFile: "insomnia"
+        videoFile: "insomnia",
+        icon: "moon.zzz.fill",
+        color: Color(hex: 0x7B8CDE)
     )
 ]
 
@@ -320,49 +352,68 @@ struct DiagnoserView: View {
         ZStack {
             WarmBackground()
 
-            VStack(spacing: 0) {
-                HStack {
-                    LJTitle(text: "Diagnoser")
-                    Spacer()
-                }
-                .padding(.horizontal)
-                .padding(.top, 20)
+            ScrollView {
+                VStack(spacing: 0) {
+                    HStack {
+                        LJTitle(text: "Diagnoser")
+                        Spacer()
+                        Text("\(filtered.count) diagnoser")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 20)
 
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Sök diagnos...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .foregroundColor(.white)
-                }
-                .padding()
-                .ljGlassCard(radius: 12)
-                .padding()
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Sök diagnos...", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .foregroundStyle(.white)
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.white.opacity(0.4))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Rensa sökning")
+                        }
+                    }
+                    .padding()
+                    .ljGlassCard(radius: 12)
+                    .padding()
+                    .accessibilityLabel("Sök bland diagnoser")
 
-                ScrollView {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: 12) {
                         ForEach(filtered) { diag in
                             Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 selected = diag
                             } label: {
-                                HStack {
+                                HStack(spacing: 14) {
+                                    LJIconCircle(icon: diag.icon, color: diag.color, size: 44)
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(diag.name)
-                                            .font(.headline)
-                                            .foregroundColor(.white)
+                                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                            .foregroundStyle(.white)
                                         Text(diag.description)
                                             .font(.caption)
-                                            .foregroundColor(.white.opacity(0.7))
+                                            .foregroundStyle(.white.opacity(0.6))
                                             .lineLimit(2)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .foregroundColor(.secondary)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.white.opacity(0.25))
                                 }
-                                .padding()
+                                .padding(14)
                                 .ljGlassCard()
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(LJPressableButtonStyle())
+                            .accessibilityLabel(diag.name)
+                            .accessibilityHint("Tryck för att läsa mer om \(diag.name)")
                         }
                     }
                     .padding(.horizontal)
@@ -396,7 +447,7 @@ struct DiagnosisDetailView: View {
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.title)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundStyle(.white.opacity(0.5))
                         }
                         Spacer()
 
@@ -422,11 +473,14 @@ struct DiagnosisDetailView: View {
                         .disabled(loadingInsight)
                         .foregroundStyle(.white)
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 8)
 
-                    Text(diagnosis.name)
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.white)
+                    HStack(spacing: 14) {
+                        LJIconCircle(icon: diagnosis.icon, color: diagnosis.color, size: 48)
+                        Text(diagnosis.name)
+                            .font(.system(.title2, design: .rounded, weight: .black))
+                            .foregroundStyle(.white)
+                    }
 
                     if !aiInsight.isEmpty {
                         LJCard {
@@ -466,13 +520,17 @@ struct DiagnosisDetailView: View {
                     LJCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Vanliga symtom")
-                                .font(.headline)
+                                .font(.system(.headline, design: .rounded, weight: .bold))
+                                .foregroundStyle(.white)
                             ForEach(diagnosis.symptoms, id: \.self) { symptom in
                                 HStack(alignment: .top, spacing: 10) {
                                     Image(systemName: "circle.fill")
-                                        .font(.system(size: 6))
-                                        .padding(.top, 6)
+                                        .font(.system(size: 5))
+                                        .foregroundStyle(diagnosis.color.opacity(0.7))
+                                        .padding(.top, 7)
                                     Text(symptom)
+                                        .font(.system(.subheadline, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.85))
                                 }
                             }
                         }
@@ -481,12 +539,16 @@ struct DiagnosisDetailView: View {
                     LJCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Hjälp & Behandling")
-                                .font(.headline)
+                                .font(.system(.headline, design: .rounded, weight: .bold))
+                                .foregroundStyle(.white)
                             ForEach(diagnosis.help, id: \.self) { item in
                                 HStack(alignment: .top, spacing: 10) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                        .foregroundStyle(Color.warmSage)
+                                        .font(.system(size: 14))
                                     Text(item)
+                                        .font(.system(.subheadline, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.85))
                                 }
                             }
                         }

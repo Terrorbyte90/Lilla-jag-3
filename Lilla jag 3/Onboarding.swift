@@ -13,27 +13,27 @@ struct OnboardingPage: Identifiable {
 private let pages: [OnboardingPage] = [
     OnboardingPage(
         icon: "heart.fill",
-        iconColor: .warmRose,
+        iconColor: Color.warmRose,
         title: "Välkommen till\nLilla Jag",
-        subtitle: "En trygg plats för dig som kämpar\nmed psykisk ohälsa."
+        subtitle: "En trygg plats för dig som kämpar\nmed psykisk ohälsa. Du är inte ensam."
     ),
     OnboardingPage(
         icon: "brain.head.profile",
-        iconColor: .warmLavender,
+        iconColor: Color.warmLavender,
         title: "KBT i fickan",
         subtitle: "Tankedagbok, humörlogg och\nbeteendeaktivering – vetenskapligt förankrat."
     ),
     OnboardingPage(
         icon: "lock.shield.fill",
-        iconColor: .warmSage,
+        iconColor: Color.warmSage,
         title: "100 % privat",
         subtitle: "All AI körs lokalt på din enhet.\nIngen data lämnar din telefon – aldrig."
     ),
     OnboardingPage(
         icon: "sparkles",
-        iconColor: .warmGold,
+        iconColor: Color.warmGold,
         title: "Din AI-terapeut",
-        subtitle: "Prata med en empatisk KBT-coach\nnär du behöver det – dygnet runt."
+        subtitle: "Prata med en empatisk KBT-coach\nnär du behöver det – dygnet runt.\nAllt körs lokalt, helt privat."
     )
 ]
 
@@ -44,40 +44,66 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var dragOffset: CGFloat = 0
     @State private var animateContent = false
+    @State private var aiWelcome: String = ""
 
     var body: some View {
-        ZStack {
-            WarmBackground()
+        GeometryReader { geo in
+            ZStack {
+                WarmBackground()
 
-            VStack(spacing: 0) {
-                // Page indicator dots
-                HStack(spacing: 8) {
-                    ForEach(0..<pages.count, id: \.self) { i in
-                        Capsule()
-                            .fill(i == currentPage ? Color.white : Color.white.opacity(0.3))
-                            .frame(width: i == currentPage ? 24 : 8, height: 8)
-                            .animation(.spring(response: 0.35), value: currentPage)
+                VStack(spacing: 0) {
+                    // Top bar: dots + skip
+                    HStack {
+                        // Page indicator dots
+                        HStack(spacing: 8) {
+                            ForEach(0..<pages.count, id: \.self) { i in
+                                Capsule()
+                                    .fill(i == currentPage ? Color.white : Color.white.opacity(0.25))
+                                    .frame(width: i == currentPage ? 24 : 8, height: 8)
+                                    .animation(.spring(response: 0.35), value: currentPage)
+                            }
+                        }
+                        Spacer()
+                        if currentPage < pages.count - 1 {
+                            Button("Hoppa över") {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                withAnimation(.spring(response: 0.4)) { hasCompletedOnboarding = true }
+                            }
+                            .font(.system(.subheadline, design: .rounded, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .accessibilityLabel("Hoppa över introduktionen")
+                        }
                     }
-                }
-                .padding(.top, 60)
+                    .padding(.horizontal, 28)
+                    .padding(.top, max(16, geo.size.height * 0.06))
 
-                Spacer()
+                    Spacer()
 
-                // Page content
-                TabView(selection: $currentPage) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                        pageContent(page)
-                            .tag(index)
+                    // Page content
+                    TabView(selection: $currentPage) {
+                        ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
+                            pageContent(page, geo: geo)
+                                .tag(index)
+                        }
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.spring(response: 0.4, dampingFraction: 0.85), value: currentPage)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.85), value: currentPage)
 
-                Spacer()
+                    Spacer()
 
-                // CTA button
-                VStack(spacing: 16) {
+                    // AI-välkomstmeddelande på sista sidan
+                    if currentPage == pages.count - 1, !aiWelcome.isEmpty {
+                        Text(aiWelcome)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                            .transition(.opacity)
+                    }
+
+                    // CTA button
                     Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         withAnimation(.spring(response: 0.4)) {
                             if currentPage < pages.count - 1 {
                                 currentPage += 1
@@ -86,7 +112,7 @@ struct OnboardingView: View {
                             }
                         }
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
                             Text(currentPage < pages.count - 1 ? "Nästa" : "Kom igång")
                                 .font(.system(.body, design: .rounded, weight: .bold))
                             Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
@@ -97,56 +123,63 @@ struct OnboardingView: View {
                         .padding(.vertical, 16)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .shadow(color: .white.opacity(0.25), radius: 10, y: 4)
+                        .shadow(color: .white.opacity(0.2), radius: 12, y: 4)
                     }
-                    .buttonStyle(.plain)
-
-                    if currentPage > 0 {
-                        Button("Hoppa över") {
-                            withAnimation { hasCompletedOnboarding = true }
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.6))
-                    }
+                    .buttonStyle(LJPressableButtonStyle())
+                    .accessibilityLabel(currentPage < pages.count - 1 ? "Nästa sida" : "Kom igång med appen")
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, max(24, geo.size.height * 0.06))
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 48)
             }
         }
         .preferredColorScheme(.dark)
+        .task {
+            aiWelcome = LillaJagAIService.shared.welcomeMessage()
+        }
     }
 
-    private func pageContent(_ page: OnboardingPage) -> some View {
-        VStack(spacing: 28) {
+    private func pageContent(_ page: OnboardingPage, geo: GeometryProxy) -> some View {
+        let iconSize = min(geo.size.height * 0.20, 140.0)
+        let iconFontSize = min(geo.size.height * 0.054, 40.0)
+
+        return VStack(spacing: max(12, geo.size.height * 0.025)) {
             ZStack {
+                // Pulsating outer ring
                 Circle()
-                    .fill(page.iconColor.opacity(0.15))
-                    .frame(width: 130, height: 130)
+                    .fill(page.iconColor.opacity(0.06))
+                    .frame(width: iconSize, height: iconSize)
                 Circle()
-                    .fill(page.iconColor.opacity(0.08))
-                    .frame(width: 160, height: 160)
+                    .fill(page.iconColor.opacity(0.12))
+                    .frame(width: iconSize * 0.78, height: iconSize * 0.78)
+                Circle()
+                    .fill(page.iconColor.opacity(0.2))
+                    .frame(width: iconSize * 0.56, height: iconSize * 0.56)
                 Image(systemName: page.icon)
-                    .font(.system(size: 56, weight: .medium))
+                    .font(.system(size: iconFontSize, weight: .medium))
                     .foregroundStyle(page.iconColor)
-                    .shadow(color: page.iconColor.opacity(0.5), radius: 20)
+                    .shadow(color: page.iconColor.opacity(0.6), radius: 24)
             }
             .padding(.bottom, 8)
 
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
                 Text(page.title)
-                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .font(.system(size: min(28, geo.size.height * 0.038), weight: .black, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(2)
+                    .lineSpacing(4)
+                    .minimumScaleFactor(0.8)
 
                 Text(page.subtitle)
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(.white.opacity(0.75))
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+                    .lineSpacing(5)
+                    .padding(.horizontal, 8)
+                    .minimumScaleFactor(0.8)
             }
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 28)
+        .accessibilityElement(children: .combine)
     }
 }
 

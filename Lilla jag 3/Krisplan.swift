@@ -62,6 +62,9 @@ final class KrisplanStore: ObservableObject {
 struct KrisplanView: View {
     @StateObject private var store = KrisplanStore.shared
     @State private var isEditing = false
+    @State private var groundingText: String = ""
+    @State private var aiCopingSuggestions: [String] = []
+    @State private var loadingAI = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -73,6 +76,9 @@ struct KrisplanView: View {
                     VStack(spacing: 16) {
                         // Akutknapp
                         emergencySection
+
+                        // AI Groundingövning
+                        aiGroundingSection
 
                         krisSection(icon: "eye.fill", color: Color.warmGold, title: "Mina varningssignaler",
                                     text: store.plan.warningSigns,
@@ -96,11 +102,19 @@ struct KrisplanView: View {
                             store.plan.professionalContact = newText
                         }
 
+                        // AI copingförslag
+                        if !aiCopingSuggestions.isEmpty {
+                            aiCopingSection
+                        }
+
                         // Mind info
                         mindInfo
                     }
                     .padding(16)
                     .padding(.bottom, 40)
+                }
+                .task {
+                    await loadAIContent()
                 }
             }
             .preferredColorScheme(.dark)
@@ -109,8 +123,11 @@ struct KrisplanView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Spara" : "Redigera") {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         if isEditing { store.save() }
-                        isEditing.toggle()
+                        withAnimation(.spring(response: 0.3)) {
+                            isEditing.toggle()
+                        }
                     }
                     .foregroundStyle(isEditing ? Color.warmGold : .white.opacity(0.7))
                     .fontWeight(isEditing ? .bold : .regular)
@@ -126,8 +143,7 @@ struct KrisplanView: View {
     private var emergencySection: some View {
         VStack(spacing: 12) {
             HStack {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(Color(hex: 0xFF5B5B))
+                LJIconCircle(icon: "exclamationmark.triangle.fill", color: Color(hex: 0xFF5B5B), size: 36, iconScale: 0.45)
                 Text("Om det är akut")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
@@ -290,6 +306,77 @@ struct KrisplanView: View {
         .padding(14)
         .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.2), lineWidth: 1))
+    }
+
+    private var aiGroundingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile").foregroundStyle(Color.warmLavender)
+                Text("AI Groundingövning")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Task { groundingText = await LillaJagAIService.shared.crisisGrounding() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.warmLavender)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if groundingText.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView().tint(.white.opacity(0.5))
+                    Text("Hämtar övning...")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            } else {
+                Text(groundingText)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineSpacing(3)
+            }
+        }
+        .padding(14)
+        .background(Color.warmLavender.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmLavender.opacity(0.2), lineWidth: 1))
+    }
+
+    private var aiCopingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").foregroundStyle(Color.warmGold)
+                Text("AI föreslår")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            ForEach(Array(aiCopingSuggestions.enumerated()), id: \.offset) { index, suggestion in
+                HStack(alignment: .top, spacing: 10) {
+                    Text("•")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(Color.warmGold)
+                    Text(suggestion)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineSpacing(2)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+    }
+
+    private func loadAIContent() async {
+        groundingText = await LillaJagAIService.shared.crisisGrounding()
+        if !store.plan.warningSigns.isEmpty {
+            aiCopingSuggestions = await LillaJagAIService.shared.crisisCopingSuggestions(warningSigns: store.plan.warningSigns)
+        }
     }
 
     private var mindInfo: some View {

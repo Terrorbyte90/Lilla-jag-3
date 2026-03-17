@@ -5,6 +5,7 @@ import SwiftUI
 
 struct DonationView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var aiMotivation: String = ""
 
     private let organizations: [(name: String, url: String, desc: String, icon: String, color: Color)] = [
         ("Mind", "https://mind.se/stod-oss/", "Arbetar för psykisk hälsa i Sverige. Driver Självmordslinjen.", "heart.fill", Color.warmRose),
@@ -20,10 +21,7 @@ struct DonationView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         VStack(spacing: 14) {
-                            Image(systemName: "heart.fill")
-                                .font(.system(size: 52))
-                                .foregroundStyle(Color.warmRose)
-                                .shadow(color: Color.warmRose.opacity(0.4), radius: 20)
+                            LJIconCircle(icon: "heart.fill", color: Color.warmRose, size: 72)
 
                             Text("Stöd psykisk hälsa")
                                 .font(.system(.title2, design: .rounded, weight: .black))
@@ -36,6 +34,25 @@ struct DonationView: View {
                         }
                         .padding(20)
                         .background(Color.warmRose.opacity(0.1), in: RoundedRectangle(cornerRadius: 20))
+
+                        // AI-motivation
+                        if !aiMotivation.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "sparkles").foregroundStyle(Color.warmGold)
+                                    Text("Visste du?")
+                                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                                Text(aiMotivation)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .lineSpacing(3)
+                            }
+                            .padding(14)
+                            .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+                        }
 
                         appSupportSection
 
@@ -52,6 +69,7 @@ struct DonationView: View {
                     .padding(.bottom, 40)
                 }
             }
+            .task { aiMotivation = await LillaJagAIService.shared.donationMotivation() }
             .preferredColorScheme(.dark)
             .navigationTitle("Ge tillbaka")
             .navigationBarTitleDisplayMode(.inline)
