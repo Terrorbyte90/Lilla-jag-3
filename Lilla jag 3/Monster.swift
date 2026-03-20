@@ -54,7 +54,7 @@ enum MonsterState: String, Codable {
 
 // MARK: - 4  Dagens logg
 struct DailyLog: Codable, Identifiable {
-    let id = UUID()
+    var id: UUID = UUID()
     let date: Date
     let sleep, meals, outdoor, exercise, social: Int   // 1–4
     
@@ -79,6 +79,7 @@ struct DailyLog: Codable, Identifiable {
 }
 
 // MARK: - 5  Lokal lagring
+@MainActor
 final class MonsterStore: ObservableObject {
     @Published private(set) var logs: [DailyLog] = []
     private var fileURL: URL {

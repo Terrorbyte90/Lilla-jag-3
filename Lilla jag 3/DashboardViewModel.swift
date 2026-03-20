@@ -16,6 +16,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var showMonster = false
     @Published var showAchievements = false
     @Published var showSOS = false
+    @Published var showNotificationSettings = false
 
     // Monster
     let monsterStore = MonsterStore()
@@ -43,6 +44,24 @@ final class DashboardViewModel: ObservableObject {
             .store(in: &cancellables)
         loadStreak()
         lastMonsterLog = monsterStore.logs.last
+        checkAchievements()
+    }
+
+    // MARK: - Achievements
+
+    func checkAchievements() {
+        let moodStore = MoodStore.shared
+        let dagbokStore = DagbokStore.shared
+        let breathingCount = UserDefaults.standard.integer(forKey: "lj_breathing_completed_count")
+        let chatCount = UserDefaults.standard.integer(forKey: "lj_chat_session_count")
+
+        AchievementsStore.shared.checkAndUnlock(
+            streakDays: currentStreak,
+            moodLogCount: moodStore.entries.count,
+            journalCount: dagbokStore.entries.count,
+            breathingCount: breathingCount,
+            chatCount: chatCount
+        )
     }
 
     // MARK: - Streak
@@ -55,6 +74,19 @@ final class DashboardViewModel: ObservableObject {
             saveStreakDates(dates)
         }
         loadStreak()
+        checkAchievements()
+
+        // Schemalägger daglig påminnelse automatiskt om tillåtelse finns och ingen är schemalagd
+        Task {
+            let mgr = NotificationManager.shared
+            await mgr.refreshPermissionStatus()
+            if mgr.isPermissionGranted {
+                let hasPending = await mgr.hasPendingReminder()
+                if !hasPending {
+                    mgr.scheduleDailyReminder(hour: 20, minute: 0)
+                }
+            }
+        }
     }
 
     private func loadStreak() {
@@ -69,7 +101,8 @@ final class DashboardViewModel: ObservableObject {
         for date in dates {
             if cal.isDate(date, inSameDayAs: checkDate) {
                 streak += 1
-                checkDate = cal.date(byAdding: .day, value: -1, to: checkDate)!
+                guard let prevDay = cal.date(byAdding: .day, value: -1, to: checkDate) else { break }
+                checkDate = prevDay
             } else if date < checkDate {
                 break
             }

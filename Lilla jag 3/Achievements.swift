@@ -19,6 +19,7 @@ struct Achievement: Identifiable, Codable {
 
 // MARK: - AchievementsStore
 
+@MainActor
 final class AchievementsStore: ObservableObject {
 
     static let shared = AchievementsStore()
