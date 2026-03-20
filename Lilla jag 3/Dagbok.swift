@@ -19,6 +19,7 @@ struct DagbokEntry: Identifiable, Codable {
     var emotionIntensityAfter: Double = 0.5
     var tags: [String] = []
     var aiInsight: String = ""
+    var isExample: Bool = false  // Markerar exempelinlägg som visas för nya användare
 }
 
 // MARK: - Store
@@ -30,11 +31,17 @@ final class DagbokStore: ObservableObject {
     @Published private(set) var entries: [DagbokEntry] = []
     private let url: URL
 
+    private static let hasShownExamplesKey = "lj_dagbok_examples_shown"
+
     init() {
         let doc = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         url = doc.appendingPathComponent("dagbok_entries.json")
         load()
-        if entries.isEmpty { loadMockData() }
+        // Visa exempeldata bara om ingen riktig data finns OCH vi inte visat dem förut
+        if entries.isEmpty && !UserDefaults.standard.bool(forKey: Self.hasShownExamplesKey) {
+            loadMockData()
+            UserDefaults.standard.set(true, forKey: Self.hasShownExamplesKey)
+        }
     }
 
     func add(_ entry: DagbokEntry) {
@@ -42,6 +49,14 @@ final class DagbokStore: ObservableObject {
         e.date = .now
         entries.insert(e, at: 0)
         save()
+        // Kontrollera achievements efter nytt dagboksinlägg
+        AchievementsStore.shared.checkAndUnlock(
+            streakDays: 0,
+            moodLogCount: 0,
+            journalCount: entries.count,
+            breathingCount: UserDefaults.standard.integer(forKey: "lj_breathing_completed_count"),
+            chatCount: 0
+        )
     }
 
     func update(_ entry: DagbokEntry) {
@@ -81,7 +96,8 @@ final class DagbokStore: ObservableObject {
                 emotionIntensityBefore: 0.85,
                 emotionIntensityAfter: 0.45,
                 tags: ["Jobb", "Skam"],
-                aiInsight: "Du visade mod att utmana den automatiska tanken 'inkompetent'."
+                aiInsight: "Du visade mod att utmana den automatiska tanken 'inkompetent'.",
+                isExample: true
             ),
             DagbokEntry(
                 date: Calendar.current.date(byAdding: .day, value: -3, to: .now)!,
@@ -94,18 +110,72 @@ final class DagbokStore: ObservableObject {
                 emotionIntensityBefore: 0.75,
                 emotionIntensityAfter: 0.5,
                 tags: ["Relationer", "Ensamhet"],
-                aiInsight: "Bra känt igen tankefällan 'personalisering'."
+                aiInsight: "Bra känt igen tankefällan 'personalisering'.",
+                isExample: true
             )
         ]
+    }
+
+    func deleteExamples() {
+        entries.removeAll { $0.isExample }
+        save()
+    }
+
+    var hasOnlyExamples: Bool {
+        !entries.isEmpty && entries.allSatisfy { $0.isExample }
     }
 }
 
 // MARK: - DagbokDashboardView
+// Innovation 3: Sök och tag-filter.
+// En sökfält högst upp filtrerar på titel, händelse och automatiska tankar.
+// Tag-chips under sökfältet filtrerar på specifika kategorier (Jobb, Relationer, etc).
+// Filtrering sker direkt, utan fördröjning, och visar antal träffar.
 
 struct DagbokDashboardView: View {
     @StateObject private var store = DagbokStore.shared
     @State private var showNewEntry = false
     @State private var selectedEntry: DagbokEntry? = nil
+
+    // MARK: Sök- och filterstate
+    @State private var searchText = ""
+    @State private var activeTagFilter: String? = nil
+    @FocusState private var searchFocused: Bool
+
+    /// Alla tillgängliga taggar från befintliga poster
+    private var availableTags: [String] {
+        let all = store.entries.flatMap { $0.tags }
+        // Behåll unika taggar i inläggsordning
+        var seen = Set<String>()
+        return all.filter { seen.insert($0).inserted }
+    }
+
+    /// Filtrerade poster baserat på söktext och aktiv tag
+    private var filteredEntries: [DagbokEntry] {
+        store.entries.filter { entry in
+            // Tag-filter
+            let tagMatch: Bool
+            if let tag = activeTagFilter {
+                tagMatch = entry.tags.contains(tag)
+            } else {
+                tagMatch = true
+            }
+
+            // Söktext-filter (titel, händelse och tanke)
+            let textMatch: Bool
+            let q = searchText.lowercased().trimmingCharacters(in: .whitespaces)
+            if q.isEmpty {
+                textMatch = true
+            } else {
+                textMatch = entry.title.lowercased().contains(q)
+                    || entry.activatingEvent.lowercased().contains(q)
+                    || entry.belief.lowercased().contains(q)
+                    || entry.tags.contains(where: { $0.lowercased().contains(q) })
+            }
+
+            return tagMatch && textMatch
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -116,18 +186,51 @@ struct DagbokDashboardView: View {
                     dagbokHeader
                     Divider().opacity(0.15)
 
+                    // Sökfält
+                    searchBar
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+
+                    // Tag-filter chips (visas bara om det finns taggar i datan)
+                    if !availableTags.isEmpty {
+                        tagFilterRow
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                    }
+
                     if store.entries.isEmpty {
                         emptyState
+                    } else if filteredEntries.isEmpty {
+                        noResultsState
                     } else {
                         ScrollView {
                             VStack(spacing: 12) {
-                                ForEach(store.entries) { entry in
+                                // Exempeldata-banner – visas bara om alla inlägg är exempeldata
+                                if store.hasOnlyExamples {
+                                    exampleDataBanner
+                                }
+
+                                // Visa antal träffar om sök/filter är aktivt
+                                if !searchText.isEmpty || activeTagFilter != nil {
+                                    HStack {
+                                        Text("\(filteredEntries.count) anteckning\(filteredEntries.count == 1 ? "" : "ar") hittades")
+                                            .font(.system(.caption, design: .rounded))
+                                            .foregroundStyle(.white.opacity(0.4))
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 2)
+                                }
+
+                                ForEach(filteredEntries) { entry in
                                     EntryCard(entry: entry)
                                         .onTapGesture { selectedEntry = entry }
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
                             }
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: filteredEntries.count)
                             .padding(.horizontal, 16)
-                            .padding(.top, 16)
+                            .padding(.top, 8)
                             .padding(.bottom, 110)
                         }
                     }
@@ -139,7 +242,7 @@ struct DagbokDashboardView: View {
                     HStack {
                         Spacer()
                         Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            LJHaptic.medium()
                             showNewEntry = true
                         } label: {
                             Image(systemName: "plus")
@@ -174,50 +277,223 @@ struct DagbokDashboardView: View {
         }
     }
 
+    // MARK: - Sökfält
+
+    private var searchBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.4))
+
+            TextField("Sök i dagboken...", text: $searchText)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.white)
+                .focused($searchFocused)
+                .submitLabel(.search)
+
+            if !searchText.isEmpty {
+                Button {
+                    withAnimation(.spring(response: 0.25)) { searchText = "" }
+                    LJHaptic.light()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(searchFocused ? Color.warmGold.opacity(0.35) : Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.2), value: searchFocused)
+    }
+
+    // MARK: - Tag-filter chips
+
+    private var tagFilterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "Alla"-chip
+                tagChip(label: "Alla", isActive: activeTagFilter == nil) {
+                    withAnimation(.spring(response: 0.3)) { activeTagFilter = nil }
+                    LJHaptic.light()
+                }
+                // En chip per tagg
+                ForEach(availableTags, id: \.self) { tag in
+                    tagChip(label: tag, isActive: activeTagFilter == tag) {
+                        withAnimation(.spring(response: 0.3)) {
+                            activeTagFilter = activeTagFilter == tag ? nil : tag
+                        }
+                        LJHaptic.light()
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func tagChip(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(.caption, design: .rounded, weight: isActive ? .bold : .medium))
+                .foregroundStyle(isActive ? .black : .white.opacity(0.7))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    isActive ? Color.warmGold : Color.white.opacity(0.08),
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isActive ? "\(label), valt filter" : "\(label), filtrera")
+    }
+
+    // MARK: - Header
+
     private var dagbokHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.warmGold.opacity(0.28), Color.warmGold.opacity(0.06)],
+                            center: .center, startRadius: 0, endRadius: 22
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                    .overlay(Circle().stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Color.warmGold)
+            }
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Tankedagbok")
                     .font(.system(.title2, design: .rounded, weight: .black))
                     .foregroundStyle(.white)
-                Text("\(store.entries.count) anteckningar")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .tracking(-0.3)
+                Text("\(store.entries.filter { !$0.isExample }.count) egna anteckningar")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.45))
             }
             Spacer()
-            Image(systemName: "book.closed.fill")
-                .font(.title2)
-                .foregroundStyle(Color.warmGold)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
+            // Lager-cirkel-animation
             ZStack {
                 Circle()
-                    .fill(Color.warmGold.opacity(0.08))
-                    .frame(width: 120, height: 120)
+                    .fill(Color.warmGold.opacity(0.04))
+                    .frame(width: 180, height: 180)
                 Circle()
-                    .fill(Color.warmGold.opacity(0.05))
-                    .frame(width: 160, height: 160)
+                    .fill(Color.warmGold.opacity(0.07))
+                    .frame(width: 130, height: 130)
+                Circle()
+                    .fill(Color.warmGold.opacity(0.12))
+                    .frame(width: 90, height: 90)
+                    .overlay(Circle().stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
                 Image(systemName: "book.closed")
-                    .font(.system(size: 44))
-                    .foregroundStyle(Color.warmGold.opacity(0.6))
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(Color.warmGold.opacity(0.7))
             }
-            Text("Din dagbok är tom")
-                .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
-            Text("Tryck på + för att skapa din första\nKBT-anteckning med ABC-modellen.")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(.white.opacity(0.55))
-                .multilineTextAlignment(.center)
-                .lineSpacing(2)
+
+            VStack(spacing: 10) {
+                Text("Din dagbok är tom")
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Text("Tryck på + för att skriva din\nförsta KBT-anteckning.")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+
+            // Onboarding-hint
+            HStack(spacing: 8) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.warmGold)
+                Text("ABC-metoden hjälper dig förstå dina tankar och känslor")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.warmGold.opacity(0.15), lineWidth: 1))
+            .padding(.horizontal, 24)
+
             Spacer()
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Din dagbok är tom. Tryck på plus-knappen för att skapa din första anteckning.")
+    }
+
+    /// Visas när sökning/filter inte ger träff
+    private var noResultsState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 36))
+                .foregroundStyle(.white.opacity(0.2))
+            Text("Inga anteckningar hittades")
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .foregroundStyle(.white.opacity(0.6))
+            if !searchText.isEmpty {
+                Text("Prova att söka på något annat.")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
+            Spacer()
+        }
+    }
+
+    private var exampleDataBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundStyle(Color.warmGold)
+                    .font(.system(size: 16))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Exempelanteckningar")
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(Color.warmGold)
+                    Text("Dessa visar hur ABC-metoden fungerar. Tryck + för att skriva din egna.")
+                        .font(.system(.caption2, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                Spacer()
+            }
+            Button {
+                withAnimation(.spring(response: 0.35)) {
+                    store.deleteExamples()
+                }
+                LJHaptic.light()
+            } label: {
+                Text("Ta bort exempeldata")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color.white.opacity(0.08), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(Color.warmGold.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
+        .padding(.horizontal, 2)
     }
 }
 
@@ -237,36 +513,70 @@ struct EntryCard: View {
         entry.emotionIntensityBefore - entry.emotionIntensityAfter
     }
 
+    private var emotionAccent: Color {
+        EmotionBadge(emotion: entry.emotion).colorValue
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(entry.title.isEmpty ? "Anteckning" : entry.title)
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
+        VStack(alignment: .leading, spacing: 12) {
+            // Toprad med titel, emotion badge och datum
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 7) {
+                        Text(entry.title.isEmpty ? "Anteckning" : entry.title)
+                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if entry.isExample {
+                            Text("Exempel")
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color.warmGold.opacity(0.9))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.warmGold.opacity(0.14), in: Capsule())
+                        }
+                    }
                     Text(dateString)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .font(.system(.caption2, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.4))
                 }
-                Spacer()
+                Spacer(minLength: 8)
                 EmotionBadge(emotion: entry.emotion)
             }
 
-            Text(entry.activatingEvent)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(2)
+            // Händelsetext
+            if !entry.activatingEvent.isEmpty {
+                Text(entry.activatingEvent)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.65))
+                    .lineLimit(2)
+                    .lineSpacing(2)
+            }
 
-            // Intensitetsminskning
+            // Intensitetsminskning – visuell progress
             if intensityChange > 0.05 {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 12))
                         .foregroundStyle(Color.warmSage)
-                        .font(.caption)
                     Text(String(format: "Intensitet minskade %.0f%%", intensityChange * 100))
-                        .font(.caption2)
+                        .font(.system(.caption2, design: .rounded, weight: .semibold))
                         .foregroundStyle(Color.warmSage)
+
+                    Spacer()
+
+                    // Mini-progressbar
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.white.opacity(0.07))
+                                .frame(height: 4)
+                            Capsule()
+                                .fill(Color.warmSage)
+                                .frame(width: geo.size.width * CGFloat(1 - entry.emotionIntensityAfter), height: 4)
+                        }
+                    }
+                    .frame(width: 60, height: 4)
                 }
             }
 
@@ -275,42 +585,51 @@ struct EntryCard: View {
                 HStack(spacing: 6) {
                     ForEach(entry.tags.prefix(3), id: \.self) { tag in
                         Text(tag)
-                            .font(.caption2)
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(Color.white.opacity(0.1), in: Capsule())
-                            .foregroundStyle(.white.opacity(0.8))
+                            .background(Color.white.opacity(0.08), in: Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 0.5))
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    if entry.tags.count > 3 {
+                        Text("+\(entry.tags.count - 3)")
+                            .font(.system(.caption2, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.35))
                     }
                 }
             }
         }
-        .padding(14)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .ljPremiumCard(radius: 18, accent: emotionAccent)
+        .shadow(color: emotionAccent.opacity(0.06), radius: 10, y: 3)
+        .accessibilityLabel("\(entry.title.isEmpty ? "Anteckning" : entry.title). \(dateString). Känsla: \(entry.emotion).")
     }
 }
 
 struct EmotionBadge: View {
     let emotion: String
 
-    private var color: Color {
+    var colorValue: Color {
         switch emotion {
-        case "Ångest":     return Color.warmLavender
+        case "Ångest":      return Color.warmLavender
         case "Nedstämdhet": return Color(hex: 0x6B8DD6)
-        case "Ilska":      return Color.warmCoral
-        case "Skam":       return Color(hex: 0xFF8FAD)
-        case "Ensamhet":   return Color(hex: 0x7EC8E3)
-        default:           return Color.warmGold
+        case "Ilska":       return Color.warmCoral
+        case "Skam":        return Color(hex: 0xFF8FAD)
+        case "Ensamhet":    return Color(hex: 0x7EC8E3)
+        default:            return Color.warmGold
         }
     }
 
     var body: some View {
         Text(emotion)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
+            .font(.system(.caption2, design: .rounded, weight: .semibold))
+            .foregroundStyle(colorValue)
+            .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(color.opacity(0.15), in: Capsule())
+            .background(colorValue.opacity(0.16), in: Capsule())
+            .overlay(Capsule().stroke(colorValue.opacity(0.25), lineWidth: 0.5))
     }
 }
 

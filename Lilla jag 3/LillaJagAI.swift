@@ -73,17 +73,26 @@ final class LillaJagAIService: ObservableObject {
         isThinking = true
         defer { isThinking = false }
 
-        // Analysera emotion i meddelandet
-        let emotion = await LillaJagMLEngine.shared.analyzeEmotion(userMessage)
+        // Återanvänd emotion från det senast tillagda user-meddelandet om det matchar,
+        // annars analysera (undviker dubbel ML-inferens vid normal sendMessage-flöde).
+        let emotion: EmotionResult
+        if let last = messages.last(where: { $0.role == .user && $0.content == userMessage }),
+           let cachedEmotion = last.emotion {
+            emotion = cachedEmotion
+        } else {
+            emotion = await LillaJagMLEngine.shared.analyzeEmotion(userMessage)
+        }
+
         let sentiment = await LillaJagMLEngine.shared.analyzeSentiment(userMessage)
 
         // Uppdatera aktuellt emotionellt tillstånd
         currentEmotion = emotion
         sessionSentiment = sessionSentiment * 0.7 + sentiment * 0.3 // exponentiellt glidande medelvärde
 
-        // Försök med Qwen om modell finns
+        // Försök med Qwen om modell finns.
+        // Bygg historiken från alla meddelanden UTOM det sista (som redan är userMessage).
         let qwen = QwenEngine.shared
-        let historyForQwen = messages.suffix(8).map { msg in
+        let historyForQwen = messages.dropLast().suffix(7).map { msg in
             (role: msg.role == .user ? "user" : "assistant", content: msg.content)
         }
 
@@ -141,6 +150,9 @@ final class LillaJagAIService: ObservableObject {
     }
 
     // MARK: - Veckorapport
+    // Skickar vidare rå summary-sträng – om anroparen bygger den med nyckelformat
+    // "mood:0.6,anxiety:0.4,sleep:0.7,outdoor:0.5,social:0.6,streak:4,logsCount:5"
+    // genereras en fullt personaliserad rapport; annars generisk rapport.
 
     func weeklyReport(summary: String) async -> String {
         isThinking = true
@@ -241,6 +253,53 @@ private enum KBTFallback {
              stress, ilska, skam, relationer, motivation, allmän
     }
 
+    // MARK: - Tidskontext
+    // Ger KBT-motorn medvetenhet om tid på dygnet och veckodag,
+    // vilket möjliggör mer träffsäkra, kontextuella svar.
+
+    private enum TimeOfDay {
+        case earlyMorning  // 04–07
+        case morning       // 07–12
+        case afternoon     // 12–17
+        case evening       // 17–21
+        case night         // 21–04
+
+        static var current: TimeOfDay {
+            let h = Calendar.current.component(.hour, from: Date())
+            switch h {
+            case 4..<7:  return .earlyMorning
+            case 7..<12: return .morning
+            case 12..<17: return .afternoon
+            case 17..<21: return .evening
+            default:     return .night
+            }
+        }
+
+        /// Kontextmedveten inledning för AI-svaret baserat på tid
+        var contextualPrefix: String? {
+            switch self {
+            case .earlyMorning:
+                return "Det är tidigt på morgonen – att tankarna snurrar i gryningen är vanligt, det kallas ibland 'gryningsdepression'."
+            case .night:
+                return "Sent på natten kan känslor och tankar bli mer intensiva – sömnbrist förstärker allt."
+            default:
+                return nil
+            }
+        }
+    }
+
+    /// Detekterar om konversationen visar tecken på progression (eskalering eller förbättring)
+    private static func detectConversationTrend(history: [ChatMessage]) -> String? {
+        guard history.count >= 4 else { return nil }
+        // Titta på om de senaste användarmeddelandena innehåller mer positiva signaler
+        let recentUserMessages = history.suffix(4).filter { $0.role == .user }.map { $0.content.lowercased() }
+        let positiveSignals = ["bättre", "tack", "hjälper", "lättare", "förstår"]
+        let hasProgress = recentUserMessages.contains { msg in
+            positiveSignals.contains { msg.contains($0) }
+        }
+        return hasProgress ? "Jag märker att du verkar ha hittat lite mer klarhet i det vi pratat om." : nil
+    }
+
     static func response(for input: String, history: [ChatMessage], emotion: EmotionResult) -> String {
         let lower = input.lowercased()
 
@@ -252,7 +311,24 @@ private enum KBTFallback {
 
         let topic = detectTopic(lower, emotion: emotion)
         let isFollowUp = history.count > 2
-        return topicResponse(topic, input: input, isFollowUp: isFollowUp, emotion: emotion)
+
+        // Bygg svaret med eventuell tidskontext och konversationsprogressionsdetektion
+        var response = topicResponse(topic, input: input, isFollowUp: isFollowUp, emotion: emotion)
+
+        // Lägg till tidskontext om relevant (bara för natt/gryning och inte krisläge)
+        if topic != .kris, let prefix = TimeOfDay.current.contextualPrefix {
+            response = "\(prefix) \(response)"
+        }
+
+        // Bekräfta progression om den detekteras
+        if isFollowUp, let trend = detectConversationTrend(history: history), !response.hasPrefix(trend) {
+            // Lägg till progressionsigenkänning var 5:e meddelande för att undvika repetition
+            if history.count % 5 == 0 {
+                response = "\(trend) \(response)"
+            }
+        }
+
+        return response
     }
 
     private static func detectTopic(_ input: String, emotion: EmotionResult) -> Topic {
@@ -422,26 +498,112 @@ private enum KBTFallback {
     }
 
     // MARK: - Veckorapport
+    // Innovation 5: Dynamisk veckorapport.
+    // Tar emot en strukturerad summary-sträng (format: "mood:0.6,anxiety:0.4,sleep:0.7,
+    // outdoor:0.5,social:0.6,streak:4,logsCount:5") och genererar ett personaliserat
+    // rapport-text baserat på faktiska värden istället för statisk boilerplate.
 
     static func weeklyReport(summary: String) -> String {
+        // Parsa strukturerad summary om den innehåller nyckelord
+        // Annars fall tillbaka till generisk rapport
+        var mood:    Double = 0.5
+        var anxiety: Double = 0.5
+        var sleep:   Double = 0.5
+        var outdoor: Double = 0.5
+        var social:  Double = 0.5
+        var streak:  Int    = 0
+        var logs:    Int    = 0
+
+        for part in summary.split(separator: ",") {
+            let kv = part.split(separator: ":")
+            guard kv.count == 2 else { continue }
+            let key = String(kv[0]).trimmingCharacters(in: .whitespaces)
+            let val = String(kv[1]).trimmingCharacters(in: .whitespaces)
+            switch key {
+            case "mood":    mood    = Double(val) ?? 0.5
+            case "anxiety": anxiety = Double(val) ?? 0.5
+            case "sleep":   sleep   = Double(val) ?? 0.5
+            case "outdoor": outdoor = Double(val) ?? 0.5
+            case "social":  social  = Double(val) ?? 0.5
+            case "streak":  streak  = Int(val)    ?? 0
+            case "logsCount": logs  = Int(val)    ?? 0
+            default: break
+            }
+        }
+
+        // --- Dynamiska sektioner baserade på faktisk data ---
+
+        // Humörtrend
+        let moodPct = Int(mood * 100)
+        let moodTrend: String
+        if mood >= 0.7 {
+            moodTrend = "Ditt genomsnittliga mående var \(moodPct)/100 – en riktigt bra vecka! Du verkar ha hittat något som fungerar."
+        } else if mood >= 0.5 {
+            moodTrend = "Ditt genomsnittliga mående var \(moodPct)/100 – en stabil vecka med potential att växa."
+        } else {
+            moodTrend = "Ditt genomsnittliga mående var \(moodPct)/100 – det verkar ha varit en tuff vecka. Det är okej, det är information, inte ett misslyckande."
+        }
+
+        // Sömn
+        let sleepInsight: String
+        if sleep >= 0.7 {
+            sleepInsight = "Sömn: Du verkar ha sovit bra den här veckan – det skyddar direkt din psykiska hälsa."
+        } else if sleep >= 0.45 {
+            sleepInsight = "Sömn: Din sömn är godkänd men kan förbättras. Konsekvent läggningstid ±30 min är den enskilt effektivaste insatsen."
+        } else {
+            sleepInsight = "Sömn: Den här veckan verkar sömnen ha lidit. Dålig sömn förstärker ångest och nedstämdhet – det är ett prioriterat fokusområde."
+        }
+
+        // Ångest-kommentar
+        let anxietyInsight: String
+        if anxiety >= 0.65 {
+            anxietyInsight = "Ångest: Du rapporterade förhöjd ångest den här veckan. KBT-tekniken exponering och beteendeexperiment kan hjälpa dig utmana undvikandet."
+        } else {
+            anxietyInsight = "Ångest: Din ångestnivå verkar ha legat på en hanterbar nivå – bra jobbat med att hantera det."
+        }
+
+        // Streak
+        let streakText: String
+        if streak >= 5 {
+            streakText = "Loggningsstreak: \(streak) dagar i rad – det är imponerande! Kontinuitet är nyckeln till självkännedom."
+        } else if streak >= 2 {
+            streakText = "Loggningsstreak: \(streak) dagar. Bygg vidare på det här – varje dag du loggar stärker ditt självmedvetande."
+        } else {
+            streakText = logs > 0
+                ? "Du loggade \(logs) gånger den här veckan – bra start! Sikta på daglig loggning nästa vecka."
+                : "Du har inte loggat den här veckan. Kom ihåg: att logga regelbundet är i sig en KBT-intervention."
+        }
+
+        // Personaliserade fokusområden
+        var focusAreas: [String] = []
+        if sleep < 0.5  { focusAreas.append("Prioritera konsekvent sömntid – lägg dig och gå upp samma tid ±30 min") }
+        if outdoor < 0.5 { focusAreas.append("Planera in minst 20 min utomhus varje dag – dagsljus reglerar dygnsrytm och humör") }
+        if social < 0.5  { focusAreas.append("Nå ut till minst en person under veckan – även ett kort meddelande räknas") }
+        if anxiety >= 0.65 { focusAreas.append("Prova daglig 4-7-8 andning: andas in 4s, håll 7s, ut 8s – tre rundor") }
+        // Fyll upp till 3 om för få
+        if focusAreas.count < 2 { focusAreas.append("Lägg till en beteendeaktiveringsövning om dagen – gör något litet som brukade ge glädje") }
+        if focusAreas.count < 3 { focusAreas.append("Skriv tre saker du är tacksam för varje kväll – tränar hjärnan att se det positiva") }
+
+        let focusList = focusAreas.prefix(3).enumerated()
+            .map { "\($0.offset + 1). \($0.element)" }
+            .joined(separator: "\n")
+
         return """
         Veckosammanfattning från Lilla Jag
 
-        Dina mående-registreringar under veckan ger en bild av din psykiska hälsa.
+        \(moodTrend)
 
-        Trend: Ditt mående visar variationer som är helt normala. Uppmärksamma vilka dagar som var bättre och vad som skiljde dem från de tuffare.
-        Sömnmönster: Sömnen påverkar direkt energi och ångest – prioritera sömnhygien.
-        Positiva faktorer: Social kontakt och utomhustid gav positiva effekter.
+        \(sleepInsight)
+        \(anxietyInsight)
+        \(streakText)
 
         Tre fokusområden nästa vecka:
-        1. Lägg till minst en beteendeaktiveringsövning om dagen
-        2. Håll konsekvent läggningstid ±30 minuter
-        3. Nå ut till en person du bryr dig om
+        \(focusList)
 
         Mikromål:
-        • 15 min promenad varje dag
-        • Logga mående på morgonen – inte bara när det är tungt
-        • Skriv tre saker du är tacksam för varje kväll
+        • Logga mående varje morgon – inte bara när det är tungt
+        • En kort promenad (15–20 min) dagsljus varje dag
+        • Prata med KBT-assistenten om det som är svårt just nu
         """
     }
 

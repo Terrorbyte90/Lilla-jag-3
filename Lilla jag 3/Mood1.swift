@@ -50,6 +50,8 @@ struct MoodEntry: Identifiable, Codable, Hashable {
 // MARK: - Store
 @MainActor
 final class MoodStore: ObservableObject {
+    static let shared = MoodStore()
+
     @Published private(set) var entries: [MoodEntry] = []
     private let url: URL
     init() {
@@ -57,7 +59,18 @@ final class MoodStore: ObservableObject {
         url = doc.appendingPathComponent("mood_entries.json")
         load()
     }
-    func add(_ entry: MoodEntry) { entries.append(entry); save() }
+    func add(_ entry: MoodEntry) {
+        entries.append(entry)
+        save()
+        // Achievement-räknare – uppdatera och kolla upplåsningar
+        AchievementsStore.shared.checkAndUnlock(
+            streakDays: currentStreak,
+            moodLogCount: entries.count,
+            journalCount: DagbokStore.shared.entries.count,
+            breathingCount: UserDefaults.standard.integer(forKey: "lj_breathing_completed_count"),
+            chatCount: UserDefaults.standard.integer(forKey: "lj_chat_session_count")
+        )
+    }
     func replace(_ entry: MoodEntry) {
         if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
             entries[idx] = entry
@@ -94,10 +107,16 @@ final class MoodStore: ObservableObject {
             .sorted { $0.date < $1.date }
     }
 
-    private func save() { try? JSONEncoder().encode(entries).write(to: url) }
+    private func save() {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        try? enc.encode(entries).write(to: url)
+    }
     private func load() {
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
         guard let d = try? Data(contentsOf: url),
-              let e = try? JSONDecoder().decode([MoodEntry].self, from: d) else { return }
+              let e = try? dec.decode([MoodEntry].self, from: d) else { return }
         entries = e
     }
 
@@ -165,7 +184,7 @@ final class MoodStore: ObservableObject {
         let days = Set(entries.map { Calendar.current.startOfDay(for: $0.date) })
         var streak = 0
         var d = Calendar.current.startOfDay(for: Date())
-        while days.contains(d) { streak += 1; d = Calendar.current.date(byAdding: .day, value: -1, to: d)! }
+        while days.contains(d) { streak += 1; guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: d) else { break }; d = prev }
         return streak
     }
     var longestStreak: Int {
@@ -174,8 +193,8 @@ final class MoodStore: ObservableObject {
         var best = 0
         for start in days {
             var len = 1
-            var d = Calendar.current.date(byAdding: .day, value: 1, to: start)!
-            while days.contains(d) { len += 1; d = Calendar.current.date(byAdding: .day, value: 1, to: d)! }
+            guard var d = Calendar.current.date(byAdding: .day, value: 1, to: start) else { best = max(best, 1); continue }
+            while days.contains(d) { len += 1; guard let next = Calendar.current.date(byAdding: .day, value: 1, to: d) else { break }; d = next }
             best = max(best, len)
         }
         return best
@@ -192,6 +211,33 @@ final class MoodStore: ObservableObject {
         }
         guard let best = groups.max(by: { $0.value.average(default: 0) < $1.value.average(default: 0) }) else { return nil }
         return (names[best.key], best.value.average(default: 0))
+    }
+
+    /// Returnerar poster från de senaste 7 dagarna (används av AHAInsightsGenerator)
+    func last7() -> [MoodEntry] {
+        guard let since = Calendar.current.date(byAdding: .day, value: -6, to: .now) else { return [] }
+        return entries.filter { Calendar.current.isDate($0.date, inSameDayAsOrAfter: since) }
+            .sorted { $0.date < $1.date }
+    }
+
+    // MARK: - Innovation 5 stöd: Strukturerad veckorapport-summary
+    // Genererar den nyckel:värde-sträng som KBTFallback.weeklyReport() kan parsa
+    // för att skapa en fullt personaliserad rapport baserad på faktisk data.
+
+    var weeklyReportSummary: String {
+        let l7 = last7()
+        let logsCount = l7.count
+
+        // Beräkna genomsnitt (fallback 0.5 om inga data)
+        let moodAvg    = l7.map(\.moodQuality   ).average(default: 0.5)
+        let anxietyAvg = l7.map(\.anxietyLevel  ).average(default: 0.5)
+        let sleepAvg   = l7.map(\.sleepQuality  ).average(default: 0.5)
+        let outdoorAvg = l7.map(\.outdoorQuality).average(default: 0.5)
+        let socialAvg  = l7.map(\.socialQuality ).average(default: 0.5)
+
+        // Formatera med två decimaler för parsningsbarhet
+        return String(format: "mood:%.2f,anxiety:%.2f,sleep:%.2f,outdoor:%.2f,social:%.2f,streak:%d,logsCount:%d",
+                      moodAvg, anxietyAvg, sleepAvg, outdoorAvg, socialAvg, currentStreak, logsCount)
     }
 }
 
@@ -310,8 +356,8 @@ struct AHAInsightsGenerator {
 
 // MARK: - Dashboard
 struct Mood1View: View {
-    @StateObject private var viewModel = MoodViewModel()
-    @StateObject private var store = MoodStore()
+    @ObservedObject private var store = MoodStore.shared
+    @StateObject private var viewModel = MoodViewModel(store: MoodStore.shared)
     @State private var heroAppeared = false
 
     private var todayLogged: Bool {
@@ -361,72 +407,115 @@ struct Mood1View: View {
         HStack(spacing: 0) {
             ForEach(quickMoodOptions, id: \.emoji) { opt in
                 Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    LJHaptic.medium()
                     viewModel.showLogger = true
                 } label: {
                     VStack(spacing: 6) {
-                        Text(opt.emoji).font(.system(size: 34))
+                        Text(opt.emoji)
+                            .font(.system(size: 30))
                         Text(opt.label)
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 11)
                 }
                 .buttonStyle(LJPressableButtonStyle())
+                .accessibilityLabel("Logga mående: \(opt.label)")
             }
         }
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 18))
+        .background(
+            Color.white.opacity(0.05),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        )
     }
 
     private var heroCheckedInBadge: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.warmSage)
-            Text("Loggat idag ✓")
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.warmSage)
+            Text("Loggat idag")
                 .font(.system(.footnote, design: .rounded, weight: .semibold))
                 .foregroundStyle(Color.warmSage)
             Spacer()
             Text("Logga igen")
                 .font(.system(.caption, design: .rounded))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(.white.opacity(0.35))
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.25))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.warmSage.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background(
+            LinearGradient(
+                colors: [Color.warmSage.opacity(0.12), Color.warmSage.opacity(0.05)],
+                startPoint: .leading, endPoint: .trailing
+            ),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.warmSage.opacity(0.2), lineWidth: 1))
     }
 
     // MARK: - Hero Card
     private var heroCard: some View {
         ZStack(alignment: .topTrailing) {
+            // Bakgrundslager
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(hex: 0x3D1A6E), Color(hex: 0x1A1025), Color(hex: 0x2A1A3E)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ))
-                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(Color.warmLavender.opacity(0.25), lineWidth: 1))
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: 0x3A1560), Color(hex: 0x1A1025), Color(hex: 0x261540)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+            // Subtilt glansöverlager
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.07), Color.clear],
+                        startPoint: .topLeading,
+                        endPoint: UnitPoint(x: 0.5, y: 0.5)
+                    )
+                )
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.warmLavender.opacity(0.35), Color.warmLavender.opacity(0.08)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
 
-            VStack(spacing: 18) {
+            VStack(spacing: 20) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 5) {
                         Text("Hur mår du idag?")
                             .font(.system(.title2, design: .rounded, weight: .bold))
                             .foregroundStyle(.white)
+                            .tracking(-0.3)
                         Text(todayDateString)
-                            .font(.system(.subheadline, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.55))
+                            .font(.system(.footnote, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.5))
                     }
                     Spacer()
                     if store.currentStreak > 0 {
-                        VStack(spacing: 2) {
-                            Text("🔥").font(.title2)
+                        VStack(spacing: 3) {
+                            Text("🔥")
+                                .font(.system(size: 22))
                             Text("\(store.currentStreak)d")
-                                .font(.system(.caption, design: .rounded, weight: .bold))
+                                .font(.system(.caption, design: .rounded, weight: .black))
                                 .foregroundStyle(Color.warmGold)
+                                .contentTransition(.numericText())
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(Color.warmGold.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmGold.opacity(0.3), lineWidth: 1))
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 9)
+                        .background(Color.warmGold.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.warmGold.opacity(0.28), lineWidth: 1))
                     }
                 }
                 heroQuickMoodRow
@@ -434,12 +523,11 @@ struct Mood1View: View {
             }
             .padding(22)
         }
-        .shadow(color: Color.warmLavender.opacity(0.15), radius: 20, y: 8)
+        .shadow(color: Color.warmLavender.opacity(0.2), radius: 24, y: 10)
         .opacity(heroAppeared ? 1 : 0)
-        .offset(y: heroAppeared ? 0 : 12)
-        .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.05)) { heroAppeared = true }
-        }
+        .offset(y: heroAppeared ? 0 : 14)
+        .animation(DesignSystem.Animation.intro.delay(0.05), value: heroAppeared)
+        .onAppear { heroAppeared = true }
     }
 
     private let quickMoodOptions: [(emoji: String, label: String)] = [
@@ -481,32 +569,36 @@ struct Mood1View: View {
         VStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 42, height: 42)
+                    .fill(
+                        RadialGradient(
+                            colors: [color.opacity(0.28), color.opacity(0.06)],
+                            center: .center, startRadius: 0, endRadius: 24
+                        )
+                    )
+                    .frame(width: 46, height: 46)
+                    .overlay(Circle().stroke(color.opacity(0.2), lineWidth: 1))
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(color)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 1) {
                 Text(value)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .font(.system(.title2, design: .rounded, weight: .black))
                     .foregroundStyle(.white)
+                    .contentTransition(.numericText())
                 Text(unit)
                     .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(color.opacity(0.7))
             }
             Text(label)
                 .font(.system(.caption2, design: .rounded, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(.white.opacity(0.45))
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(color.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(color: color.opacity(0.08), radius: 8, y: 4)
+        .ljPremiumCard(radius: 18, accent: color)
+        .shadow(color: color.opacity(0.1), radius: 10, y: 4)
     }
 
     // MARK: - AHA Insights
@@ -576,28 +668,48 @@ struct Mood1View: View {
     private func ahaInsightRow(insight: AHAInsight, delay: Double) -> some View {
         HStack(spacing: 14) {
             // Färgad vänsterkant
-            RoundedRectangle(cornerRadius: 3)
-                .fill(insight.accentColor)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [insight.accentColor, insight.accentColor.opacity(0.5)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
                 .frame(width: 4)
-                .frame(height: 46)
+                .frame(height: 48)
 
             Text(insight.emoji)
-                .font(.title2)
+                .font(.system(size: 24))
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(insight.title)
                     .font(.system(.subheadline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
+                    .lineLimit(2)
                 Text(insight.detail)
                     .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(2)
+                    .lineSpacing(2)
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background {
+            ZStack {
+                insight.accentColor.opacity(0.06)
+                LinearGradient(
+                    colors: [Color.white.opacity(0.04), Color.clear],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(insight.accentColor.opacity(0.15), lineWidth: 1)
+        )
     }
 
     // MARK: - Calendar Heatmap helpers
@@ -617,7 +729,7 @@ struct Mood1View: View {
         .frame(width: 28, height: 28)
         .onTapGesture {
             if let e = store.entries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: day) }) {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                LJHaptic.light()
                 viewModel.popupEntry = e
             }
         }
@@ -801,30 +913,84 @@ struct Mood1View: View {
 
     // MARK: - Log Button
     private var logButton: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            viewModel.showLogger = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                Text("Logga ditt mående →")
-                    .font(.system(.body, design: .rounded, weight: .bold))
+        VStack(spacing: 10) {
+            Button {
+                LJHaptic.medium()
+                viewModel.showLogger = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("Logga ditt mående")
+                        .font(.system(.body, design: .rounded, weight: .bold))
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 17)
+                .background(
+                    LinearGradient(
+                        colors: [Color.warmGold, Color(hex: 0xFFAA44)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
+                .shadow(color: Color.warmGold.opacity(0.4), radius: 16, y: 6)
             }
-            .foregroundStyle(.black)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 17)
-            .background(
-                LinearGradient(
-                    colors: [Color.warmGold, Color.warmCoral],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ),
-                in: RoundedRectangle(cornerRadius: 18)
-            )
-            .shadow(color: Color.warmGold.opacity(0.3), radius: 12, y: 6)
+            .buttonStyle(LJPressableButtonStyle())
+
+            // Veckorapport-knapp – synlig om minst 3 loggade dagar denna vecka
+            if store.last7().count >= 3 {
+                weeklyReportButton
+            }
         }
-        .buttonStyle(LJPressableButtonStyle())
+    }
+
+    private var weeklyReportButton: some View {
+        VStack(spacing: 0) {
+            Button {
+                LJHaptic.light()
+                Task { await viewModel.generateWeeklyReport() }
+            } label: {
+                HStack(spacing: 10) {
+                    if viewModel.generatingWeekly {
+                        ProgressView().tint(Color.warmLavender).scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.warmLavender)
+                    }
+                    Text(viewModel.generatingWeekly ? "Genererar veckorapport..." : "Visa veckorapport")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Color.warmLavender)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.warmLavender.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmLavender.opacity(0.25), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.generatingWeekly)
+
+            if !viewModel.weeklyReportText.isEmpty {
+                ScrollView {
+                    Text(viewModel.weeklyReportText)
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineSpacing(4)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 260)
+                .background(Color.warmLavender.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warmLavender.opacity(0.15), lineWidth: 1))
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .animation(.spring(response: 0.4), value: viewModel.weeklyReportText)
+            }
+        }
     }
 }
 
@@ -911,7 +1077,9 @@ struct CalendarGridView: View {
         VStack(spacing: 6) {
             HStack {
                 Button {
-                    withAnimation { currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth)! }
+                    if let prev = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth) {
+                        withAnimation { currentMonth = prev }
+                    }
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.headline)
@@ -920,7 +1088,9 @@ struct CalendarGridView: View {
                 }
                 Spacer()
                 Button {
-                    withAnimation { currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth)! }
+                    if let next = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth) {
+                        withAnimation { currentMonth = next }
+                    }
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.headline)
@@ -1128,7 +1298,7 @@ struct MoodLogFlowView: View {
                 HStack {
                     if step > 0 && step < 12 {
                         Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            LJHaptic.light()
                             withAnimation(.easeInOut(duration: 0.3)) { step -= 1 }
                         } label: {
                             HStack(spacing: 4) {
@@ -1142,14 +1312,14 @@ struct MoodLogFlowView: View {
                     Spacer()
                     if step < 11 {
                         Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            LJHaptic.light()
                             withAnimation(.easeInOut(duration: 0.3)) { step += 1 }
                         } label: { Text("Nästa →") }
                             .buttonStyle(GradientButtonStyle())
                             .frame(maxWidth: 220)
                     } else if step == 11 {
                         Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            LJHaptic.medium()
                             withAnimation(.easeInOut(duration: 0.3)) { step = 12 }
                         } label: { Text("Sammanfatta ✨") }
                             .buttonStyle(GradientButtonStyle())
@@ -1170,7 +1340,7 @@ struct MoodLogFlowView: View {
                     .foregroundStyle(.white.opacity(0.5))
                 Spacer()
                 Button {
-                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    LJHaptic.soft()
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -1203,7 +1373,7 @@ struct MoodLogFlowView: View {
     private func moodTile(opt: (emoji: String, label: String, value: String)) -> some View {
         let isSelected = generalMood == opt.value
         return Button {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            LJHaptic.soft()
             withAnimation(.spring(response: 0.3)) { generalMood = opt.value }
         } label: {
             VStack(spacing: 8) {
@@ -1285,7 +1455,7 @@ struct MoodLogFlowView: View {
     private func sleepHourTile(_ opt: String) -> some View {
         let selected = sleepHourSel == opt
         return Button {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            LJHaptic.soft()
             withAnimation(.spring(response: 0.3)) { sleepHourSel = opt }
         } label: {
             VStack(spacing: 6) {
@@ -1390,7 +1560,7 @@ struct MoodLogFlowView: View {
     private func energyTile(opt: (emoji: String, label: String)) -> some View {
         let isSelected = energySel == opt.label
         return Button {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            LJHaptic.soft()
             withAnimation { energySel = opt.label }
         } label: {
             VStack(spacing: 8) {
@@ -1561,7 +1731,7 @@ struct MoodLogFlowView: View {
             }
 
             Button {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                LJHaptic.success()
                 onSave(entry)
                 dismiss()
             } label: {
@@ -1838,7 +2008,7 @@ struct ButtonGrid: View {
                 let isSel = single ? opt == selection : multiSelection.contains(opt)
                 MoodOptionButton(label: opt, selected: isSel)
                     .onTapGesture {
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        LJHaptic.soft()
                         withAnimation(.easeOut(duration: 0.2)) {
                             if single { selection = opt }
                             else {
@@ -1936,13 +2106,6 @@ extension Calendar {
         let sd = startOfDay(for: start)
         let dd = startOfDay(for: d)
         return dd >= sd
-    }
-}
-
-extension MoodStore {
-    func last7() -> [MoodEntry] {
-        guard let since = Calendar.current.date(byAdding: .day, value: -6, to: .now) else { return [] }
-        return entries.filter { $0.date >= since }.sorted { $0.date < $1.date }
     }
 }
 

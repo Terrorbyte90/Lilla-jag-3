@@ -80,6 +80,7 @@ private let exercises: [BreathingExercise] = [
 struct MeditationView: View {
     @State private var selectedExercise: BreathingExercise? = nil
     @State private var completedExerciseNames: Set<String> = []
+    @State private var appeared = false
 
     var body: some View {
         NavigationStack {
@@ -88,34 +89,66 @@ struct MeditationView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Andning &\nMindfulness")
-                                .font(.system(size: 32, weight: .black, design: .rounded))
-                                .foregroundStyle(.white)
-                            Text("Vetenskapliga övningar för ångest och stress.")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.6))
+                        // Hero header
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 10) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            RadialGradient(
+                                                colors: [Color(hex: 0x6ECFF6).opacity(0.3), Color(hex: 0x6ECFF6).opacity(0.05)],
+                                                center: .center, startRadius: 0, endRadius: 28
+                                            )
+                                        )
+                                        .frame(width: 52, height: 52)
+                                        .overlay(Circle().stroke(Color(hex: 0x6ECFF6).opacity(0.2), lineWidth: 1))
+                                    Image(systemName: "lungs.fill")
+                                        .font(.system(size: 22, weight: .medium))
+                                        .foregroundStyle(Color(hex: 0x6ECFF6))
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Andning & Mindfulness")
+                                        .font(.system(.title2, design: .rounded, weight: .black))
+                                        .foregroundStyle(.white)
+                                        .tracking(-0.3)
+                                    Text("Vetenskapliga övningar för ångest och stress")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                            }
                         }
                         .padding(.top, 8)
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 10)
+                        .animation(DesignSystem.Animation.intro.delay(0.05), value: appeared)
 
                         if !completedExerciseNames.isEmpty {
                             completedBanner
+                                .transition(.move(edge: .top).combined(with: .opacity))
                         }
 
-                        ForEach(exercises) { exercise in
-                            ExerciseCard(exercise: exercise,
-                                         isDone: completedExerciseNames.contains(exercise.name)) {
-                                selectedExercise = exercise
+                        VStack(spacing: 12) {
+                            ForEach(Array(exercises.enumerated()), id: \.element.id) { idx, exercise in
+                                ExerciseCard(exercise: exercise,
+                                             isDone: completedExerciseNames.contains(exercise.name)) {
+                                    selectedExercise = exercise
+                                }
+                                .opacity(appeared ? 1 : 0)
+                                .offset(y: appeared ? 0 : 16)
+                                .animation(DesignSystem.Animation.intro.delay(Double(idx) * 0.08 + 0.15), value: appeared)
                             }
                         }
 
                         mindfulnessSection
+                            .opacity(appeared ? 1 : 0)
+                            .animation(DesignSystem.Animation.intro.delay(0.5), value: appeared)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 50)
                 }
             }
             .preferredColorScheme(.dark)
+            .onAppear { appeared = true }
             .fullScreenCover(item: $selectedExercise) { exercise in
                 BreathingSession(exercise: exercise) {
                     completedExerciseNames.insert(exercise.name)
@@ -127,40 +160,48 @@ struct MeditationView: View {
     private var completedBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.warmSage)
             Text("\(completedExerciseNames.count) övning\(completedExerciseNames.count > 1 ? "ar" : "") avklarad idag – bra jobbat!")
                 .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(.white.opacity(0.88))
             Spacer()
         }
-        .padding(12)
-        .background(Color.warmSage.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmSage.opacity(0.2), lineWidth: 1))
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .padding(14)
+        .background(
+            LinearGradient(
+                colors: [Color.warmSage.opacity(0.15), Color.warmSage.opacity(0.06)],
+                startPoint: .leading, endPoint: .trailing
+            ),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.warmSage.opacity(0.25), lineWidth: 1))
     }
 
     private var mindfulnessSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Snabba mindfulness-tips")
-                .font(.system(.headline, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
+            SectionHeader(title: "Snabba mindfulness-tips", icon: "sparkles")
+                .padding(.bottom, 2)
 
             ForEach(mindfulnessTips, id: \.title) { tip in
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 14) {
                     Text(tip.icon)
                         .font(.title3)
+                        .frame(width: 32)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(tip.title)
                             .font(.system(.subheadline, design: .rounded, weight: .semibold))
                             .foregroundStyle(.white)
                         Text(tip.text)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.65))
-                            .lineSpacing(2)
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(12)
-                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .ljPremiumCard(radius: 14, accent: .white)
             }
         }
     }
@@ -183,66 +224,86 @@ struct ExerciseCard: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            LJHaptic.light()
             onTap()
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
+                // Ikon med gradient bakgrund
                 ZStack {
                     Circle()
-                        .fill(exercise.color.opacity(isDone ? 0.3 : 0.2))
-                        .frame(width: 52, height: 52)
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    exercise.color.opacity(isDone ? 0.4 : 0.28),
+                                    exercise.color.opacity(isDone ? 0.1 : 0.06)
+                                ],
+                                center: .center, startRadius: 0, endRadius: 28
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                        .overlay(Circle().stroke(exercise.color.opacity(isDone ? 0.5 : 0.2), lineWidth: 1))
                     Image(systemName: isDone ? "checkmark" : exercise.icon)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(exercise.color)
                         .contentTransition(.symbolEffect(.replace))
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
                         Text(exercise.name)
                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                             .foregroundStyle(.white)
                         if isDone {
-                            Text("Klar")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(Color.warmSage)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.warmSage.opacity(0.15), in: Capsule())
+                            HStack(spacing: 3) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 8, weight: .bold))
+                                Text("Klar")
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundStyle(Color.warmSage)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.warmSage.opacity(0.15), in: Capsule())
+                            .overlay(Capsule().stroke(Color.warmSage.opacity(0.3), lineWidth: 1))
                         }
                     }
                     Text(exercise.description)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.65))
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
                         .lineLimit(2)
-                    HStack(spacing: 6) {
+                        .lineSpacing(2)
+                    HStack(spacing: 5) {
                         ForEach(exercise.steps.prefix(4)) { step in
                             Text("\(step.seconds)s")
-                                .font(.caption2.monospacedDigit())
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
-                                .background(step.color.opacity(0.2), in: Capsule())
+                                .background(step.color.opacity(0.18), in: Capsule())
+                                .overlay(Capsule().stroke(step.color.opacity(0.25), lineWidth: 0.5))
                                 .foregroundStyle(step.color)
                         }
                         if exercise.totalRounds > 1 {
                             Text("×\(exercise.totalRounds)")
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.5))
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.4))
                         }
                     }
                 }
 
                 Spacer()
                 Image(systemName: isDone ? "arrow.clockwise.circle" : "play.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(exercise.color.opacity(isDone ? 0.6 : 1.0))
+                    .font(.system(size: 30))
+                    .foregroundStyle(exercise.color.opacity(isDone ? 0.5 : 1.0))
+                    .shadow(color: exercise.color.opacity(isDone ? 0 : 0.35), radius: 8, y: 2)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .padding(14)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(exercise.color.opacity(isDone ? 0.35 : 0.2), lineWidth: 1))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .ljPremiumCard(radius: 20, accent: exercise.color)
+            .shadow(color: exercise.color.opacity(isDone ? 0.04 : 0.1), radius: 12, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LJPressableButtonStyle())
+        .accessibilityLabel("\(exercise.name). \(exercise.description). \(isDone ? "Avklarad." : "Tryck för att starta.")")
     }
 }
 
@@ -417,7 +478,17 @@ struct BreathingSession: View {
 
                         Button("Klar") {
                             onComplete()
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            LJHaptic.medium()
+                            // Räkna avklarade andningsövningar för achievements
+                            let prev = UserDefaults.standard.integer(forKey: "lj_breathing_completed_count")
+                            UserDefaults.standard.set(prev + 1, forKey: "lj_breathing_completed_count")
+                            AchievementsStore.shared.checkAndUnlock(
+                                streakDays: 0,
+                                moodLogCount: 0,
+                                journalCount: 0,
+                                breathingCount: prev + 1,
+                                chatCount: 0
+                            )
                             dismiss()
                         }
                         .font(.system(.body, design: .rounded, weight: .bold))
@@ -432,7 +503,7 @@ struct BreathingSession: View {
                     .padding(.horizontal, 20)
                 } else if !isRunning {
                     Button("Starta övning") {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        LJHaptic.light()
                         startExercise()
                     }
                     .font(.system(.body, design: .rounded, weight: .bold))
@@ -448,6 +519,9 @@ struct BreathingSession: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onDisappear {
+            stopTimer()
+        }
     }
 
     private func startExercise() {
@@ -473,8 +547,8 @@ struct BreathingSession: View {
             Task { @MainActor in
                 if timeLeft > 1 {
                     timeLeft -= 1
-                    progressFraction = CGFloat(total - Double(timeLeft - 1)) / CGFloat(total)
-                    UISelectionFeedbackGenerator().selectionChanged()
+                    progressFraction = CGFloat(total - Double(timeLeft)) / CGFloat(total)
+                    LJHaptic.selection()
                 } else {
                     stopTimer()
                     nextStep()
@@ -496,7 +570,7 @@ struct BreathingSession: View {
             progressFraction = 1.0
             withAnimation(.spring(response: 0.5)) { isFinished = true }
             isRunning = false
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            LJHaptic.success()
             Task { await fetchAITip() }
         }
     }

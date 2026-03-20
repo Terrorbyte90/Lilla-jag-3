@@ -5,49 +5,100 @@ import SwiftUI
 
 // MARK: - Models
 
-struct ForumPost: Identifiable {
-    let id = UUID()
+struct ForumPost: Identifiable, Codable {
+    var id = UUID()
     let author: String
     let title: String
     let content: String
-    let timeAgo: String
+    var timeAgo: String
     let tag: String
-    let tagColor: Color
+    let tagColorHex: UInt
     var likes: Int
     var comments: Int
     var isLiked: Bool = false
+    var date: Date = .now
+
+    var tagColor: Color { Color(hex: tagColorHex) }
 }
 
-private var samplePosts: [ForumPost] = [
-    ForumPost(author: "Anonym björn", title: "Vad hjälper er mot ångest på natten?",
-              content: "Jag vaknar ofta klockan 3-4 med stark ångest. Har testat andningsövningar men det hjälper inte alltid. Delar gärna tips med varandra!",
-              timeAgo: "2 tim", tag: "Ångest", tagColor: Color.warmLavender, likes: 34, comments: 12),
-    ForumPost(author: "Anonym sol", title: "Idag hade jag en bra dag – och det känns konstigt",
-              content: "Har kämpat med depression i månader. Idag mådde jag faktiskt bra på riktigt. Men sen kom skulden och oron att det ska gå tillbaka. Någon mer som känner igen sig?",
-              timeAgo: "5 tim", tag: "Depression", tagColor: Color(hex: 0x6B8DD6), likes: 67, comments: 23),
-    ForumPost(author: "Anonym stjärna", title: "Tips för att inte jämföra sig med andra",
-              content: "Social media förstärker min ångest enormt. Har börjat använda tider på telefonen men det räcker inte. Vad gör ni?",
-              timeAgo: "1 dag", tag: "Tips", tagColor: Color.warmSage, likes: 45, comments: 18),
-    ForumPost(author: "Anonym regn", title: "KBT hjälpte mig – min berättelse",
-              content: "För sex månader sedan kunde jag knappt lämna lägenheten. Nu är jag tillbaka på deltid. KBT är svårt men det funkar. Vill bara dela hoppet med er.",
-              timeAgo: "2 dag", tag: "Återhämtning", tagColor: Color.warmGold, likes: 112, comments: 41),
-    ForumPost(author: "Anonym måne", title: "Hur pratar ni med familjen om er psykiska hälsa?",
-              content: "Min familj förstår inte riktigt vad jag går igenom. De säger att jag ska 'ta mig samman'. Hur har ni hanterat det?",
-              timeAgo: "3 dag", tag: "Relationer", tagColor: Color.warmRose, likes: 89, comments: 37),
-]
+// MARK: - ForumStore
+
+@MainActor
+final class ForumStore: ObservableObject {
+    static let shared = ForumStore()
+
+    @Published private(set) var posts: [ForumPost] = []
+    private let url: URL
+
+    init() {
+        let doc = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        url = doc.appendingPathComponent("forum_posts.json")
+        load()
+        if posts.isEmpty { loadSamplePosts() }
+    }
+
+    func add(_ post: ForumPost) {
+        var p = post
+        p.timeAgo = "Just nu"
+        posts.insert(p, at: 0)
+        save()
+    }
+
+    func toggleLike(id: UUID) {
+        if let i = posts.firstIndex(where: { $0.id == id }) {
+            posts[i].isLiked.toggle()
+            posts[i].likes += posts[i].isLiked ? 1 : -1
+            save()
+        }
+    }
+
+    private func save() {
+        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
+        try? enc.encode(posts).write(to: url)
+    }
+
+    private func load() {
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        guard let d = try? Data(contentsOf: url),
+              let p = try? dec.decode([ForumPost].self, from: d) else { return }
+        posts = p
+    }
+
+    private func loadSamplePosts() {
+        posts = [
+            ForumPost(author: "Anonym björn", title: "Vad hjälper er mot ångest på natten?",
+                      content: "Jag vaknar ofta klockan 3-4 med stark ångest. Har testat andningsövningar men det hjälper inte alltid. Delar gärna tips med varandra!",
+                      timeAgo: "2 tim", tag: "Ångest", tagColorHex: 0xBB86FC, likes: 34, comments: 12),
+            ForumPost(author: "Anonym sol", title: "Idag hade jag en bra dag – och det känns konstigt",
+                      content: "Har kämpat med depression i månader. Idag mådde jag faktiskt bra på riktigt. Men sen kom skulden och oron att det ska gå tillbaka. Någon mer som känner igen sig?",
+                      timeAgo: "5 tim", tag: "Depression", tagColorHex: 0x6B8DD6, likes: 67, comments: 23),
+            ForumPost(author: "Anonym stjärna", title: "Tips för att inte jämföra sig med andra",
+                      content: "Social media förstärker min ångest enormt. Har börjat använda tider på telefonen men det räcker inte. Vad gör ni?",
+                      timeAgo: "1 dag", tag: "Tips", tagColorHex: 0x7EC8A4, likes: 45, comments: 18),
+            ForumPost(author: "Anonym regn", title: "KBT hjälpte mig – min berättelse",
+                      content: "För sex månader sedan kunde jag knappt lämna lägenheten. Nu är jag tillbaka på deltid. KBT är svårt men det funkar. Vill bara dela hoppet med er.",
+                      timeAgo: "2 dag", tag: "Återhämtning", tagColorHex: 0xFFD166, likes: 112, comments: 41),
+            ForumPost(author: "Anonym måne", title: "Hur pratar ni med familjen om er psykiska hälsa?",
+                      content: "Min familj förstår inte riktigt vad jag går igenom. De säger att jag ska 'ta mig samman'. Hur har ni hanterat det?",
+                      timeAgo: "3 dag", tag: "Relationer", tagColorHex: 0xFF6B8A, likes: 89, comments: 37),
+        ]
+        save()
+    }
+}
 
 private let allTags = ["Alla", "Ångest", "Depression", "Tips", "Återhämtning", "Relationer"]
 
 // MARK: - ForumView
 
 struct ForumView: View {
-    @State private var posts = samplePosts
+    @StateObject private var store = ForumStore.shared
     @State private var showNewPost = false
     @State private var selectedTag = "Alla"
     @Environment(\.dismiss) private var dismiss
 
-    private var filtered: [ForumPost] {
-        selectedTag == "Alla" ? posts : posts.filter { $0.tag == selectedTag }
+    private var posts: [ForumPost] { store.posts }
+    private var filteredPosts: [ForumPost] {
+        selectedTag == "Alla" ? store.posts : store.posts.filter { $0.tag == selectedTag }
     }
 
     var body: some View {
@@ -64,14 +115,14 @@ struct ForumView: View {
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
 
-                        if filtered.isEmpty {
+                        if filteredPosts.isEmpty {
                             emptyState
                         } else {
                             VStack(spacing: 12) {
-                                ForEach($posts.filter { p in
-                                    selectedTag == "Alla" || p.wrappedValue.tag == selectedTag
-                                }) { $post in
-                                    ForumCard(post: $post)
+                                ForEach(filteredPosts) { post in
+                                    ForumCard(post: post) {
+                                        store.toggleLike(id: post.id)
+                                    }
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -101,7 +152,7 @@ struct ForumView: View {
             .sheet(isPresented: $showNewPost) {
                 NewPostView { newPost in
                     withAnimation(.spring(response: 0.4)) {
-                        posts.insert(newPost, at: 0)
+                        store.add(newPost)
                     }
                 }
             }
@@ -143,7 +194,7 @@ struct ForumView: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
             Spacer()
-            Text("\(posts.count) inlägg")
+            Text("\(store.posts.count) inlägg")
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.4))
         }
@@ -172,7 +223,8 @@ struct ForumView: View {
 // MARK: - Forum Card
 
 struct ForumCard: View {
-    @Binding var post: ForumPost
+    let post: ForumPost
+    let onToggleLike: () -> Void
     @State private var isExpanded = false
 
     var body: some View {
@@ -211,8 +263,7 @@ struct ForumCard: View {
             HStack(spacing: 16) {
                 Button {
                     withAnimation(.spring(response: 0.3)) {
-                        post.likes += post.isLiked ? -1 : 1
-                        post.isLiked.toggle()
+                        onToggleLike()
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
@@ -265,11 +316,15 @@ struct NewPostView: View {
     @State private var loadingAI = false
 
     private let tagOptions = ["Ångest", "Depression", "Tips", "Återhämtning", "Relationer", "Övrigt"]
-    private let tagColors: [String: Color] = [
-        "Ångest": Color.warmLavender, "Depression": Color(hex: 0x6B8DD6),
-        "Tips": Color.warmSage, "Återhämtning": Color.warmGold,
-        "Relationer": Color.warmRose, "Övrigt": Color.white.opacity(0.5)
+    private let tagColorHexes: [String: UInt] = [
+        "Ångest": 0xBB86FC, "Depression": 0x6B8DD6,
+        "Tips": 0x7EC8A4, "Återhämtning": 0xFFD166,
+        "Relationer": 0xFF6B8A, "Övrigt": 0xAAAAAA
     ]
+
+    private func tagColor(_ tag: String) -> Color {
+        Color(hex: tagColorHexes[tag] ?? 0xBB86FC)
+    }
 
     private var canPost: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty && !content.trimmingCharacters(in: .whitespaces).isEmpty }
 
@@ -308,7 +363,7 @@ struct NewPostView: View {
                                                 .padding(.vertical, 6)
                                                 .background(
                                                     selectedTag == tag
-                                                    ? AnyShapeStyle(tagColors[tag] ?? Color.warmLavender)
+                                                    ? AnyShapeStyle(tagColor(tag))
                                                     : AnyShapeStyle(Color.white.opacity(0.1)),
                                                     in: Capsule()
                                                 )
@@ -413,7 +468,7 @@ struct NewPostView: View {
                             content: content.trimmingCharacters(in: .whitespaces),
                             timeAgo: "Nu",
                             tag: selectedTag,
-                            tagColor: tagColors[selectedTag] ?? Color.warmLavender,
+                            tagColorHex: tagColorHexes[selectedTag] ?? 0xBB86FC,
                             likes: 0,
                             comments: 0
                         )

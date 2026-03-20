@@ -59,12 +59,13 @@ final class NavRouter: ObservableObject {
     @Published var current: NavDestination = .home
 }
 
-// MARK: - 3  Snygg navbar (förbättrad med haptics & animationer)
+// MARK: - 3  Premium Navbar
 struct Navbar: View {
     @ObservedObject private var router = NavRouter.shared
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
     @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
     @Namespace private var tabAnimation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let gradient = LinearGradient(
         colors: [Color(hex: 0xBB86FC), Color(hex: 0xFF6B8A)],
@@ -75,50 +76,61 @@ struct Navbar: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(NavDestination.allCases) { dest in
+                let isActive = router.current == dest
                 Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    LJHaptic.selection()
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72)) {
                         router.current = dest
                     }
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Image(systemName: dest.icon)
-                            .font(.system(size: min(iconSize, 24), weight: .semibold))
-                            .scaleEffect(router.current == dest ? 1.1 : 1.0)
+                            .font(.system(size: min(iconSize, 22), weight: isActive ? .semibold : .regular))
+                            .scaleEffect(isActive ? 1.08 : 1.0)
+                            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: isActive)
                         Text(dest.title)
-                            .font(.system(size: min(labelSize, 12), weight: .medium))
+                            .font(.system(size: min(labelSize, 10), weight: isActive ? .semibold : .regular, design: .rounded))
+                            .opacity(isActive ? 1.0 : 0.65)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .foregroundStyle(router.current == dest ? Color.white
-                                                            : Color.primary.opacity(0.5))
+                    .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.5))
                     .background(
                         Group {
-                            if router.current == dest {
+                            if isActive {
                                 gradient
                                     .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14,
-                                                                 style: .continuous))
-                                    .shadow(color: Color(hex: 0xBB86FC).opacity(0.3), radius: 8, y: 2)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .shadow(color: Color(hex: 0xBB86FC).opacity(0.4), radius: 10, y: 3)
                             } else {
                                 Color.clear
                             }
                         }
                     )
-                    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: router.current)
+                    .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: router.current)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(dest.title)
-                .accessibilityAddTraits(router.current == dest ? .isSelected : [])
+                .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
         .padding(6)
-        .background(.ultraThinMaterial,
-                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1))
-        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
-        .padding(.horizontal, 12)
+        .background(
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.15), Color.white.opacity(0.05)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+        .padding(.horizontal, 14)
     }
 }
 
@@ -126,14 +138,14 @@ struct Navbar: View {
 private struct NavbarModifier: ViewModifier {
     let dest: NavDestination
     @ObservedObject private var router = NavRouter.shared
-    
+
     func body(content: Content) -> some View {
         Group {
             if router.current == dest {
                 content
                     .safeAreaInset(edge: .bottom) {
                         Navbar()
-                            .padding(.bottom, 8)
+                            .padding(.bottom, 6)
                     }
                     .transition(.opacity)
             } else {

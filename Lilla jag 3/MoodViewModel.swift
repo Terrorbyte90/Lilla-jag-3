@@ -11,10 +11,16 @@ final class MoodViewModel: ObservableObject {
     @Published var weeklyReportText: String = ""
     @Published var generatingWeekly = false
 
+    // Delad referens – Mood1View skickar in sin store för att undvika dubblering
     let store: MoodStore
 
     init(store: MoodStore? = nil) {
         self.store = store ?? MoodStore()
+    }
+
+    // MARK: - Convenience: hämta store från Mood1View via environment
+    static func withStore(_ store: MoodStore) -> MoodViewModel {
+        MoodViewModel(store: store)
     }
 
     func generateWeeklyReport() async {

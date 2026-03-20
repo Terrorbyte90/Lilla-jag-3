@@ -21,6 +21,10 @@ struct Dashboard: View {
     @StateObject private var viewModel = DashboardViewModel()
     @ObservedObject private var ai = LillaJagAIService.shared
     @State private var appeared = false
+    /// Håller reda på om dagens affirmation är markerad som favorit
+    @State private var affirmationIsFavorite: Bool = false
+    /// Visar en kort "sparat!"-feedback när användaren sparar en favorit
+    @State private var showFavoriteFeedback: Bool = false
 
     var body: some View {
         GeometryReader { geo in
@@ -29,33 +33,66 @@ struct Dashboard: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: geo.size.height > 800 ? 20 : 16) {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.cardSpacing(for: geo.size.height)) {
                         header
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 8)
+                            .animation(DesignSystem.Animation.intro.delay(0.05), value: appeared)
+
                         dailyCheckInCard
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.12), value: appeared)
+
                         streakAndProgressBar
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.18), value: appeared)
+
                         quickActions
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.24), value: appeared)
+
                         breathingQuickAccess
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.30), value: appeared)
+
                         affirmationBox
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.36), value: appeared)
+
                         monsterSection
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.42), value: appeared)
+
                         if let emotion = ai.currentEmotion, !ai.messages.isEmpty {
                             emotionCard(emotion: emotion)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
+
                         ukraineBanner
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(DesignSystem.Animation.intro.delay(0.48), value: appeared)
+
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, max(16, geo.size.width * 0.06))
+                    .padding(.horizontal, max(16, geo.size.width * 0.055))
                     .padding(.top, 16)
-                    .padding(.bottom, 110)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 12)
+                    .padding(.bottom, 120)
                 }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5).delay(0.1)) {
-                appeared = true
-            }
+            appeared = true
+            // Läs in om nuvarande affirmation redan är favorit
+            let favorites = AffirmationManager.loadFavorites()
+            affirmationIsFavorite = favorites.contains(viewModel.affirmation)
         }
         .fullScreenCover(isPresented: $viewModel.showChatty) { ChattyView() }
         .fullScreenCover(isPresented: $viewModel.showNumbers) { NumbersView() }
@@ -66,6 +103,10 @@ struct Dashboard: View {
         .fullScreenCover(isPresented: $viewModel.showUkraine) { UkraineView() }
         .fullScreenCover(isPresented: $viewModel.showSocial) { SocialView() }
         .fullScreenCover(isPresented: $viewModel.showBreathing) { BreathingQuickView() }
+        .onChange(of: viewModel.affirmation) { _, newValue in
+            let favorites = AffirmationManager.loadFavorites()
+            affirmationIsFavorite = favorites.contains(newValue)
+        }
         .fullScreenCover(isPresented: $viewModel.showMonster) {
             MonsterLogWizard { log in
                 viewModel.monsterStore.add(log)
@@ -76,6 +117,10 @@ struct Dashboard: View {
             AchievementsGridView()
         }
         .fullScreenCover(isPresented: $viewModel.showSOS) { CrisisSheetView() }
+        .sheet(isPresented: $viewModel.showNotificationSettings) {
+            NavigationStack { NotificationSettingsView() }
+                .preferredColorScheme(.dark)
+        }
         .task {
             await NotificationManager.shared.requestPermission()
         }
@@ -88,28 +133,29 @@ private extension Dashboard {
 
     var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Lilla Jag")
                     .font(.system(.title2, design: .rounded, weight: .black))
                     .minimumScaleFactor(0.8)
                     .foregroundStyle(.white)
+                    .tracking(-0.3)
                 Text(greetingText)
                     .font(.system(.subheadline, design: .rounded))
                     .minimumScaleFactor(0.8)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.white.opacity(0.6))
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Lilla Jag. \(greetingText)")
             Spacer()
             HStack(spacing: 8) {
-                DashboardHeaderButton(icon: "heart.fill", label: "Donera", action: { viewModel.showDonation = true })
+                DashboardHeaderButton(icon: "bell.fill", label: "Påminnelser", action: { viewModel.showNotificationSettings = true })
                 DashboardHeaderButton(icon: "cross.case.fill", label: "Krisplan", action: { viewModel.showCrisisPlan = true })
                 DashboardHeaderButton(icon: "phone.fill", label: "Krisnummer", action: { viewModel.showNumbers = true })
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .ljGlassCard(radius: 18)
+        .padding(.vertical, 13)
+        .ljPremiumCard(radius: 18, accent: Color.warmLavender)
     }
 
     var greetingText: String {
@@ -125,121 +171,171 @@ private extension Dashboard {
     // MARK: - Daily Check-In (inspirerat av Daylio/Headspace)
 
     var dailyCheckInCard: some View {
-        VStack(spacing: 14) {
-            HStack {
-                Image(systemName: viewModel.hasCheckedInToday ? "checkmark.circle.fill" : "sun.horizon.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(viewModel.hasCheckedInToday ? Color.warmSage : Color.warmGold)
-                Text(viewModel.hasCheckedInToday ? "Incheckat idag!" : "Hur mår du idag?")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
+        VStack(spacing: 16) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill((viewModel.hasCheckedInToday ? Color.warmSage : Color.warmGold).opacity(0.15))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: viewModel.hasCheckedInToday ? "checkmark.circle.fill" : "sun.horizon.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(viewModel.hasCheckedInToday ? Color.warmSage : Color.warmGold)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(viewModel.hasCheckedInToday ? "Incheckat idag" : "Hur mår du just nu?")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text(viewModel.hasCheckedInToday ? "Bra jobbat – fortsätt!" : "Välj det som stämmer bäst")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
                 Spacer()
             }
 
             if !viewModel.hasCheckedInToday {
-                HStack(spacing: 0) {
+                HStack(spacing: 4) {
                     ForEach(QuickMood.allCases, id: \.rawValue) { mood in
                         Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            withAnimation(DesignSystem.Animation.smooth) {
                                 viewModel.selectedQuickMood = mood
                                 viewModel.hasCheckedInToday = true
                                 viewModel.recordCheckIn()
                             }
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            LJHaptic.medium()
                         } label: {
-                            VStack(spacing: 5) {
+                            VStack(spacing: 6) {
                                 Text(mood.emoji)
-                                    .font(.system(size: 30))
-                                    .scaleEffect(viewModel.selectedQuickMood == mood ? 1.2 : 1.0)
+                                    .font(.system(size: 28))
+                                    .scaleEffect(viewModel.selectedQuickMood == mood ? 1.25 : 1.0)
+                                    .animation(DesignSystem.Animation.quick, value: viewModel.selectedQuickMood)
                                 Text(mood.rawValue)
-                                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.65))
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(
                                 viewModel.selectedQuickMood == mood
-                                ? mood.color.opacity(0.2)
+                                ? mood.color.opacity(0.22)
                                 : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 12)
+                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(
+                                        viewModel.selectedQuickMood == mood
+                                        ? mood.color.opacity(0.4)
+                                        : Color.clear,
+                                        lineWidth: 1
+                                    )
                             )
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Humör: \(mood.rawValue)")
                     }
                 }
+                .padding(.horizontal, 2)
             } else if let mood = viewModel.selectedQuickMood {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Text(mood.emoji)
-                        .font(.system(size: 28))
-                    Text("Du mår \(mood.rawValue.lowercased()) idag")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .font(.system(size: 32))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Du mår \(mood.rawValue.lowercased()) idag")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                        Text("Loggat – bra kämpat!")
+                            .font(.system(.caption2, design: .rounded))
+                            .foregroundStyle(Color.warmSage.opacity(0.8))
+                    }
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 22))
                         .foregroundStyle(Color.warmSage)
                 }
-                .transition(.scale.combined(with: .opacity))
+                .padding(.vertical, 4)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.92).combined(with: .opacity),
+                    removal: .opacity
+                ))
             }
         }
-        .padding(14)
-        .ljGlassCard(radius: 18)
-        .shadow(radius: 4, y: 2)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .ljPremiumCard(radius: 20, accent: Color.warmGold)
+        .shadow(color: Color.warmGold.opacity(0.08), radius: 16, y: 6)
     }
 
     // MARK: - Streak & Progress (gamification som Duolingo/Headspace)
 
     var streakAndProgressBar: some View {
-        HStack(spacing: 14) {
-            // Streak
-            HStack(spacing: 8) {
+        HStack(spacing: 12) {
+            // Streak-kort
+            HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.warmGold.opacity(0.15))
-                        .frame(width: 38, height: 38)
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.warmGold.opacity(0.3), Color.warmGold.opacity(0.05)],
+                                center: .center, startRadius: 0, endRadius: 22
+                            )
+                        )
+                        .frame(width: 42, height: 42)
+                        .overlay(Circle().stroke(Color.warmGold.opacity(0.2), lineWidth: 1))
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(viewModel.currentStreak > 0 ? Color.warmGold : Color.white.opacity(0.3))
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(viewModel.currentStreak > 0 ? Color.warmGold : Color.white.opacity(0.25))
                 }
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("\(viewModel.currentStreak)")
-                        .font(.system(.title3, design: .rounded, weight: .black))
+                        .font(.system(.title2, design: .rounded, weight: .black))
                         .foregroundStyle(.white)
+                        .contentTransition(.numericText())
                     Text(viewModel.currentStreak == 1 ? "dag i rad" : "dagar i rad")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.white.opacity(0.45))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .ljGlassCard(radius: 14)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .ljPremiumCard(radius: 16, accent: Color.warmGold)
+            .shadow(color: Color.warmGold.opacity(0.08), radius: 10, y: 4)
             .accessibilityLabel("Streak: \(viewModel.currentStreak) dagar i rad")
 
-            // Weekly progress dots
-            HStack(spacing: 6) {
-                ForEach(0..<7, id: \.self) { day in
-                    let isActive = day < viewModel.currentStreak
-                    Circle()
-                        .fill(isActive ? Color.warmSage : Color.white.opacity(0.1))
-                        .frame(width: 10, height: 10)
-                        .overlay(
-                            Circle()
-                                .stroke(isActive ? Color.warmSage.opacity(0.5) : Color.white.opacity(0.05), lineWidth: 1)
-                        )
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
+            // Vecko-dots
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 0) {
                     Text("Veckomål")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                    Spacer()
                     Text("\(min(viewModel.currentStreak, 7))/7")
                         .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(Color.warmSage)
                 }
+                HStack(spacing: 5) {
+                    ForEach(0..<7, id: \.self) { day in
+                        let isActive = day < viewModel.currentStreak
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(isActive
+                                  ? LinearGradient(colors: [Color.warmSage, Color.warmSage.opacity(0.7)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                  : LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.08)],
+                                                   startPoint: .top, endPoint: .bottom))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 8)
+                            .animation(DesignSystem.Animation.smooth.delay(Double(day) * 0.04), value: viewModel.currentStreak)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
-            .padding(12)
-            .ljGlassCard(radius: 14)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .ljPremiumCard(radius: 16, accent: Color.warmSage)
+            .shadow(color: Color.warmSage.opacity(0.06), radius: 10, y: 4)
             .accessibilityLabel("Veckomål: \(min(viewModel.currentStreak, 7)) av 7 dagar")
         }
     }
@@ -279,13 +375,19 @@ private extension Dashboard {
     var breathingQuickAccess: some View {
         Button {
             viewModel.showBreathing = true
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            LJHaptic.soft()
         } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(Color(hex: 0x6ECFF6).opacity(0.15))
-                        .frame(width: 48, height: 48)
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: 0x6ECFF6).opacity(0.3), Color(hex: 0x6ECFF6).opacity(0.06)],
+                                center: .center, startRadius: 0, endRadius: 26
+                            )
+                        )
+                        .frame(width: 52, height: 52)
+                        .overlay(Circle().stroke(Color(hex: 0x6ECFF6).opacity(0.2), lineWidth: 1))
                     Image(systemName: "wind")
                         .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(Color(hex: 0x6ECFF6))
@@ -296,54 +398,122 @@ private extension Dashboard {
                         .foregroundStyle(.white)
                     Text("1 minut · Snabb avslappning")
                         .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(.white.opacity(0.5))
                 }
                 Spacer()
                 Image(systemName: "play.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(Color(hex: 0x6ECFF6).opacity(0.8))
+                    .font(.system(size: 30))
+                    .foregroundStyle(Color(hex: 0x6ECFF6))
+                    .shadow(color: Color(hex: 0x6ECFF6).opacity(0.4), radius: 8, y: 2)
             }
-            .padding(14)
-            .ljGlassCard(radius: 18)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .ljPremiumCard(radius: 20, accent: Color(hex: 0x6ECFF6))
+            .shadow(color: Color(hex: 0x6ECFF6).opacity(0.1), radius: 12, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LJPressableButtonStyle())
         .accessibilityLabel("Starta andningsövning. 1 minut snabb avslappning.")
     }
 
     // MARK: - Affirmation
+    // Innovation 1: Interaktiv affirmation – hjärtknapp sparar favoriter till UserDefaults,
+    // dubbeltryck byter till nästa. Visar "Sparad!" feedback med animation.
 
     var affirmationBox: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "quote.opening")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.warmGold.opacity(0.6))
-                Text("Dagens påminnelse")
-                    .font(.system(.caption2, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Color.warmGold.opacity(0.6))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
+        ZStack {
+            VStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "quote.opening")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.warmGold.opacity(0.6))
+                    Text("Dagens påminnelse")
+                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Color.warmGold.opacity(0.6))
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                    Spacer()
+
+                    // Favorit-knapp – markerar påminnelsen och sparar till UserDefaults
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            affirmationIsFavorite.toggle()
+                        }
+                        LJHaptic.light()
+                        AffirmationManager.toggleFavorite(viewModel.affirmation)
+
+                        // Visa kortvarig "Sparad!"-feedback när användaren lägger till favorit
+                        if affirmationIsFavorite {
+                            showFavoriteFeedback = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                                withAnimation { showFavoriteFeedback = false }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: affirmationIsFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 16))
+                            .foregroundStyle(affirmationIsFavorite ? Color.warmRose : Color.white.opacity(0.3))
+                            .scaleEffect(affirmationIsFavorite ? 1.15 : 1.0)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(affirmationIsFavorite ? "Ta bort från favoriter" : "Spara som favorit")
+
+                    // Byt till ny påminnelse
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            viewModel.affirmation = AffirmationManager.random(excluding: viewModel.affirmation)
+                        }
+                        LJHaptic.light()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.white.opacity(0.25))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Ny påminnelse")
+                }
+
+                Text(viewModel.affirmation)
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(5)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(viewModel.affirmation)
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.9))
-                .multilineTextAlignment(.center)
-                .lineSpacing(3)
-        }
-        .padding(.vertical, 18)
-        .padding(.horizontal, 22)
-        .frame(maxWidth: .infinity)
-        .background(
-            LinearGradient(
-                colors: [Color.warmGold.opacity(0.06), Color.warmLavender.opacity(0.04)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
+            .padding(.vertical, 22)
+            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity)
+            .background(
+                ZStack {
+                    LinearGradient(
+                        colors: [Color.warmGold.opacity(0.08), Color.warmLavender.opacity(0.05)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    // Subtilt ljusreflex
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.05), Color.clear],
+                        startPoint: .top,
+                        endPoint: UnitPoint(x: 0.5, y: 0.4)
+                    )
+                }
             )
-        )
-        .ljGlassCard(radius: 18)
-        .id(viewModel.affirmation)
-        .transition(.opacity.combined(with: .scale(scale: 0.97)))
-        .animation(.easeInOut(duration: 0.5), value: viewModel.affirmation)
-        .accessibilityLabel("Dagens påminnelse: \(viewModel.affirmation)")
+            .ljGlassCard(radius: 20)
+            .id(viewModel.affirmation)
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            .animation(.easeInOut(duration: 0.5), value: viewModel.affirmation)
+            .accessibilityLabel("Dagens påminnelse: \(viewModel.affirmation)")
+
+            // "Sparad!"-overlay – syns kort när användaren lägger till favorit
+            if showFavoriteFeedback {
+                Text("Sparad! ♥")
+                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color.warmRose.opacity(0.8), in: Capsule())
+                    .transition(.scale.combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     // MARK: - Monster Section
@@ -378,7 +548,7 @@ private extension Dashboard {
             }
 
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                LJHaptic.medium()
                 viewModel.showMonster = true
             } label: {
                 HStack(spacing: 8) {
@@ -551,29 +721,6 @@ private extension Dashboard {
     }
 }
 
-// MARK: - Section Header
-
-struct SectionHeader: View {
-    let title: String
-    var icon: String? = nil
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.4))
-            }
-            Text(title)
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.4))
-                .textCase(.uppercase)
-                .tracking(0.5)
-        }
-        .padding(.leading, 4)
-    }
-}
-
 // MARK: - Header button
 
 struct DashboardHeaderButton: View {
@@ -583,15 +730,19 @@ struct DashboardHeaderButton: View {
     var body: some View {
         Button {
             action()
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            LJHaptic.light()
         } label: {
             Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(.white)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
                 .frame(width: 40, height: 40)
-                .ljGlassCard(radius: 10)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                        .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+                )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LJPressableButtonStyle())
         .accessibilityLabel(label)
     }
 }
@@ -607,26 +758,35 @@ struct DashboardActionButton: View {
     var body: some View {
         Button {
             action()
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            LJHaptic.light()
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: 9) {
                 ZStack {
                     Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 48, height: 48)
+                        .fill(
+                            RadialGradient(
+                                colors: [color.opacity(0.28), color.opacity(0.08)],
+                                center: .center, startRadius: 0, endRadius: 26
+                            )
+                        )
+                        .frame(width: 50, height: 50)
+                        .overlay(Circle().stroke(color.opacity(0.18), lineWidth: 1))
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(color)
                 }
                 Text(label)
                     .font(.system(.caption, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .ljGlassCard(radius: 16)
+            .padding(.vertical, 15)
+            .ljPremiumCard(radius: 18, accent: color)
+            .shadow(color: color.opacity(0.08), radius: 8, y: 3)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LJPressableButtonStyle())
         .accessibilityLabel(label)
     }
 }
@@ -663,8 +823,12 @@ struct LoopingVideoBackground: UIViewControllerRepresentable {
 }
 
 // MARK: - AffirmationManager
+// Innovation 1 (stöd): Lägger till favorit-persistens via UserDefaults samt
+// random(excluding:) för att aldrig visa samma påminnelse två gånger i rad.
 
 struct AffirmationManager {
+    private static let favoritesKey = "lj_affirmation_favorites"
+
     private static let list: [String] = [
         "Du är modigare än du tror.",
         "Andas djupt – allt ordnar sig.",
@@ -692,7 +856,31 @@ struct AffirmationManager {
         "Dina tankar definierar inte vem du är.",
         "Du förtjänar vila utan skuldkänslor."
     ]
-    static func random() -> String { list.randomElement() ?? "" }
+
+    /// Returnerar en slumpmässig affirmation, aldrig samma som `current`
+    static func random(excluding current: String = "") -> String {
+        let pool = list.filter { $0 != current }
+        return pool.randomElement() ?? list.randomElement() ?? ""
+    }
+
+    /// Läs sparade favoriter från UserDefaults
+    static func loadFavorites() -> [String] {
+        UserDefaults.standard.stringArray(forKey: favoritesKey) ?? []
+    }
+
+    /// Toggla en affirmation som favorit – lägg till om den saknas, ta bort om den finns
+    static func toggleFavorite(_ affirmation: String) {
+        var favorites = loadFavorites()
+        if let index = favorites.firstIndex(of: affirmation) {
+            favorites.remove(at: index)
+        } else {
+            favorites.append(affirmation)
+        }
+        UserDefaults.standard.set(favorites, forKey: favoritesKey)
+    }
+
+    /// Returnerar en slumpmässig affirmation, prioriterar favoriter var 3:e dag
+    static func random() -> String { random(excluding: "") }
 }
 
 // MARK: - BreathingQuickView (snabb andningsövning)
@@ -737,68 +925,118 @@ struct BreathingQuickView: View {
 
     var body: some View {
         ZStack {
-            WarmBackground()
+            // Gradient bakgrund som svarar på andningsfas
+            Color(hex: 0x100820).ignoresSafeArea()
+            Circle()
+                .fill(phase.color.opacity(0.18))
+                .frame(width: 500, height: 500)
+                .blur(radius: 100)
+                .scaleEffect(circleScale * 0.9 + 0.1)
+                .animation(.easeInOut(duration: phase.duration), value: circleScale)
+                .ignoresSafeArea()
 
-            VStack(spacing: 40) {
+            VStack(spacing: 0) {
+                // Header
                 HStack {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.white.opacity(0.5))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.1), in: Circle())
                     }
                     .buttonStyle(.plain)
                     Spacer()
-                    Text(timeString)
-                        .font(.system(.headline, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
+                    if isActive {
+                        Text(timeString)
+                            .font(.system(.callout, design: .monospaced, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .monospacedDigit()
+                            .transition(.opacity)
+                    }
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 20)
+                .padding(.top, 24)
 
                 Spacer()
 
-                // Animated circle
+                // Andningscirkel – 3 lager med pulsande glöd
                 ZStack {
+                    // Yttersta ring
                     Circle()
-                        .fill(phase.color.opacity(0.08))
-                        .frame(width: 260, height: 260)
+                        .fill(phase.color.opacity(0.05))
+                        .frame(width: 280, height: 280)
+                        .scaleEffect(circleScale * 0.15 + 0.9)
+                        .animation(.easeInOut(duration: phase.duration), value: circleScale)
+                    // Mellanlager
                     Circle()
-                        .fill(phase.color.opacity(0.15))
-                        .frame(width: 200, height: 200)
+                        .fill(
+                            RadialGradient(
+                                colors: [phase.color.opacity(0.2), phase.color.opacity(0.04)],
+                                center: .center, startRadius: 0, endRadius: 100
+                            )
+                        )
+                        .frame(width: 210, height: 210)
+                        .scaleEffect(circleScale * 0.3 + 0.7)
+                        .animation(.easeInOut(duration: phase.duration), value: circleScale)
+                    // Kärncirkel
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [phase.color.opacity(0.55), phase.color.opacity(0.15)],
+                                center: .center, startRadius: 0, endRadius: 75
+                            )
+                        )
+                        .frame(width: 150, height: 150)
                         .scaleEffect(circleScale)
-                    Circle()
-                        .fill(phase.color.opacity(0.25))
-                        .frame(width: 140, height: 140)
-                        .scaleEffect(circleScale)
-                    Text(phase.rawValue)
-                        .font(.system(.title2, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                        .animation(.easeInOut(duration: phase.duration), value: circleScale)
+                        .shadow(color: phase.color.opacity(0.4), radius: 24, y: 0)
+                    // Fas-text
+                    VStack(spacing: 4) {
+                        Text(phase.rawValue)
+                            .font(.system(.title3, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .id(phase.rawValue)
+                            .transition(.opacity)
+                            .animation(DesignSystem.Animation.gentle, value: phase.rawValue)
+                    }
                 }
-                .animation(.easeInOut(duration: phase.duration), value: circleScale)
+                .frame(height: 290)
 
                 Spacer()
 
                 if !isActive {
-                    Button {
-                        startBreathing()
-                    } label: {
-                        Text("Börja andas")
-                            .font(.system(.body, design: .rounded, weight: .bold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    VStack(spacing: 16) {
+                        Text("Box-andning · 1 min")
+                            .font(.system(.caption, design: .rounded, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.4))
+                            .textCase(.uppercase)
+                            .tracking(1)
+
+                        Button {
+                            startBreathing()
+                            LJHaptic.medium()
+                        } label: {
+                            Text("Starta")
+                                .font(.system(.body, design: .rounded, weight: .bold))
+                                .foregroundStyle(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 17)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                        .buttonStyle(LJPressableButtonStyle())
+                        .padding(.horizontal, 32)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 28)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 } else {
-                    Text("Följ cirkeln och andas lugnt")
+                    Text("Följ cirkeln – andas lugnt")
                         .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .transition(.opacity)
                 }
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 50)
             }
         }
         .preferredColorScheme(.dark)
