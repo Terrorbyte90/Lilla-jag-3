@@ -15,7 +15,7 @@ struct AssistantView: View {
 // MARK: - AITherapistView
 
 struct AITherapistView: View {
-    @StateObject private var ai = LillaJagAIService.shared
+    @State private var ai = LillaJagAIService.shared
     @State private var inputText = ""
     @State private var showStarters = true
     @State private var scrollProxy: ScrollViewProxy? = nil
@@ -303,7 +303,8 @@ struct AITherapistView: View {
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
             if let last = ai.messages.last {
                 withAnimation(.easeOut(duration: 0.25)) {
                     proxy.scrollTo(last.id, anchor: .bottom)
@@ -500,7 +501,8 @@ struct MessageBubble: View {
     private func showFeedback(_ text: String) {
         guard !text.isEmpty else { return }
         withAnimation { feedbackText = text }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+        Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1400))
             withAnimation { feedbackText = nil }
         }
     }

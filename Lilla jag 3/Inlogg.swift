@@ -660,7 +660,8 @@ private struct Toast: Equatable, Identifiable {
             hosting.view.trailingAnchor.constraint(lessThanOrEqualTo: window.trailingAnchor, constant: -24)
         ])
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+        Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1600))
             hosting.view.removeFromSuperview()
         }
     }

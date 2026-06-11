@@ -24,10 +24,11 @@ struct ForumPost: Identifiable, Codable {
 // MARK: - ForumStore
 
 @MainActor
-final class ForumStore: ObservableObject {
+@Observable
+final class ForumStore {
     static let shared = ForumStore()
 
-    @Published private(set) var posts: [ForumPost] = []
+    private(set) var posts: [ForumPost] = []
     private let url: URL
 
     init() {
@@ -91,7 +92,7 @@ private let allTags = ["Alla", "Ångest", "Depression", "Tips", "Återhämtning"
 // MARK: - ForumView
 
 struct ForumView: View {
-    @StateObject private var store = ForumStore.shared
+    @State private var store = ForumStore.shared
     @State private var showNewPost = false
     @State private var selectedTag = "Alla"
     @Environment(\.dismiss) private var dismiss

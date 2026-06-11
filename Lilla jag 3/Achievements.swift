@@ -20,12 +20,13 @@ struct Achievement: Identifiable, Codable {
 // MARK: - AchievementsStore
 
 @MainActor
-final class AchievementsStore: ObservableObject {
+@Observable
+final class AchievementsStore {
 
     static let shared = AchievementsStore()
 
-    @Published var achievements: [Achievement]
-    @Published var newlyUnlocked: Achievement?
+    var achievements: [Achievement]
+    var newlyUnlocked: Achievement?
 
     private let userDefaultsKey = "lj_achievements"
 
@@ -319,7 +320,7 @@ struct AchievementBadgeView: View {
 // MARK: - AchievementsGridView
 
 struct AchievementsGridView: View {
-    @StateObject private var store = AchievementsStore.shared
+    @State private var store = AchievementsStore.shared
     @State private var showPopup = false
 
     private let columns = [
@@ -388,7 +389,8 @@ struct AchievementsGridView: View {
             .onChange(of: store.newlyUnlocked?.id) { _, newID in
                 guard newID != nil else { return }
                 showPopup = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(3000))
                     withAnimation {
                         showPopup = false
                     }

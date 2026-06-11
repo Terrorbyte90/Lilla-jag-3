@@ -79,7 +79,8 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("VideoPaused"))) { _ in
                 withAnimation(.easeOut(duration: 0.8)) { showText = true }
                 withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(6000))
                     navigateToAssistant = true
                 }
             }
@@ -89,7 +90,8 @@ struct ContentView: View {
                 if Bundle.main.url(forResource: "Start", withExtension: "mp4") == nil {
                     withAnimation(.easeOut(duration: 0.8)) { showText = true }
                     withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                    Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(4000))
                         navigateToAssistant = true
                     }
                 }

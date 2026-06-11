@@ -150,12 +150,13 @@ final class OpenAIWeatherClient {
 
 // MARK: - ViewModel
 @MainActor
-final class WeatherBoardViewModel: ObservableObject {
-    @Published var location = "Stockholm"
-    @Published var updateInterval: Double = 30
-    @Published var weather: WeatherResponse?
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+@Observable
+final class WeatherBoardViewModel {
+    var location = "Stockholm"
+    var updateInterval: Double = 30
+    var weather: WeatherResponse?
+    var isLoading = false
+    var errorMessage: String?
     
     private var timer: AnyCancellable?
     
@@ -187,7 +188,7 @@ final class WeatherBoardViewModel: ObservableObject {
 
 // MARK: - WeatherBoard
 struct WeatherBoard: View {
-    @StateObject private var vm = WeatherBoardViewModel()
+    @State private var vm = WeatherBoardViewModel()
     @FocusState private var searchFocused: Bool
     
     var body: some View {

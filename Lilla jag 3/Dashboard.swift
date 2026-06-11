@@ -18,8 +18,8 @@ import Combine
 // MARK: - Dashboard
 
 struct Dashboard: View {
-    @StateObject private var viewModel = DashboardViewModel()
-    @ObservedObject private var ai = LillaJagAIService.shared
+    @State private var viewModel = DashboardViewModel()
+    @State private var ai = LillaJagAIService.shared
     @State private var appeared = false
     /// Håller reda på om dagens affirmation är markerad som favorit
     @State private var affirmationIsFavorite: Bool = false
@@ -444,7 +444,8 @@ private extension Dashboard {
                         // Visa kortvarig "Sparad!"-feedback när användaren lägger till favorit
                         if affirmationIsFavorite {
                             showFavoriteFeedback = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1400))
                                 withAnimation { showFavoriteFeedback = false }
                             }
                         }

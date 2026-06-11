@@ -8,11 +8,12 @@ import UserNotifications
 // MARK: - NotificationManager
 
 @MainActor
-final class NotificationManager: ObservableObject {
+@Observable
+final class NotificationManager {
 
     static let shared = NotificationManager()
 
-    @Published var isPermissionGranted: Bool = false
+    var isPermissionGranted: Bool = false
 
     private let notificationIdentifier = "se.lillaJag.dailyMoodReminder"
 
@@ -105,7 +106,7 @@ final class NotificationManager: ObservableObject {
 
 struct NotificationSettingsView: View {
 
-    @StateObject private var manager = NotificationManager.shared
+    @State private var manager = NotificationManager.shared
     @State private var remindersEnabled: Bool = false
     @State private var selectedTime: Date = defaultReminderTime()
     @State private var isLoading: Bool = true

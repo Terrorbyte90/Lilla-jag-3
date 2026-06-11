@@ -22,9 +22,10 @@ struct KrisplanData: Codable {
 }
 
 @MainActor
-final class KrisplanStore: ObservableObject {
+@Observable
+final class KrisplanStore {
     static let shared = KrisplanStore()
-    @Published var plan = KrisplanData()
+    var plan = KrisplanData()
 
     private let url: URL
 
@@ -60,7 +61,7 @@ final class KrisplanStore: ObservableObject {
 // MARK: - KrisplanView
 
 struct KrisplanView: View {
-    @StateObject private var store = KrisplanStore.shared
+    @State private var store = KrisplanStore.shared
     @State private var isEditing = false
     @State private var groundingText: String = ""
     @State private var aiCopingSuggestions: [String] = []

@@ -49,10 +49,11 @@ struct MoodEntry: Identifiable, Codable, Hashable {
 
 // MARK: - Store
 @MainActor
-final class MoodStore: ObservableObject {
+@Observable
+final class MoodStore {
     static let shared = MoodStore()
 
-    @Published private(set) var entries: [MoodEntry] = []
+    private(set) var entries: [MoodEntry] = []
     private let url: URL
     init() {
         let doc = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -356,8 +357,8 @@ struct AHAInsightsGenerator {
 
 // MARK: - Dashboard
 struct Mood1View: View {
-    @ObservedObject private var store = MoodStore.shared
-    @StateObject private var viewModel = MoodViewModel(store: MoodStore.shared)
+    @State private var store = MoodStore.shared
+    @State private var viewModel = MoodViewModel(store: MoodStore.shared)
     @State private var heroAppeared = false
 
     private var todayLogged: Bool {

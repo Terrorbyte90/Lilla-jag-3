@@ -2,33 +2,34 @@ import SwiftUI
 import Combine
 
 @MainActor
-final class DashboardViewModel: ObservableObject {
-    @Published var affirmation: String = AffirmationManager.random()
-    @Published var showChatty = false
-    @Published var showNumbers = false
-    @Published var showCrisisPlan = false
-    @Published var showDonation = false
-    @Published var showForum = false
-    @Published var showPsykolog = false
-    @Published var showUkraine = false
-    @Published var showSocial = false
-    @Published var showBreathing = false
-    @Published var showMonster = false
-    @Published var showAchievements = false
-    @Published var showSOS = false
-    @Published var showNotificationSettings = false
+@Observable
+final class DashboardViewModel {
+    var affirmation: String = AffirmationManager.random()
+    var showChatty = false
+    var showNumbers = false
+    var showCrisisPlan = false
+    var showDonation = false
+    var showForum = false
+    var showPsykolog = false
+    var showUkraine = false
+    var showSocial = false
+    var showBreathing = false
+    var showMonster = false
+    var showAchievements = false
+    var showSOS = false
+    var showNotificationSettings = false
 
     // Monster
     let monsterStore = MonsterStore()
-    @Published var lastMonsterLog: DailyLog? = nil
+    var lastMonsterLog: DailyLog? = nil
 
     // Streak
-    @Published var currentStreak: Int = 0
-    @Published var hasCheckedInToday: Bool = false
+    var currentStreak: Int = 0
+    var hasCheckedInToday: Bool = false
 
     // Quick mood check-in
-    @Published var selectedQuickMood: QuickMood? = nil
-    @Published var showMoodConfirmation = false
+    var selectedQuickMood: QuickMood? = nil
+    var showMoodConfirmation = false
 
     private var cancellables = Set<AnyCancellable>()
     private let timer = Timer.publish(every: 120, on: .main, in: .common).autoconnect()

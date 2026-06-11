@@ -54,14 +54,15 @@ enum NavDestination: String, CaseIterable, Identifiable {
 }
 
 // MARK: - 2  Global router (delad instans)
-final class NavRouter: ObservableObject {
+@Observable
+final class NavRouter {
     static let shared = NavRouter()
-    @Published var current: NavDestination = .home
+    var current: NavDestination = .home
 }
 
 // MARK: - 3  Premium Navbar
 struct Navbar: View {
-    @ObservedObject private var router = NavRouter.shared
+    @State private var router = NavRouter.shared
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
     @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
     @Namespace private var tabAnimation
@@ -137,7 +138,7 @@ struct Navbar: View {
 // MARK: - 4  Modifierare som växlar vyer
 private struct NavbarModifier: ViewModifier {
     let dest: NavDestination
-    @ObservedObject private var router = NavRouter.shared
+    @State private var router = NavRouter.shared
 
     func body(content: Content) -> some View {
         Group {
