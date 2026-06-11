@@ -35,15 +35,16 @@ struct ChatMessage: Identifiable, Equatable {
 // MARK: - LillaJagAIService (singleton)
 
 @MainActor
-final class LillaJagAIService: ObservableObject {
+@Observable
+final class LillaJagAIService {
     static let shared = LillaJagAIService()
 
-    @Published var isThinking = false
-    @Published private(set) var messages: [ChatMessage] = []
-    @Published private(set) var currentEmotion: EmotionResult?
+    var isThinking = false
+    private(set) var messages: [ChatMessage] = []
+    private(set) var currentEmotion: EmotionResult?
 
     // Senaste analys av konversationens emotionella tillstånd
-    @Published private(set) var sessionSentiment: Float = 0.0
+    private(set) var sessionSentiment: Float = 0.0
 
     private let systemPrompt = """
     Du är "Lilla Jag" – en varm, empatisk och vetenskapligt förankrad KBT-coach.

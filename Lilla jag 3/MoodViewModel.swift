@@ -2,14 +2,15 @@ import SwiftUI
 import Combine
 
 @MainActor
-final class MoodViewModel: ObservableObject {
-    @Published var showLogger = false
-    @Published var selectedMetric = Metric.mood
-    @Published var calendarExpanded = true
-    @Published var calendarMonth = Date()
-    @Published var popupEntry: MoodEntry?
-    @Published var weeklyReportText: String = ""
-    @Published var generatingWeekly = false
+@Observable
+final class MoodViewModel {
+    var showLogger = false
+    var selectedMetric = Metric.mood
+    var calendarExpanded = true
+    var calendarMonth = Date()
+    var popupEntry: MoodEntry?
+    var weeklyReportText: String = ""
+    var generatingWeekly = false
 
     // Delad referens – Mood1View skickar in sin store för att undvika dubblering
     let store: MoodStore

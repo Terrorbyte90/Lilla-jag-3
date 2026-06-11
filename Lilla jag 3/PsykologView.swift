@@ -5,7 +5,7 @@ import SwiftUI
 
 struct PsykologView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var ai = LillaJagAIService.shared
+    @State private var ai = LillaJagAIService.shared
     @State private var aiSuggestion: String = ""
     @State private var loadingSuggestion = false
 

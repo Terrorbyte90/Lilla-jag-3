@@ -80,8 +80,9 @@ struct DailyLog: Codable, Identifiable {
 
 // MARK: - 5  Lokal lagring
 @MainActor
-final class MonsterStore: ObservableObject {
-    @Published private(set) var logs: [DailyLog] = []
+@Observable
+final class MonsterStore {
+    private(set) var logs: [DailyLog] = []
     private var fileURL: URL {
         FileManager.default.urls(for: .documentDirectory,
                                  in: .userDomainMask)[0]
@@ -354,7 +355,7 @@ struct MonsterLogWizard: View {
 
 // MARK: - 11  MonsterPanel (placera i ContentView)
 struct MonsterPanel: View {
-    @StateObject private var store = MonsterStore()
+    @State private var store = MonsterStore()
     @State private var tips: [MonsterGPT.Tip] = []
     @State private var aiInsight: String = ""
     @State private var loading = false

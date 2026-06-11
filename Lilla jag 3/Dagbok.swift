@@ -25,10 +25,11 @@ struct DagbokEntry: Identifiable, Codable {
 // MARK: - Store
 
 @MainActor
-final class DagbokStore: ObservableObject {
+@Observable
+final class DagbokStore {
     static let shared = DagbokStore()
 
-    @Published private(set) var entries: [DagbokEntry] = []
+    private(set) var entries: [DagbokEntry] = []
     private let url: URL
 
     private static let hasShownExamplesKey = "lj_dagbok_examples_shown"
@@ -133,7 +134,7 @@ final class DagbokStore: ObservableObject {
 // Filtrering sker direkt, utan fördröjning, och visar antal träffar.
 
 struct DagbokDashboardView: View {
-    @StateObject private var store = DagbokStore.shared
+    @State private var store = DagbokStore.shared
     @State private var showNewEntry = false
     @State private var selectedEntry: DagbokEntry? = nil
 

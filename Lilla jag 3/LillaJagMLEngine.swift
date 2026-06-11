@@ -76,10 +76,11 @@ struct EmotionResult: Equatable {
 // MARK: - LillaJagMLEngine (singleton)
 
 @MainActor
-final class LillaJagMLEngine: ObservableObject {
+@Observable
+final class LillaJagMLEngine {
     static let shared = LillaJagMLEngine()
 
-    @Published private(set) var isReady = false
+    private(set) var isReady = false
 
     // CoreML-modeller
     private var bertModel: MLModel?
