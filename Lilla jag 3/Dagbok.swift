@@ -35,7 +35,11 @@ final class DagbokStore {
     private static let hasShownExamplesKey = "lj_dagbok_examples_shown"
 
     init() {
-        let doc = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        // The documents directory is normally present, but can be unavailable
+        // in previews/tests. Falling back keeps the store usable instead of
+        // crashing at launch.
+        let doc = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         url = doc.appendingPathComponent("dagbok_entries.json")
         load()
         // Visa exempeldata bara om ingen riktig data finns OCH vi inte visat dem förut
@@ -87,7 +91,7 @@ final class DagbokStore {
     private func loadMockData() {
         entries = [
             DagbokEntry(
-                date: Calendar.current.date(byAdding: .day, value: -1, to: .now)!,
+                date: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now,
                 title: "Svårt möte på jobbet",
                 activatingEvent: "Min chef kritiserade min rapport framför hela teamet.",
                 belief: "Jag är inkompetent och alla tänker illa om mig.",
@@ -101,7 +105,7 @@ final class DagbokStore {
                 isExample: true
             ),
             DagbokEntry(
-                date: Calendar.current.date(byAdding: .day, value: -3, to: .now)!,
+                date: Calendar.current.date(byAdding: .day, value: -3, to: .now) ?? .now,
                 title: "Ensamhet på helgen",
                 activatingEvent: "Vänner avbokade planer i sista minuten.",
                 belief: "Ingen vill egentligen ha mig i sitt liv.",
