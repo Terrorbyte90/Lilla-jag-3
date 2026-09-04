@@ -94,17 +94,17 @@ struct ContentView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("VideoPaused"))) { _ in
-                withAnimation(.easeOut(duration: 0.8)) { showText = true }
-                withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8)) { showText = true }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
                 // Do not navigate without user consent. The previous timer made
                 // the splash screen unexpectedly disappear for assistive-tech users.
             }
             .onAppear {
                 // Fallback: om ingen video finns i bundle visas texten direkt
                 // och navigering sker efter 4 sekunder utan att vänta på "VideoPaused"
-                if Bundle.main.url(forResource: "Start", withExtension: "mp4") == nil {
-                    withAnimation(.easeOut(duration: 0.8)) { showText = true }
-                    withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
+                if Bundle.main.url(forResource: "Start", withExtension: "mp4") == nil || reduceMotion {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8)) { showText = true }
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
                 }
             }
             .navigationDestination(isPresented: $navigateToAssistant) {
@@ -146,7 +146,8 @@ struct LoopingVideoPlayer: UIViewControllerRepresentable {
             let duration = CMTimeGetSeconds(currentItem.duration)
             let current = CMTimeGetSeconds(time)
 
-            if duration > 0 && current >= duration - 1 {
+            if duration > 0 && current >= duration - 1 && !context.coordinator.didPostCompletion {
+                context.coordinator.didPostCompletion = true
                 player.pause()
                 NotificationCenter.default.post(name: Notification.Name("VideoPaused"), object: nil)
             }
@@ -166,6 +167,7 @@ struct LoopingVideoPlayer: UIViewControllerRepresentable {
     class Coordinator {
         var timeObserver: Any?
         var player: AVPlayer?
+        var didPostCompletion = false
 
         deinit {
             if let observer = timeObserver, let player = player {
