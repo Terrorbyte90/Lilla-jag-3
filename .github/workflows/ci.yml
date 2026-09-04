@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, Opus-5]
   pull_request:
-    branches: [main]
+    branches: [main, Opus-5]
 
 jobs:
   build-test:
@@ -34,4 +34,3 @@ jobs:
             -destination "platform=iOS Simulator,name=iPhone 16" \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | xcpretty --color false
-        continue-on-error: true

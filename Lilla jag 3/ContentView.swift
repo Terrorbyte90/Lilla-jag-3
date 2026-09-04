@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var showText = false
     @State private var showSubtitle = false
     @State private var navigateToAssistant = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -70,19 +71,33 @@ struct ContentView: View {
                 }
                 .padding()
             }
-            .onTapGesture {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.easeOut(duration: 0.3)) {
-                    navigateToAssistant = true
+            // A full-screen tap gesture is not accessible: VoiceOver users and
+            // switch-control users need a real, labelled control.
+            .overlay(alignment: .bottom) {
+                if showText {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+                            navigateToAssistant = true
+                        }
+                    } label: {
+                        Label("Börja använda Lilla Jag", systemImage: "arrow.right.circle.fill")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(.black.opacity(0.28), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Öppnar appens huvudmeny")
+                    .padding(.bottom, 72)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("VideoPaused"))) { _ in
                 withAnimation(.easeOut(duration: 0.8)) { showText = true }
                 withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
-                Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(6000))
-                    navigateToAssistant = true
-                }
+                // Do not navigate without user consent. The previous timer made
+                // the splash screen unexpectedly disappear for assistive-tech users.
             }
             .onAppear {
                 // Fallback: om ingen video finns i bundle visas texten direkt
@@ -90,10 +105,6 @@ struct ContentView: View {
                 if Bundle.main.url(forResource: "Start", withExtension: "mp4") == nil {
                     withAnimation(.easeOut(duration: 0.8)) { showText = true }
                     withAnimation(.easeOut(duration: 0.8).delay(0.3)) { showSubtitle = true }
-                    Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(4000))
-                        navigateToAssistant = true
-                    }
                 }
             }
             .navigationDestination(isPresented: $navigateToAssistant) {
@@ -122,7 +133,11 @@ struct LoopingVideoPlayer: UIViewControllerRepresentable {
         // Start video at 1.5 seconds
         let startTime = CMTime(seconds: 1.5, preferredTimescale: 600)
         player.seek(to: startTime)
-        player.play()
+        // Respect the user's Reduce Motion preference by keeping the decorative
+        // splash still. The explicit start button remains available.
+        if !UIAccessibility.isReduceMotionEnabled {
+            player.play()
+        }
 
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
         let observer = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak player] time in
