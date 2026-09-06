@@ -362,6 +362,7 @@ struct Mood1View: View {
     @State private var heroAppeared = false
     @State private var breathingScale: CGFloat = 1.0
     @State private var breathingOpacity: Double = 0.6
+    @State private var insightsAppeared = false
 
     private var todayLogged: Bool {
         store.entries.contains { Calendar.current.isDateInToday($0.date) }
@@ -696,6 +697,19 @@ struct Mood1View: View {
                 )
         )
         .shadow(color: Color.warmGold.opacity(0.08), radius: 16, y: 6)
+        .onAppear {
+            // Trigger slide-in animation with slight delay for premium feel
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                insightsAppeared = true
+            }
+        }
+        .onChange(of: store.entries.count) { _, _ in
+            // Re-trigger animation when new insights appear
+            insightsAppeared = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                insightsAppeared = true
+            }
+        }
     }
 
     private func ahaInsightRow(insight: AHAInsight, delay: Double) -> some View {
@@ -742,6 +756,15 @@ struct Mood1View: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(insight.accentColor.opacity(0.15), lineWidth: 1)
+        )
+        // Premium slide-in animation: each insight slides in from left with staggered delay
+        .opacity(insightsAppeared ? 1 : 0)
+        .offset(x: insightsAppeared ? 0 : -32)
+        .scaleEffect(insightsAppeared ? 1 : 0.92)
+        .animation(
+            .spring(response: 0.55, dampingFraction: 0.75)
+                .delay(delay),
+            value: insightsAppeared
         )
     }
 
