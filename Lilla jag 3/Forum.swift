@@ -95,6 +95,7 @@ struct ForumView: View {
     @State private var store = ForumStore.shared
     @State private var showNewPost = false
     @State private var selectedTag = "Alla"
+    @State private var pressedTag: String? = nil
     @Environment(\.dismiss) private var dismiss
 
     private var posts: [ForumPost] { store.posts }
@@ -165,9 +166,18 @@ struct ForumView: View {
             HStack(spacing: 8) {
                 ForEach(allTags, id: \.self) { tag in
                     Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+                            pressedTag = tag
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                pressedTag = nil
+                            }
+                        }
                         withAnimation(.spring(response: 0.3)) {
                             selectedTag = tag
                         }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } label: {
                         Text(tag)
                             .font(.system(.caption, design: .rounded, weight: .semibold))
@@ -180,8 +190,14 @@ struct ForumView: View {
                                 : AnyShapeStyle(Color.white.opacity(0.1)),
                                 in: Capsule()
                             )
+                            .overlay(
+                                Capsule()
+                                    .stroke(selectedTag == tag ? Color.warmLavender.opacity(0.6) : Color.clear, lineWidth: 1)
+                            )
                     }
                     .buttonStyle(.plain)
+                    .scaleEffect(pressedTag == tag ? 1.15 : 1.0)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.55), value: pressedTag)
                 }
             }
         }
