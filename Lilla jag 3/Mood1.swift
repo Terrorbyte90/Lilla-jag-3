@@ -792,13 +792,16 @@ struct Mood1View: View {
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
                 Spacer()
-                HStack(spacing: 6) {
-                    ForEach(heatmapLegend, id: \.label) { item in
-                        HStack(spacing: 4) {
-                            Circle().fill(item.color).frame(width: 8, height: 8)
-                            Text(item.label)
-                                .font(.system(.caption2, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.4))
+                VStack(alignment: .trailing, spacing: 6) {
+                    heatmapGradientPreview
+                    HStack(spacing: 6) {
+                        ForEach(heatmapLegend, id: \.label) { item in
+                            HStack(spacing: 4) {
+                                Circle().fill(item.color).frame(width: 8, height: 8)
+                                Text(item.label)
+                                    .font(.system(.caption2, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.4))
+                            }
                         }
                     }
                 }
@@ -835,17 +838,77 @@ struct Mood1View: View {
 
     private func heatmapColor(for mood: Double?) -> Color {
         guard let m = mood else { return Color.white.opacity(0.08) }
-        if m >= 0.75 { return Color.warmSage.opacity(0.8) }
-        if m >= 0.5  { return Color.warmGold.opacity(0.7) }
-        if m >= 0.3  { return Color.warmCoral.opacity(0.65) }
-        return Color(hex: 0xFF5B5B).opacity(0.6)
+        // Smooth color transitions using HSB interpolation
+        // Maps mood 0.0→1.0 to a warm gradient: red → coral → gold → sage
+        let clampedMood = max(0, min(1, m))
+
+        // Define color stops with HSB values for smooth interpolation
+        struct ColorStop {
+            let position: Double // 0.0 to 1.0
+            let hue: Double      // 0.0 to 1.0
+            let saturation: Double
+            let brightness: Double
+        }
+
+        let stops: [ColorStop] = [
+            ColorStop(position: 0.0,  hue: 0.02, saturation: 0.85, brightness: 0.95),  // Lågt: varm röd
+            ColorStop(position: 0.25, hue: 0.02, saturation: 0.75, brightness: 0.85),  // Coral
+            ColorStop(position: 0.5,  hue: 0.08, saturation: 0.65, brightness: 0.82),  // Guld/mellan
+            ColorStop(position: 0.75, hue: 0.25, saturation: 0.45, brightness: 0.75),  // Grön-guld
+            ColorStop(position: 1.0,  hue: 0.35, saturation: 0.40, brightness: 0.70)   // Bra: varm sage-grön
+        ]
+
+        // Find surrounding stops and interpolate
+        var lowerStop = stops[0]
+        var upperStop = stops[stops.count - 1]
+
+        for i in 0..<(stops.count - 1) {
+            if clampedMood >= stops[i].position && clampedMood <= stops[i + 1].position {
+                lowerStop = stops[i]
+                upperStop = stops[i + 1]
+                break
+            }
+        }
+
+        // Calculate interpolation factor
+        let range = upperStop.position - lowerStop.position
+        let t = range > 0 ? (clampedMood - lowerStop.position) / range : 0
+
+        // Smooth easing for natural transition
+        let easedT = t * t * (3 - 2 * t) // smoothstep
+
+        // Interpolate HSB values
+        let h = lowerStop.hue + (upperStop.hue - lowerStop.hue) * easedT
+        let s = lowerStop.saturation + (upperStop.saturation - lowerStop.saturation) * easedT
+        let b = lowerStop.brightness + (upperStop.brightness - lowerStop.brightness) * easedT
+
+        return Color(hue: h, saturation: s, brightness: b).opacity(0.85)
     }
 
     private let heatmapLegend: [(label: String, color: Color)] = [
-        ("Bra", Color.warmSage.opacity(0.8)),
-        ("Ok", Color.warmGold.opacity(0.7)),
-        ("Lågt", Color.warmCoral.opacity(0.65))
+        ("Lågt", Color(hue: 0.02, saturation: 0.85, brightness: 0.95).opacity(0.85)),
+        ("Ok", Color(hue: 0.08, saturation: 0.65, brightness: 0.82).opacity(0.85)),
+        ("Bra", Color(hue: 0.35, saturation: 0.40, brightness: 0.70).opacity(0.85))
     ]
+
+    // Premium gradient preview för heatmap-legend
+    private var heatmapGradientPreview: some View {
+        HStack(spacing: 0) {
+            LinearGradient(
+                colors: [
+                    Color(hue: 0.02, saturation: 0.85, brightness: 0.95).opacity(0.85),
+                    Color(hue: 0.08, saturation: 0.65, brightness: 0.82).opacity(0.85),
+                    Color(hue: 0.25, saturation: 0.45, brightness: 0.75).opacity(0.85),
+                    Color(hue: 0.35, saturation: 0.40, brightness: 0.70).opacity(0.85)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 6)
+            .clipShape(Capsule())
+        }
+        .padding(.horizontal, 8)
+    }
 
     // MARK: - Trend Chart helpers
 
