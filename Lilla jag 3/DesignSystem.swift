@@ -443,24 +443,17 @@ struct ParticleCanvas: View {
 
 struct ConfettiView: View {
     @StateObject private var engine = ParticleEngine()
-    @State private var showConfetti = false
+    var trigger: Int = 0
 
     var body: some View {
         ParticleCanvas(engine: engine)
             .ignoresSafeArea()
             .allowsHitTesting(false)
-            .onChange(of: showConfetti) { _, newValue in
-                if newValue {
+            .onChange(of: trigger) { _, newValue in
+                if newValue > 0 {
                     engine.emitConfetti(count: 60, in: UIScreen.main.bounds.size)
                 }
             }
-    }
-
-    func trigger() {
-        showConfetti = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            showConfetti = false
-        }
     }
 }
 
