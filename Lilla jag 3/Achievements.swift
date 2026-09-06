@@ -330,44 +330,124 @@ struct AchievementBadgeView: View {
     let achievement: Achievement
 
     @State private var appeared = false
+    @State private var lockedPulse = false
+
+    private var isLocked: Bool { !achievement.isUnlocked }
 
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
+                // Background glow ring
                 Circle()
                     .fill(
-                        achievement.isUnlocked
-                            ? Color(hex: achievement.colorHex).opacity(0.18)
-                            : Color.gray.opacity(0.10)
+                        RadialGradient(
+                            colors: isLocked
+                                ? [Color.gray.opacity(0.08), Color.clear]
+                                : [Color(hex: achievement.colorHex).opacity(0.18), Color.clear],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 36
+                        )
+                    )
+                    .frame(width: 72, height: 72)
+                    .scaleEffect(isLocked ? (lockedPulse ? 1.05 : 1.0) : 1.0)
+                    .animation(
+                        isLocked ? .easeInOut(duration: 2.5).repeatForever(autoreverses: true) : .none,
+                        value: lockedPulse
+                    )
+
+                // Main badge circle
+                Circle()
+                    .fill(
+                        isLocked
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color.gray.opacity(0.12),
+                                        Color.gray.opacity(0.08)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            : AnyShapeStyle(Color(hex: achievement.colorHex).opacity(0.18))
                     )
                     .frame(width: 64, height: 64)
+                    .overlay {
+                        // Frosted glass blur for locked badges
+                        if isLocked {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: 64, height: 64)
+                                .blur(radius: 0.5)
+                        }
+                    }
 
+                // Border ring
                 Circle()
                     .strokeBorder(
-                        achievement.isUnlocked
-                            ? Color(hex: achievement.colorHex).opacity(0.55)
-                            : Color.gray.opacity(0.25),
-                        lineWidth: 2
+                        isLocked
+                            ? LinearGradient(
+                                colors: [
+                                    Color.gray.opacity(0.30),
+                                    Color.gray.opacity(0.15)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            : LinearGradient(
+                                colors: [
+                                    Color(hex: achievement.colorHex).opacity(0.55),
+                                    Color(hex: achievement.colorHex).opacity(0.30)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                        lineWidth: isLocked ? 1.5 : 2
                     )
                     .frame(width: 64, height: 64)
 
-                Image(systemName: achievement.icon)
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundColor(
-                        achievement.isUnlocked
-                            ? Color(hex: achievement.colorHex)
-                            : Color.gray.opacity(0.40)
-                    )
-                    .symbolRenderingMode(.hierarchical)
+                // Icon with blur overlay for locked
+                ZStack {
+                    Image(systemName: achievement.icon)
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(
+                            isLocked
+                                ? Color.gray.opacity(0.35)
+                                : Color(hex: achievement.colorHex)
+                        )
+                        .symbolRenderingMode(.hierarchical)
+                        .blur(radius: isLocked ? 1.2 : 0)
+                        .scaleEffect(isLocked ? 0.95 : 1.0)
 
-                if !achievement.isUnlocked {
+                    // Locked overlay gradient vignette
+                    if isLocked {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color.clear,
+                                        Color.gray.opacity(0.15)
+                                    ],
+                                    center: .center,
+                                    startRadius: 8,
+                                    endRadius: 32
+                                )
+                            )
+                            .frame(width: 64, height: 64)
+                    }
+                }
+
+                // Lock icon with glow
+                if isLocked {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray.opacity(0.50))
+                        .foregroundColor(.gray.opacity(0.55))
+                        .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
                         .offset(x: 20, y: 20)
                 }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: 72, height: 72)
             .scaleEffect(appeared ? 1.0 : 0.85)
             .animation(
                 achievement.isUnlocked
@@ -387,6 +467,8 @@ struct AchievementBadgeView: View {
         .onAppear {
             if achievement.isUnlocked {
                 appeared = true
+            } else {
+                lockedPulse = true
             }
         }
         .onChange(of: achievement.isUnlocked) { _, newValue in
@@ -394,6 +476,7 @@ struct AchievementBadgeView: View {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
                     appeared = true
                 }
+                lockedPulse = false
             }
         }
     }
