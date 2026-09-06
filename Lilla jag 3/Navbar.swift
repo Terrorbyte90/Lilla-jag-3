@@ -115,6 +115,106 @@ struct MorphingRingView: View {
     }
 }
 
+// MARK: - 3.6  Floating Action Button with Pulse Ring
+struct FloatingActionButton: View {
+    let action: () -> Void
+    @State private var isPressed: Bool = false
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var pulseOpacity: Double = 0.6
+    @State private var isPulsing: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let fabGradient = LinearGradient(
+        colors: [Color(hex: 0xBB86FC), Color(hex: 0xFF6B8A)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    var body: some View {
+        ZStack {
+            // Outer pulse ring - expanding and fading
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color(hex: 0xBB86FC).opacity(0.5), Color(hex: 0xFF6B8A).opacity(0.5)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2
+                )
+                .frame(width: 72, height: 72)
+                .scaleEffect(pulseScale)
+                .opacity(pulseOpacity)
+
+            // Second pulse ring (offset for wave effect)
+            Circle()
+                .stroke(Color(hex: 0xFF6B8A).opacity(0.3), lineWidth: 1.5)
+                .frame(width: 80, height: 80)
+                .scaleEffect(pulseScale * 0.9)
+                .opacity(pulseOpacity * 0.5)
+
+            // Main FAB button
+            Button(action: {
+                LJHaptic.impact(.medium)
+                action()
+            }) {
+                ZStack {
+                    // Glass background
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 56, height: 56)
+
+                    // Gradient border
+                    Circle()
+                        .stroke(fabGradient, lineWidth: 2.5)
+                        .frame(width: 56, height: 56)
+
+                    // Inner glow
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: 0xBB86FC).opacity(0.25), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 28
+                            )
+                        )
+                        .frame(width: 52, height: 52)
+
+                    // Icon
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .foregroundStyle(fabGradient)
+                        .rotationEffect(.degrees(isPressed ? 45 : 0))
+                }
+                .shadow(color: Color(hex: 0xBB86FC).opacity(0.5), radius: isPressed ? 8 : 12, y: 4)
+            }
+            .buttonStyle(FABButtonStyle())
+            .scaleEffect(isPressed ? 0.92 : 1.0)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            startPulseAnimation()
+        }
+    }
+
+    private func startPulseAnimation() {
+        withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) {
+            pulseScale = 1.5
+            pulseOpacity = 0.0
+        }
+    }
+}
+
+// MARK: - FAB Button Style
+struct FABButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
 // MARK: - 3  Premium Navbar
 struct Navbar: View {
     @State private var router = NavRouter.shared
@@ -124,6 +224,7 @@ struct Navbar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var activeTabPulse: Bool = false
     @State private var previousTab: NavDestination = .home
+    @State private var fabExpanded: Bool = false
 
     private let gradient = LinearGradient(
         colors: [Color(hex: 0xBB86FC), Color(hex: 0xFF6B8A)],
@@ -131,74 +232,95 @@ struct Navbar: View {
         endPoint: .bottomTrailing
     )
 
+    @ViewBuilder
+    private func navButton(for dest: NavDestination) -> some View {
+        let isActive = router.current == dest
+        Button {
+            if router.current != dest {
+                previousTab = router.current
+                activeTabPulse = true
+                LJHaptic.selection()
+                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72)) {
+                    router.current = dest
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    activeTabPulse = false
+                }
+            }
+        } label: {
+            ZStack {
+                // Morphing ring animation vid tab-byte
+                MorphingRingView(
+                    isActive: isActive,
+                    trigger: activeTabPulse,
+                    gradient: gradient
+                )
+
+                VStack(spacing: 3) {
+                    Image(systemName: dest.icon)
+                        .font(.system(size: min(iconSize, 22), weight: isActive ? .semibold : .regular))
+                        .scaleEffect(isActive ? 1.08 : 1.0)
+                        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: isActive)
+                    Text(dest.title)
+                        .font(.system(size: min(labelSize, 10), weight: isActive ? .semibold : .regular, design: .rounded))
+                        .opacity(isActive ? 1.0 : 0.65)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.5))
+            .background(
+                Group {
+                    if isActive {
+                        // Premium gradient background med glow
+                        ZStack {
+                            gradient
+                                .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            // Inner glow highlight
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.15), Color.clear],
+                                        startPoint: .top,
+                                        endPoint: UnitPoint(x: 0.5, y: 0.6)
+                                    )
+                                )
+                                .matchedGeometryEffect(id: "activeTabGlow", in: tabAnimation)
+                        }
+                        .shadow(color: Color(hex: 0xBB86FC).opacity(0.4), radius: 10, y: 3)
+                    } else {
+                        Color.clear
+                    }
+                }
+            )
+            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: router.current)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(dest.title)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(NavDestination.allCases) { dest in
-                let isActive = router.current == dest
-                Button {
-                    if router.current != dest {
-                        previousTab = router.current
-                        activeTabPulse = true
-                        LJHaptic.selection()
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72)) {
-                            router.current = dest
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            activeTabPulse = false
-                        }
-                    }
-                } label: {
-                    ZStack {
-                        // Morphing ring animation vid tab-byte
-                        MorphingRingView(
-                            isActive: isActive,
-                            trigger: activeTabPulse,
-                            gradient: gradient
-                        )
+            // Left side - Home & Diary
+            ForEach([NavDestination.home, .diary]) { dest in
+                navButton(for: dest)
+            }
 
-                        VStack(spacing: 3) {
-                            Image(systemName: dest.icon)
-                                .font(.system(size: min(iconSize, 22), weight: isActive ? .semibold : .regular))
-                                .scaleEffect(isActive ? 1.08 : 1.0)
-                                .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: isActive)
-                            Text(dest.title)
-                                .font(.system(size: min(labelSize, 10), weight: isActive ? .semibold : .regular, design: .rounded))
-                                .opacity(isActive ? 1.0 : 0.65)
-                        }
+            // Center - Floating Action Button
+            ZStack {
+                FloatingActionButton {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        fabExpanded.toggle()
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.5))
-                    .background(
-                        Group {
-                            if isActive {
-                                // Premium gradient background med glow
-                                ZStack {
-                                    gradient
-                                        .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
-                                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    // Inner glow highlight
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [Color.white.opacity(0.15), Color.clear],
-                                                startPoint: .top,
-                                                endPoint: UnitPoint(x: 0.5, y: 0.6)
-                                            )
-                                        )
-                                        .matchedGeometryEffect(id: "activeTabGlow", in: tabAnimation)
-                                }
-                                .shadow(color: Color(hex: 0xBB86FC).opacity(0.4), radius: 10, y: 3)
-                            } else {
-                                Color.clear
-                            }
-                        }
-                    )
-                    .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: router.current)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(dest.title)
-                .accessibilityAddTraits(isActive ? .isSelected : [])
+            }
+            .frame(width: 72)
+
+            // Right side - Diagnoses, Chat, Mood
+            ForEach([NavDestination.diagnoses, .chat, .mood]) { dest in
+                navButton(for: dest)
             }
         }
         .padding(6)
