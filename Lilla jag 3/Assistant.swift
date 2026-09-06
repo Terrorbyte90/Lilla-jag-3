@@ -334,6 +334,8 @@ struct MessageBubble: View {
     @State private var isSaved: Bool = false
     /// Kort feedback-text visad efter åtgärd
     @State private var feedbackText: String? = nil
+    /// Gradient phase for AI message border animation
+    @State private var gradientPhase: CGFloat = 0
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -350,33 +352,58 @@ struct MessageBubble: View {
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 // Bubblan – AI-svar kan håller man ned för kontextmeny
-                Text(message.content)
-                    .font(.system(.body, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        isUser
-                        ? AnyShapeStyle(LinearGradient(colors: [Color.warmLavender, Color(hex: 0x9B6FD6)],
-                                                       startPoint: .topLeading, endPoint: .bottomTrailing))
-                        : AnyShapeStyle(isHelpful ? Color.warmSage.opacity(0.12) : Color.white.opacity(0.08))
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                ZStack {
+                    // Animated gradient border for AI messages (CP-3)
+                    if !isUser {
+                        RoundedRectangle(cornerRadius: 19, style: .continuous)
                             .stroke(
-                                isHelpful
-                                    ? Color.warmSage.opacity(0.3)
-                                    : (isUser ? Color.clear : Color.white.opacity(0.1)),
+                                LinearGradient(
+                                    colors: [.warmLavender, .warmLavender.opacity(0.3), .clear, .warmLavender.opacity(0.3), .warmLavender],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
                                 lineWidth: 1
                             )
-                    )
-                    // Lång tryckning öppnar reaktions-menyn för AI-svar
-                    .onLongPressGesture(minimumDuration: 0.4) {
-                        guard !isUser else { return }
-                        LJHaptic.medium()
-                        withAnimation(.spring(response: 0.3)) { showActions = true }
+                            .rotationEffect(.degrees(gradientPhase))
+                            .blur(radius: 1.5)
+                            .opacity(0.6)
                     }
+
+                    Text(message.content)
+                        .font(.system(.body, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            isUser
+                            ? AnyShapeStyle(LinearGradient(colors: [Color.warmLavender, Color(hex: 0x9B6FD6)],
+                                                           startPoint: .topLeading, endPoint: .bottomTrailing))
+                            : AnyShapeStyle(isHelpful ? Color.warmSage.opacity(0.12) : Color.white.opacity(0.08))
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(
+                                    isHelpful
+                                        ? Color.warmSage.opacity(0.3)
+                                        : (isUser ? Color.clear : Color.warmLavender.opacity(0.15)),
+                                    lineWidth: 1
+                                )
+                        )
+                }
+                .onAppear {
+                    if !isUser {
+                        withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                            gradientPhase = 360
+                        }
+                    }
+                }
+                // Lång tryckning öppnar reaktions-menyn för AI-svar
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    guard !isUser else { return }
+                    LJHaptic.medium()
+                    withAnimation(.spring(response: 0.3)) { showActions = true }
+                }
 
                 // Reaktions-rad (visas efter lång tryckning på AI-svar)
                 if showActions && !isUser {
@@ -453,7 +480,7 @@ struct MessageBubble: View {
                     .transition(.scale.combined(with: .opacity))
                 }
 
-                // Emotion badge for user messages
+                // Emotion badge for user messages (CP-3: pulse animation)
                 if isUser, let emotion = message.emotion, emotion.dominant.value > 0.45 {
                     HStack(spacing: 4) {
                         Image(systemName: emotion.icon)
@@ -465,6 +492,12 @@ struct MessageBubble: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(emotion.color.opacity(0.15), in: Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(emotion.color.opacity(0.4), lineWidth: 0.5)
+                    )
+                    .scaleEffect(1.0)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: UUID()) // subtle pulse
                     .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -536,11 +569,13 @@ struct SavedInsightsStore {
     }
 }
 
-// MARK: - Typing Indicator
+// MARK: - Typing Indicator (CP-3: Particle trail animation)
 
 struct TypingIndicator: View {
     @State private var phase = 0
     @State private var appeared = false
+    @State private var particles: [Particle] = []
+    @State private var particleTimer: Timer?
     let timer = Timer.publish(every: 0.38, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -560,29 +595,86 @@ struct TypingIndicator: View {
                     .foregroundStyle(Color.warmLavender)
             }
 
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .fill(Color.white.opacity(phase == i ? 0.85 : 0.25))
-                        .frame(width: 7, height: 7)
-                        .scaleEffect(phase == i ? 1.3 : 1.0)
-                        .offset(y: phase == i ? -2 : 0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.65), value: phase)
+            ZStack {
+                // Particle trail background (CP-3 enhancement)
+                Canvas { context, size in
+                    for p in particles {
+                        var op = p.opacity
+                        context.opacity = op
+                        context.fill(
+                            Circle().path(in: CGRect(x: p.x - p.radius, y: p.y - p.radius, width: p.radius * 2, height: p.radius * 2)),
+                            with: .color(p.color)
+                        )
+                    }
                 }
+                .frame(width: 120, height: 30)
+
+                HStack(spacing: 5) {
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle()
+                            .fill(Color.white.opacity(phase == i ? 0.85 : 0.25))
+                            .frame(width: 7, height: 7)
+                            .scaleEffect(phase == i ? 1.3 : 1.0)
+                            .offset(y: phase == i ? -2 : 0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.65), value: phase)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
 
             Spacer(minLength: 48)
         }
         .opacity(appeared ? 1 : 0)
         .scaleEffect(appeared ? 1 : 0.85, anchor: .leading)
         .animation(DesignSystem.Animation.smooth, value: appeared)
-        .onAppear { appeared = true }
+        .onAppear {
+            appeared = true
+            startParticleTrail()
+        }
+        .onDisappear {
+            particleTimer?.invalidate()
+        }
         .onReceive(timer) { _ in
             phase = (phase + 1) % 3
+        }
+    }
+
+    /// Emit trailing particles for the typing indicator (CP-3)
+    private func startParticleTrail() {
+        particleTimer?.invalidate()
+        particleTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+            Task { @MainActor in
+                emitParticle()
+                updateParticles()
+            }
+        }
+    }
+
+    private func emitParticle() {
+        let colors: [Color] = [.warmLavender, .warmLavender.opacity(0.5), .white.opacity(0.3)]
+        particles.append(Particle(
+            x: CGFloat.random(in: 40...80),
+            y: 15,
+            vx: CGFloat.random(in: -0.3...0.3),
+            vy: CGFloat.random(in: -0.5...0.5),
+            radius: CGFloat.random(in: 1.5...3),
+            opacity: 0.7,
+            color: colors.randomElement() ?? .warmLavender,
+            lifetime: 1.0
+        ))
+    }
+
+    private func updateParticles() {
+        particles = particles.compactMap { p in
+            var p = p
+            p.x += p.vx
+            p.y += p.vy
+            p.opacity -= 0.04
+            p.lifetime -= 0.15
+            return p.lifetime > 0 ? p : nil
         }
     }
 }
