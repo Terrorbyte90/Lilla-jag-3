@@ -67,6 +67,8 @@ struct Navbar: View {
     @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
     @Namespace private var tabAnimation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var activeTabPulse: Bool = false
+    @State private var previousTab: NavDestination = .home
 
     private let gradient = LinearGradient(
         colors: [Color(hex: 0xBB86FC), Color(hex: 0xFF6B8A)],
@@ -74,24 +76,45 @@ struct Navbar: View {
         endPoint: .bottomTrailing
     )
 
+    private var tabWidth: CGFloat { UIScreen.main.bounds.width / 5 }
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(NavDestination.allCases) { dest in
                 let isActive = router.current == dest
                 Button {
+                    if router.current != dest {
+                        previousTab = router.current
+                        activeTabPulse = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            activeTabPulse = false
+                        }
+                    }
                     LJHaptic.selection()
                     withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72)) {
                         router.current = dest
                     }
                 } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: dest.icon)
-                            .font(.system(size: min(iconSize, 22), weight: isActive ? .semibold : .regular))
-                            .scaleEffect(isActive ? 1.08 : 1.0)
-                            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: isActive)
-                        Text(dest.title)
-                            .font(.system(size: min(labelSize, 10), weight: isActive ? .semibold : .regular, design: .rounded))
-                            .opacity(isActive ? 1.0 : 0.65)
+                    ZStack {
+                        // Pulsande glow-ring vid tab-byte
+                        if isActive && activeTabPulse {
+                            Circle()
+                                .stroke(gradient, lineWidth: 2)
+                                .frame(width: 52, height: 52)
+                                .scaleEffect(activeTabPulse ? 1.3 : 1.0)
+                                .opacity(activeTabPulse ? 0.0 : 0.6)
+                                .animation(.easeOut(duration: 0.4), value: activeTabPulse)
+                        }
+
+                        VStack(spacing: 3) {
+                            Image(systemName: dest.icon)
+                                .font(.system(size: min(iconSize, 22), weight: isActive ? .semibold : .regular))
+                                .scaleEffect(isActive ? 1.08 : 1.0)
+                                .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72), value: isActive)
+                            Text(dest.title)
+                                .font(.system(size: min(labelSize, 10), weight: isActive ? .semibold : .regular, design: .rounded))
+                                .opacity(isActive ? 1.0 : 0.65)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -99,10 +122,23 @@ struct Navbar: View {
                     .background(
                         Group {
                             if isActive {
-                                gradient
-                                    .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .shadow(color: Color(hex: 0xBB86FC).opacity(0.4), radius: 10, y: 3)
+                                // Premium gradient background med glow
+                                ZStack {
+                                    gradient
+                                        .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
+                                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    // Inner glow highlight
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.15), Color.clear],
+                                                startPoint: .top,
+                                                endPoint: UnitPoint(x: 0.5, y: 0.6)
+                                            )
+                                        )
+                                        .matchedGeometryEffect(id: "activeTabGlow", in: tabAnimation)
+                                }
+                                .shadow(color: Color(hex: 0xBB86FC).opacity(0.4), radius: 10, y: 3)
                             } else {
                                 Color.clear
                             }
@@ -130,6 +166,35 @@ struct Navbar: View {
                     lineWidth: 1
                 )
         )
+        // Gradient sliding indicator line under navbar
+        .overlay(alignment: .bottom) {
+            GeometryReader { geo in
+                let totalWidth = geo.size.width - 28 // Account for horizontal padding
+                let indicatorWidth = totalWidth / CGFloat(NavDestination.allCases.count)
+                let progress = CGFloat(NavDestination.allCases.firstIndex(of: router.current) ?? 0) + 0.5
+                let centerX = (progress / CGFloat(NavDestination.allCases.count)) * totalWidth + 14
+
+                // Animated gradient line
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: 0xBB86FC).opacity(0.0),
+                                Color(hex: 0xBB86FC),
+                                Color(hex: 0xFF6B8A),
+                                Color(hex: 0xFF6B8A).opacity(0.0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: indicatorWidth * 0.6, height: 3)
+                    .position(x: centerX, y: -2)
+                    .shadow(color: Color(hex: 0xBB86FC).opacity(0.6), radius: 6, y: 0)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.75), value: router.current)
+            }
+            .frame(height: 4)
+        }
         .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
         .padding(.horizontal, 14)
     }
