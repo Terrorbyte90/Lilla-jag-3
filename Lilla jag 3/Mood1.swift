@@ -912,19 +912,90 @@ struct Mood1View: View {
 
     // MARK: - Trend Chart helpers
 
+    // Premium gradient-fyllning baserad på mood-värde (0.0-1.0)
+    private func moodGradient(for mood: Double) -> LinearGradient {
+        let m = max(0, min(1, mood))
+        // Använd samma färgpalett som heatmapen
+        let topColor: Color
+        let bottomColor: Color
+
+        if m >= 0.75 {
+            topColor = Color.warmSage
+            bottomColor = Color.warmSage.opacity(0.4)
+        } else if m >= 0.5 {
+            topColor = Color.warmGold
+            bottomColor = Color.warmGold.opacity(0.4)
+        } else if m >= 0.3 {
+            topColor = Color.warmCoral
+            bottomColor = Color.warmCoral.opacity(0.4)
+        } else {
+            topColor = Color(hex: 0xFF5B5B)
+            bottomColor = Color(hex: 0xFF5B5B).opacity(0.4)
+        }
+
+        return LinearGradient(
+            colors: [topColor, bottomColor],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    // Premium glow-effekt för staplar
+    private func barGlow(color: Color, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(
+                RadialGradient(
+                    colors: [color.opacity(0.3), color.opacity(0)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: height * 0.8
+                )
+            )
+            .frame(width: 28, height: height * 1.2)
+            .offset(y: -height * 0.1)
+    }
+
     private func trendBarEntry(_ entry: MoodEntry, barW: CGFloat, h: CGFloat) -> some View {
         VStack(spacing: 4) {
             ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 4).fill(Color.warmLavender.opacity(0.3))
+                // Bakgrunds-stapel för sömn
+                RoundedRectangle(cornerRadius: 4).fill(Color.warmLavender.opacity(0.2))
                     .frame(width: barW * 0.45, height: h * 0.88)
-                RoundedRectangle(cornerRadius: 4).fill(Color.warmLavender.opacity(0.7))
+                // Sömn-stapel med gradient
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.warmLavender, Color.warmLavender.opacity(0.3)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .frame(width: barW * 0.45, height: max(4, h * 0.88 * entry.sleepQuality))
             }
+
             ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 6).fill(Color.warmRose.opacity(0.2))
+                // Premium glow-effekt under mood-stapel
+                barGlow(color: moodBarColor(for: entry.moodQuality), height: max(4, h * 0.88 * entry.moodQuality))
+                    .frame(width: barW + 8)
+
+                // Bakgrunds-stapel för mood
+                RoundedRectangle(cornerRadius: 6).fill(Color.warmRose.opacity(0.15))
                     .frame(width: barW, height: h * 0.88)
+
+                // Mood-stapel med premium gradient fill
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(LinearGradient(colors: [Color.warmRose, Color.warmCoral], startPoint: .bottom, endPoint: .top))
+                    .fill(moodGradient(for: entry.moodQuality))
+                    .frame(width: barW, height: max(4, h * 0.88 * entry.moodQuality))
+
+                // Top highlight för 3D-effekt
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.25), Color.clear],
+                            startPoint: .top,
+                            endPoint: UnitPoint(x: 0.5, y: 0.3)
+                        )
+                    )
                     .frame(width: barW, height: max(4, h * 0.88 * entry.moodQuality))
             }
         }
@@ -935,6 +1006,15 @@ struct Mood1View: View {
                 .foregroundStyle(.white.opacity(0.4))
                 .offset(y: 16)
         }
+    }
+
+    // Färg för mood-stapel (komplement till gradienten)
+    private func moodBarColor(for mood: Double) -> Color {
+        let m = max(0, min(1, mood))
+        if m >= 0.75 { return Color.warmSage }
+        if m >= 0.5  { return Color.warmGold }
+        if m >= 0.3  { return Color.warmCoral }
+        return Color(hex: 0xFF5B5B)
     }
 
     private func trendBarsGeometry(days: [MoodEntry]) -> some View {
