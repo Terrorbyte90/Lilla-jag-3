@@ -228,6 +228,7 @@ struct ForumCard: View {
     let onToggleLike: () -> Void
     @State private var isExpanded = false
     @State private var isPressed = false
+    @State private var heartBurstTrigger = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -266,12 +267,16 @@ struct ForumCard: View {
                 Button {
                     withAnimation(.spring(response: 0.3)) {
                         onToggleLike()
+                        heartBurstTrigger.toggle()
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
-                    Label("\(post.likes)", systemImage: post.isLiked ? "heart.fill" : "heart")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(post.isLiked ? Color.warmRose : .white.opacity(0.5))
+                    ZStack {
+                        Label("\(post.likes)", systemImage: post.isLiked ? "heart.fill" : "heart")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(post.isLiked ? Color.warmRose : .white.opacity(0.5))
+                        HeartBurstView(trigger: heartBurstTrigger)
+                    }
                 }
                 .buttonStyle(.plain)
 
