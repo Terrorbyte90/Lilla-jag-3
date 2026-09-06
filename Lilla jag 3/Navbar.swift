@@ -215,6 +215,114 @@ struct FABButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - 3.7  Safe Area Premium Handler
+struct SafeAreaPremiumHandler: View {
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    var body: some View {
+        GeometryReader { geo in
+            let hasDynamicIsland = safeAreaInsets.top > 50
+            let hasHomeIndicator = safeAreaInsets.bottom > 20
+
+            ZStack {
+                // Top safe area premium treatment
+                if safeAreaInsets.top > 0 {
+                    VStack(spacing: 0) {
+                        // Gradient fade for Dynamic Island integration
+                        if hasDynamicIsland {
+                            LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.6),
+                                    Color.black.opacity(0.3),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 34)
+                        } else {
+                            // Standard notch gradient
+                            LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.4),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: safeAreaInsets.top * 0.6)
+                        }
+                        Spacer()
+                    }
+                    .allowsHitTesting(false)
+                }
+
+                // Bottom safe area premium treatment
+                if safeAreaInsets.bottom > 0 {
+                    VStack(spacing: 0) {
+                        Spacer()
+                        // Home indicator glow effect
+                        if hasHomeIndicator {
+                            // Subtle glow above home indicator
+                            HStack(spacing: 0) {
+                                Spacer()
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.clear,
+                                                Color.white.opacity(0.08),
+                                                Color.clear
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: 134, height: 5)
+                                    .blur(radius: 2)
+                                Spacer()
+                            }
+                            .padding(.bottom, 3)
+                        }
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - 3.8  Premium Safe Area Padding View
+struct PremiumSafeAreaPadding: ViewModifier {
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.top, safeAreaInsets.top > 50 ? 59 : safeAreaInsets.top + 25)
+            .padding(.bottom, safeAreaInsets.bottom > 20 ? safeAreaInsets.bottom + 6 : 14)
+    }
+}
+
+// MARK: - 3.9  Safe Area State Monitor
+@Observable
+final class SafeAreaState {
+    static let shared = SafeAreaState()
+
+    var hasDynamicIsland: Bool = false
+    var hasHomeIndicator: Bool = false
+    var topPadding: CGFloat = 0
+    var bottomPadding: CGFloat = 0
+
+    func update(from insets: EdgeInsets) {
+        hasDynamicIsland = insets.top > 50
+        hasHomeIndicator = insets.bottom > 20
+        topPadding = hasDynamicIsland ? 59 : insets.top + 25
+        bottomPadding = insets.bottom > 20 ? insets.bottom + 6 : 14
+    }
+}
+
 // MARK: - 3  Premium Navbar
 struct Navbar: View {
     @State private var router = NavRouter.shared
@@ -222,9 +330,11 @@ struct Navbar: View {
     @ScaledMetric(relativeTo: .caption2) private var labelSize: CGFloat = 10
     @Namespace private var tabAnimation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
     @State private var activeTabPulse: Bool = false
     @State private var previousTab: NavDestination = .home
     @State private var fabExpanded: Bool = false
+    @State private var safeAreaState = SafeAreaState.shared
 
     private let gradient = LinearGradient(
         colors: [Color(hex: 0xBB86FC), Color(hex: 0xFF6B8A)],
@@ -369,6 +479,94 @@ struct Navbar: View {
         }
         .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
         .padding(.horizontal, 14)
+        // Premium safe area padding based on device
+        .padding(.bottom, safeAreaInsets.bottom > 20 ? 0 : 8)
+        .background {
+            // Safe area glow for devices with home indicator
+            if safeAreaInsets.bottom > 20 {
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.clear,
+                                Color(hex: 0xBB86FC).opacity(0.05),
+                                Color(hex: 0xFF6B8A).opacity(0.03),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: safeAreaInsets.bottom)
+                    .blur(radius: 10)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onAppear {
+            safeAreaState.update(from: safeAreaInsets)
+        }
+        .onChange(of: safeAreaInsets) { _, newValue in
+            safeAreaState.update(from: newValue)
+        }
+    }
+}
+
+// MARK: - 3.5  Navbar With Safe Area Integration
+struct NavbarWithSafeArea: View {
+    @State private var router = NavRouter.shared
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Top safe area premium treatment
+            if safeAreaInsets.top > 50 {
+                // Dynamic Island integration zone
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.5),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: 34)
+                    .allowsHitTesting(false)
+            }
+
+            // The actual navbar
+            Navbar()
+
+            // Bottom safe area with home indicator treatment
+            if safeAreaInsets.bottom > 20 {
+                // Home indicator zone with subtle glow
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(height: safeAreaInsets.bottom - 8)
+                    .background {
+                        HStack(spacing: 0) {
+                            Spacer()
+                            Capsule()
+                                .fill(
+                                    RadialGradient(
+                                        colors: [
+                                            Color.white.opacity(0.06),
+                                            Color.clear
+                                        ],
+                                        center: .center,
+                                        startRadius: 0,
+                                        endRadius: 67
+                                    )
+                                )
+                                .frame(width: 134, height: 5)
+                            Spacer()
+                        }
+                    }
+                    .allowsHitTesting(false)
+            }
+        }
     }
 }
 
@@ -376,14 +574,14 @@ struct Navbar: View {
 private struct NavbarModifier: ViewModifier {
     let dest: NavDestination
     @State private var router = NavRouter.shared
+    @Environment(\.safeAreaInsets) private var safeAreaInsets
 
     func body(content: Content) -> some View {
         Group {
             if router.current == dest {
                 content
                     .safeAreaInset(edge: .bottom) {
-                        Navbar()
-                            .padding(.bottom, 6)
+                        NavbarWithSafeArea()
                     }
                     .transition(.opacity)
             } else {
@@ -399,6 +597,11 @@ extension View {
     /// `.withNavbar(dest: .chat)`
     func withNavbar(dest: NavDestination) -> some View {
         modifier(NavbarModifier(dest: dest))
+    }
+
+    /// Premium safe area padding som anpassar sig till Dynamic Island och home indicator
+    func withPremiumSafeAreaPadding() -> some View {
+        modifier(PremiumSafeAreaPadding())
     }
 }
 
