@@ -315,6 +315,150 @@ struct SectionHeader: View {
     }
 }
 
+// MARK: - Particle System (Premium Canvas-baserade partiklar)
+
+struct Particle: Identifiable {
+    let id = UUID()
+    var x: CGFloat
+    var y: CGFloat
+    var vx: CGFloat
+    var vy: CGFloat
+    var radius: CGFloat
+    var opacity: Double
+    var color: Color
+    var lifetime: Double
+}
+
+@MainActor
+final class ParticleEngine: ObservableObject {
+    @Published var particles: [Particle] = []
+    private var timer: Timer?
+
+    func emit(count: Int, at point: CGPoint, color: Color = .white) {
+        for _ in 0..<count {
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let speed = CGFloat.random(in: 1...4)
+            particles.append(Particle(
+                x: point.x,
+                y: point.y,
+                vx: cos(angle) * speed,
+                vy: sin(angle) * speed,
+                radius: CGFloat.random(in: 2...6),
+                opacity: 1.0,
+                color: color,
+                lifetime: Double.random(in: 0.8...1.5)
+            ))
+        }
+        startAnimation()
+    }
+
+    func emitConfetti(count: Int, in size: CGSize) {
+        for _ in 0..<count {
+            let colors: [Color] = [.warmLavender, .warmGold, .warmRose, .warmSage, .warmCoral]
+            particles.append(Particle(
+                x: CGFloat.random(in: 0...size.width),
+                y: -20,
+                vx: CGFloat.random(in: -2...2),
+                vy: CGFloat.random(in: 2...5),
+                radius: CGFloat.random(in: 4...8),
+                opacity: 1.0,
+                color: colors.randomElement() ?? .white,
+                lifetime: Double.random(in: 3...5)
+            ))
+        }
+        startAnimation()
+    }
+
+    private func startAnimation() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.update()
+            }
+        }
+    }
+
+    private func update() {
+        for i in particles.indices {
+            particles[i].x += particles[i].vx
+            particles[i].y += particles[i].vy
+            particles[i].vy += 0.05 // gravity
+            particles[i].lifetime -= 1/60
+            particles[i].opacity = max(0, particles[i].lifetime)
+        }
+        particles.removeAll { $0.opacity <= 0 }
+        if particles.isEmpty {
+            timer?.invalidate()
+        }
+    }
+}
+
+struct ParticleCanvas: View {
+    let engine: ParticleEngine
+    var body: some View {
+        Canvas { context, _ in
+            for particle in engine.particles {
+                let rect = CGRect(
+                    x: particle.x - particle.radius,
+                    y: particle.y - particle.radius,
+                    width: particle.radius * 2,
+                    height: particle.radius * 2
+                )
+                context.fill(
+                    Circle().path(in: rect),
+                    with: .color(particle.color.opacity(particle.opacity))
+                )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Confetti View
+
+struct ConfettiView: View {
+    @StateObject private var engine = ParticleEngine()
+    @State private var showConfetti = false
+
+    var body: some View {
+        ParticleCanvas(engine: engine)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .onChange(of: showConfetti) { _, newValue in
+                if newValue {
+                    engine.emitConfetti(count: 60, in: UIScreen.main.bounds.size)
+                }
+            }
+    }
+
+    func trigger() {
+        showConfetti = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showConfetti = false
+        }
+    }
+}
+
+// MARK: - Premium Glow Effects
+
+struct GlowModifier: ViewModifier {
+    var color: Color
+    var radius: CGFloat
+    var intensity: Double
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: color.opacity(intensity), radius: radius, x: 0, y: 0)
+            .shadow(color: color.opacity(intensity * 0.5), radius: radius * 2, x: 0, y: 0)
+    }
+}
+
+extension View {
+    func glow(color: Color = .warmLavender, radius: CGFloat = 20, intensity: Double = 0.6) -> some View {
+        modifier(GlowModifier(color: color, radius: radius, intensity: intensity))
+    }
+}
+
 // MARK: - Shimmer Effect (premium loading)
 
 struct ShimmerModifier: ViewModifier {
@@ -352,7 +496,137 @@ extension View {
     }
 }
 
-// MARK: - Skeleton placeholder
+// MARK: - Floating Bubble Particles (Ambient Background Animation)
+
+struct FloatingBubble: View {
+    let size: CGFloat
+    let color: Color
+    let startX: CGFloat
+    let duration: Double
+
+    @State private var yOffset: CGFloat = 0
+    @State private var opacity: Double = 0.3
+    @State private var xOffset: CGFloat = 0
+
+    var body: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [color.opacity(0.4), color.opacity(0.1)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size / 2
+                )
+            )
+            .frame(width: size, height: size)
+            .blur(radius: size * 0.15)
+            .offset(x: startX + xOffset, y: yOffset)
+            .opacity(opacity)
+            .onAppear {
+                withAnimation(
+                    .easeInOut(duration: duration)
+                    .repeatForever(autoreverses: true)
+                ) {
+                    yOffset = -60
+                    xOffset = 20
+                    opacity = 0.6
+                }
+            }
+    }
+}
+
+struct FloatingBubblesBackground: View {
+    let bubbleCount: Int = 8
+
+    private let colors: [Color] = [
+        .warmLavender.opacity(0.3),
+        .warmRose.opacity(0.25),
+        .warmGold.opacity(0.2),
+        .warmSage.opacity(0.25)
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<bubbleCount, id: \.self) { index in
+                FloatingBubble(
+                    size: CGFloat.random(in: 80...200),
+                    color: colors[index % colors.count],
+                    startX: CGFloat.random(in: -100...300),
+                    duration: Double.random(in: 8...15)
+                )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Premium Card Modifier with Metallic Shine
+
+struct PremiumMetallicCardModifier: ViewModifier {
+    var accentColor: Color
+    var radius: CGFloat
+    @State private var shimmerPhase: CGFloat = -1.0
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                ZStack {
+                    // Base glass layer
+                    DesignSystem.Colors.glassFill
+                    // Inner light gradient
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.02),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: UnitPoint(x: 0.3, y: 0.5)
+                    )
+                    // Shimmer sweep
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: max(0, shimmerPhase - 0.3)),
+                            .init(color: Color.white.opacity(0.12), location: shimmerPhase),
+                            .init(color: .clear, location: min(1, shimmerPhase + 0.3))
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                }
+            )
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.25),
+                                accentColor.opacity(0.15),
+                                accentColor.opacity(0.08),
+                                Color.white.opacity(0.12)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.2
+                    )
+            )
+            .onAppear {
+                withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
+                    shimmerPhase = 1.5
+                }
+            }
+    }
+}
+
+extension View {
+    /// Premium metallic card with shimmer sweep effect
+    func ljMetallicCard(radius: CGFloat = DesignSystem.Radius.medium, accent: Color = .warmLavender) -> some View {
+        modifier(PremiumMetallicCardModifier(accentColor: accent, radius: radius))
+    }
+}
 
 struct LJSkeletonRow: View {
     var width: CGFloat = .infinity
@@ -367,25 +641,274 @@ struct LJSkeletonRow: View {
     }
 }
 
-// MARK: - Pulsating dot (online-indikator o.d.)
+// MARK: - Morphing Pulse Button
 
-struct PulsingDot: View {
-    var color: Color = .green
-    var size: CGFloat = 8
-    @State private var pulsing = false
+struct MorphingPulseButton: View {
+    let icon: String
+    let color: Color
+    let action: () -> Void
+
+    @State private var isPulsing = false
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: {
+            LJHaptic.medium()
+            action()
+        }) {
+            ZStack {
+                // Outer pulse ring
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 60, height: 60)
+                    .scaleEffect(isPulsing ? 1.3 : 1.0)
+                    .opacity(isPulsing ? 0 : 1)
+                    .animation(
+                        .easeOut(duration: 1.2).repeatForever(autoreverses: false),
+                        value: isPulsing
+                    )
+
+                // Middle glow ring
+                Circle()
+                    .fill(color.opacity(0.25))
+                    .frame(width: 52, height: 52)
+
+                // Inner circle
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [color.opacity(0.4), color.opacity(0.1)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 24
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Circle()
+                            .stroke(color.opacity(0.4), lineWidth: 1.5)
+                    )
+
+                // Icon
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            .scaleEffect(isPressed ? 0.92 : 1.0)
+            .animation(DesignSystem.Animation.quick, value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .onAppear {
+            isPulsing = true
+        }
+    }
+}
+
+// MARK: - Heart Burst Animation (Like Button)
+
+struct HeartBurstView: View {
+    let trigger: Bool
+
+    @State private var particles: [(offset: CGSize, opacity: Double, scale: Double)] = []
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(color.opacity(0.3))
-                .frame(width: size * 2, height: size * 2)
-                .scaleEffect(pulsing ? 1.4 : 1.0)
-                .opacity(pulsing ? 0 : 0.6)
-                .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false), value: pulsing)
-            Circle()
-                .fill(color)
-                .frame(width: size, height: size)
+            ForEach(0..<8, id: \.self) { index in
+                if particles.indices.contains(index) {
+                    Circle()
+                        .fill(Color.warmRose)
+                        .frame(width: 6, height: 6)
+                        .offset(
+                            x: particles[index].offset.width,
+                            y: particles[index].offset.height
+                        )
+                        .opacity(particles[index].opacity)
+                        .scaleEffect(particles[index].scale)
+                }
+            }
         }
-        .onAppear { pulsing = true }
+        .onChange(of: trigger) { _, newValue in
+            if newValue {
+                emitBurst()
+            }
+        }
+    }
+
+    private func emitBurst() {
+        particles = (0..<8).map { _ in
+            let angle = Double.random(in: 0...(2 * .pi))
+            let distance = CGFloat.random(in: 25...45)
+            return (
+                offset: CGSize(
+                    width: cos(angle) * distance,
+                    height: sin(angle) * distance
+                ),
+                opacity: 1.0,
+                scale: Double.random(in: 0.5...1.2)
+            )
+        }
+
+        // Animate out
+        withAnimation(.easeOut(duration: 0.5)) {
+            particles = particles.map { p in
+                (
+                    offset: CGSize(width: p.offset.width * 2, height: p.offset.height * 2),
+                    opacity: 0.0,
+                    scale: p.scale * 1.5
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Typewriter Effect
+
+struct TypewriterText: View {
+    let text: String
+    let speed: Double // seconds per character
+
+    @State private var displayedText = ""
+    @State private var currentIndex = 0
+
+    var body: some View {
+        Text(displayedText)
+            .onAppear {
+                startTyping()
+            }
+    }
+
+    private func startTyping() {
+        guard currentIndex < text.count else { return }
+
+        let charIndex = text.index(text.startIndex, offsetBy: currentIndex)
+        displayedText += String(text[charIndex])
+        currentIndex += 1
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + speed) {
+            startTyping()
+        }
+    }
+}
+
+// MARK: - Premium Switch Toggle
+
+struct PremiumToggle: View {
+    @Binding var isOn: Bool
+    var accentColor: Color = .warmLavender
+
+    var body: some View {
+        Button {
+            withAnimation(DesignSystem.Animation.quick) {
+                isOn.toggle()
+            }
+            LJHaptic.light()
+        } label: {
+            ZStack {
+                Capsule()
+                    .fill(isOn ? accentColor : Color.white.opacity(0.15))
+                    .frame(width: 52, height: 32)
+
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 26, height: 26)
+                    .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                    .offset(x: isOn ? 10 : -10)
+                    .animation(DesignSystem.Animation.quick, value: isOn)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Animated Gradient Border
+
+struct AnimatedGradientBorder: View {
+    @State private var animateGradient = false
+
+    let cornerRadius: CGFloat
+    let lineWidth: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .stroke(
+                AngularGradient(
+                    colors: [
+                        .warmLavender,
+                        .warmRose,
+                        .warmGold,
+                        .warmSage,
+                        .warmLavender
+                    ],
+                    center: .center,
+                    startAngle: .degrees(animateGradient ? 0 : 360),
+                    endAngle: .degrees(animateGradient ? 360 : 0)
+                ),
+                lineWidth: lineWidth
+            )
+            .onAppear {
+                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                    animateGradient = true
+                }
+            }
+    }
+}
+
+// MARK: - Staggered Appear Animation Modifier
+
+struct StaggeredAppearModifier: ViewModifier {
+    let delay: Double
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 20)
+            .onAppear {
+                withAnimation(DesignSystem.Animation.intro.delay(delay)) {
+                    appeared = true
+                }
+            }
+    }
+}
+
+extension View {
+    func staggeredAppear(delay: Double) -> some View {
+        modifier(StaggeredAppearModifier(delay: delay))
+    }
+}
+
+// MARK: - Premium Progress Ring
+
+struct PremiumProgressRing: View {
+    let progress: Double
+    let lineWidth: CGFloat
+    let gradientColors: [Color]
+
+    var body: some View {
+        ZStack {
+            // Background ring
+            Circle()
+                .stroke(Color.white.opacity(0.1), lineWidth: lineWidth)
+
+            // Progress ring with gradient
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    AngularGradient(
+                        colors: gradientColors,
+                        center: .center,
+                        startAngle: .degrees(0),
+                        endAngle: .degrees(360 * progress)
+                    ),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut(duration: 0.5), value: progress)
+        }
     }
 }

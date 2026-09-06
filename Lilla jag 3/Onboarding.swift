@@ -45,20 +45,25 @@ struct OnboardingView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var animateContent = false
     @State private var aiWelcome: String = ""
+    @State private var showConfetti = false
+    @StateObject private var particleEngine = ParticleEngine()
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                WarmBackground()
+                // Premium animated background with floating bubbles
+                WarmAnimatedBackground()
 
                 VStack(spacing: 0) {
                     // Top bar: dots + skip
                     HStack {
-                        // Page indicator dots
+                        // Page indicator dots with fill animation
                         HStack(spacing: 8) {
                             ForEach(0..<pages.count, id: \.self) { i in
                                 Capsule()
-                                    .fill(i == currentPage ? Color.white : Color.white.opacity(0.25))
+                                    .fill(i == currentPage
+                                           ? AnyShapeStyle(DesignSystem.Colors.accent)
+                                           : AnyShapeStyle(Color.white.opacity(0.25)))
                                     .frame(width: i == currentPage ? 24 : 8, height: 8)
                                     .animation(.spring(response: 0.35), value: currentPage)
                             }
@@ -79,10 +84,10 @@ struct OnboardingView: View {
 
                     Spacer()
 
-                    // Page content
+                    // Page content with parallax effect
                     TabView(selection: $currentPage) {
                         ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                            pageContent(page, geo: geo)
+                            pageContent(page, geo: geo, index: index)
                                 .tag(index)
                         }
                     }
@@ -101,35 +106,60 @@ struct OnboardingView: View {
                             .transition(.opacity)
                     }
 
-                    // CTA button
+                    // CTA button with premium gradient
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         withAnimation(.spring(response: 0.4)) {
                             if currentPage < pages.count - 1 {
                                 currentPage += 1
                             } else {
+                                // Trigger celebration animation
+                                showConfetti = true
+                                particleEngine.emitConfetti(count: 80, in: geo.size)
                                 hasCompletedOnboarding = true
                             }
                         }
                     } label: {
-                        HStack(spacing: 8) {
-                            Text(currentPage < pages.count - 1 ? "Nästa" : "Kom igång")
-                                .font(.system(.body, design: .rounded, weight: .bold))
-                            Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
-                                .font(.system(size: 14, weight: .bold))
+                        ZStack {
+                            // Premium gradient background
+                            LinearGradient(
+                                colors: [.white, .white.opacity(0.95)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+
+                            // Subtle inner glow
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                )
                         }
-                        .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .shadow(color: .white.opacity(0.2), radius: 12, y: 4)
+                        .shadow(color: .white.opacity(0.3), radius: 12, y: 4)
+                        .overlay(
+                            HStack(spacing: 8) {
+                                Text(currentPage < pages.count - 1 ? "Nästa" : "Kom igång")
+                                    .font(.system(.body, design: .rounded, weight: .bold))
+                                    .foregroundStyle(.black)
+                                Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.black)
+                            }
+                        )
                     }
                     .buttonStyle(LJPressableButtonStyle())
                     .accessibilityLabel(currentPage < pages.count - 1 ? "Nästa sida" : "Kom igång med appen")
                     .padding(.horizontal, 28)
                     .padding(.bottom, max(24, geo.size.height * 0.06))
                 }
+
+                // Particle canvas overlay for celebrations
+                ParticleCanvas(engine: particleEngine)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
             }
         }
         .preferredColorScheme(.dark)
@@ -138,26 +168,40 @@ struct OnboardingView: View {
         }
     }
 
-    private func pageContent(_ page: OnboardingPage, geo: GeometryProxy) -> some View {
+    private func pageContent(_ page: OnboardingPage, geo: GeometryProxy, index: Int) -> some View {
         let iconSize = min(geo.size.height * 0.20, 140.0)
         let iconFontSize = min(geo.size.height * 0.054, 40.0)
+        let isCurrentPage = index == currentPage
 
         return VStack(spacing: max(12, geo.size.height * 0.025)) {
             ZStack {
-                // Pulsating outer ring
-                Circle()
-                    .fill(page.iconColor.opacity(0.06))
-                    .frame(width: iconSize, height: iconSize)
-                Circle()
-                    .fill(page.iconColor.opacity(0.12))
-                    .frame(width: iconSize * 0.78, height: iconSize * 0.78)
-                Circle()
-                    .fill(page.iconColor.opacity(0.2))
-                    .frame(width: iconSize * 0.56, height: iconSize * 0.56)
+                // Parallax animated rings
+                ForEach(0..<3, id: \.self) { ringIndex in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    page.iconColor.opacity(isCurrentPage ? 0.12 - Double(ringIndex) * 0.03 : 0),
+                                    page.iconColor.opacity(0.05)
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: iconSize * (0.4 + Double(ringIndex) * 0.2)
+                            )
+                        )
+                        .frame(width: iconSize * (0.5 + Double(ringIndex) * 0.25),
+                                height: iconSize * (0.5 + Double(ringIndex) * 0.25))
+                        .scaleEffect(isCurrentPage ? 1.0 : 0.8)
+                        .animation(.easeOut(duration: 0.5), value: isCurrentPage)
+                }
+
+                // Main icon with glow
                 Image(systemName: page.icon)
                     .font(.system(size: iconFontSize, weight: .medium))
                     .foregroundStyle(page.iconColor)
-                    .shadow(color: page.iconColor.opacity(0.6), radius: 24)
+                    .shadow(color: page.iconColor.opacity(0.6), radius: isCurrentPage ? 24 : 12)
+                    .scaleEffect(isCurrentPage ? 1.0 : 0.9)
+                    .animation(.spring(response: 0.5), value: isCurrentPage)
             }
             .padding(.bottom, 8)
 
@@ -168,6 +212,8 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .minimumScaleFactor(0.8)
+                    .opacity(isCurrentPage ? 1 : 0.5)
+                    .offset(y: isCurrentPage ? 0 : 10)
 
                 Text(page.subtitle)
                     .font(.system(.body, design: .rounded))
@@ -176,10 +222,63 @@ struct OnboardingView: View {
                     .lineSpacing(5)
                     .padding(.horizontal, 8)
                     .minimumScaleFactor(0.8)
+                    .opacity(isCurrentPage ? 1 : 0.5)
             }
         }
         .padding(.horizontal, 28)
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Warm animated background with floating particles
+
+struct WarmAnimatedBackground: View {
+    @State private var animateGradient = false
+
+    var body: some View {
+        ZStack {
+            // Base gradient
+            Color(hex: 0x1A1025).ignoresSafeArea()
+
+            // Animated gradient orbs
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: 0x8B2FC9).opacity(animateGradient ? 0.45 : 0.35),
+                            Color(hex: 0xFF6B6B).opacity(animateGradient ? 0.3 : 0.2)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 500, height: 500)
+                .blur(radius: 120)
+                .offset(x: animateGradient ? 120 : 80, y: animateGradient ? -160 : -200)
+                .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: animateGradient)
+
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: 0x4A90D9).opacity(animateGradient ? 0.3 : 0.2),
+                            Color(hex: 0x9B59B6).opacity(animateGradient ? 0.35 : 0.25)
+                        ],
+                        startPoint: .bottomLeading,
+                        endPoint: .topTrailing
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .blur(radius: 130)
+                .offset(x: animateGradient ? -140 : -100, y: animateGradient ? 200 : 240)
+                .animation(.easeInOut(duration: 10).repeatForever(autoreverses: true), value: animateGradient)
+
+            // Floating bubbles overlay
+            FloatingBubblesBackground()
+        }
+        .onAppear {
+            animateGradient = true
+        }
     }
 }
 
