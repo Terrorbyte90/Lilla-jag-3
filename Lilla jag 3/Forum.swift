@@ -18,8 +18,16 @@ struct ForumPost: Identifiable, Codable {
     var isLiked: Bool = false
     var date: Date = .now
     var externalURL: String? = nil
+    var forumComments: [ForumComment] = []
 
     var tagColor: Color { Color(hex: tagColorHex) }
+}
+
+struct ForumComment: Identifiable, Codable {
+    var id = UUID()
+    let author: String
+    let content: String
+    var timeAgo: String
 }
 
 // MARK: - ForumStore
@@ -85,7 +93,7 @@ final class ForumStore {
                       externalURL: "https://www.1177.se/behandling--hjalpmedel/behandlingsmetoder/kognitiv-beteendeterapi-kbt/"),
             ForumPost(author: "Anonym måne", title: "Hur pratar ni med familjen om er psykiska hälsa?",
                       content: "Min familj förstår inte riktigt vad jag går igenom. De säger att jag ska 'ta mig samman'. Hur har ni hanterat det?",
-                      timeAgo: "3 dag", tag: "Relationer", tagColorHex: 0xFF6B8A, likes: 89, comments: 37),
+                      forumComments: []),
         ]
         save()
     }
@@ -249,6 +257,7 @@ struct ForumCard: View {
     @State private var isExpanded = false
     @State private var isPressed = false
     @State private var heartBurstTrigger = false
+    @State private var commentsExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -287,6 +296,14 @@ struct ForumCard: View {
                 ExternalLinkCard(url: externalURL, tagColor: post.tagColor)
             }
 
+            if !post.forumComments.isEmpty {
+                CommentThreadView(
+                    comments: post.forumComments,
+                    tagColor: post.tagColor,
+                    isExpanded: commentsExpanded
+                )
+            }
+
             HStack(spacing: 16) {
                 Button {
                     withAnimation(.spring(response: 0.3)) {
@@ -304,9 +321,21 @@ struct ForumCard: View {
                 }
                 .buttonStyle(.plain)
 
-                Label("\(post.comments)", systemImage: "bubble.left")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        commentsExpanded.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: commentsExpanded ? "bubble.left.fill" : "bubble.left")
+                            .font(.caption)
+                        Text("\(post.comments)")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(commentsExpanded ? post.tagColor : .white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
 
                 Spacer()
 
@@ -353,6 +382,72 @@ struct TagBadge: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(color.opacity(0.15), in: Capsule())
+    }
+}
+
+// MARK: - Comment Thread with Slide-in
+
+struct CommentThreadView: View {
+    let comments: [ForumComment]
+    let tagColor: Color
+    let isExpanded: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(comments.enumerated()), id: \.element.id) { index, comment in
+                CommentRow(comment: comment, tagColor: tagColor, index: index)
+                    .opacity(isExpanded ? 1 : 0)
+                    .offset(x: isExpanded ? 0 : -16)
+                    .animation(
+                        .spring(response: 0.4, dampingFraction: 0.75)
+                            .delay(Double(index) * 0.06),
+                        value: isExpanded
+                    )
+            }
+        }
+        .padding(.top, 4)
+    }
+}
+
+struct CommentRow: View {
+    let comment: ForumComment
+    let tagColor: Color
+    let index: Int
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle()
+                .fill(tagColor.opacity(0.3 + CGFloat(index) * 0.15))
+                .frame(width: 24, height: 24)
+                .overlay(
+                    Text(String(comment.author.prefix(1)))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(comment.author)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(tagColor)
+                    Text("·")
+                        .foregroundStyle(.white.opacity(0.3))
+                    Text(comment.timeAgo)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                Text(comment.content)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(3)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(tagColor.opacity(0.06))
+        )
     }
 }
 
