@@ -369,6 +369,31 @@ final class ParticleEngine: ObservableObject {
         startAnimation()
     }
 
+    /// Emits fire/flame particles from a given point — used for streak celebration.
+    func emitFire(count: Int, at point: CGPoint) {
+        let fireColors: [Color] = [
+            Color(hex: 0xFF6B35),
+            Color(hex: 0xFFD166),
+            Color(hex: 0xFF4444),
+            Color(hex: 0xFFAA00)
+        ]
+        for _ in 0..<count {
+            let angle = CGFloat.random(in: (-0.7 * .pi)...(-0.3 * .pi)) // upward bias
+            let speed = CGFloat.random(in: 1.5...4.5)
+            particles.append(Particle(
+                x: point.x + CGFloat.random(in: -8...8),
+                y: point.y,
+                vx: cos(angle) * speed * 0.4,
+                vy: sin(angle) * speed,
+                radius: CGFloat.random(in: 2.5...6),
+                opacity: 1.0,
+                color: fireColors.randomElement() ?? .warmGold,
+                lifetime: Double.random(in: 0.6...1.2)
+            ))
+        }
+        startAnimation()
+    }
+
     private func startAnimation() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1/60, repeats: true) { [weak self] _ in
@@ -910,5 +935,148 @@ struct PremiumProgressRing: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.5), value: progress)
         }
+    }
+}
+
+// MARK: - Streak Fire View (Premium animated fire particles for streak card)
+
+struct StreakFireView: View {
+    let isActive: Bool
+    @StateObject private var engine = ParticleEngine()
+    @State private var timer: Timer?
+
+    var body: some View {
+        ParticleCanvas(engine: engine)
+            .allowsHitTesting(false)
+            .onChange(of: isActive) { _, newValue in
+                if newValue {
+                    startFireTimer()
+                } else {
+                    timer?.invalidate()
+                }
+            }
+            .onDisappear {
+                timer?.invalidate()
+            }
+    }
+
+    private func startFireTimer() {
+        // Emit fire particles periodically for the streak glow effect
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+            Task { @MainActor in
+                engine.emitFire(count: 3, at: CGPoint(x: 21, y: 21))
+            }
+        }
+    }
+}
+
+// MARK: - Hero Gradient Mesh (Animated gradient mesh background)
+
+struct HeroGradientMesh: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let now = timeline.date.timeIntervalSinceReferenceDate
+                let angle = now.remainder(dividingBy: .pi * 2)
+
+                // Three gradient blobs that slowly orbit
+                let blob1 = CGPoint(
+                    x: size.width * (0.5 + 0.25 * cos(angle)),
+                    y: size.height * (0.5 + 0.2 * sin(angle * 0.7))
+                )
+                let blob2 = CGPoint(
+                    x: size.width * (0.5 + 0.3 * cos(angle + .pi * 2 / 3)),
+                    y: size.height * (0.5 + 0.25 * sin(angle * 0.5 + .pi / 3))
+                )
+                let blob3 = CGPoint(
+                    x: size.width * (0.5 + 0.2 * cos(angle + .pi * 4 / 3)),
+                    y: size.height * (0.5 + 0.3 * sin(angle * 0.8 + .pi * 2 / 3))
+                )
+
+                let colors: [Color] = [.warmLavender, .warmRose, .warmGold]
+                let points: [CGPoint] = [blob1, blob2, blob3]
+
+                for i in 0..<3 {
+                    let rect = CGRect(
+                        x: points[i].x - 80,
+                        y: points[i].y - 80,
+                        width: 160,
+                        height: 160
+                    )
+                    context.fill(
+                        Circle().path(in: rect),
+                        with: .radialGradient(
+                            Gradient(colors: [colors[i].opacity(0.35), colors[i].opacity(0)]),
+                            center: points[i],
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Monster Glow Pulse (Animated glow for monster section)
+
+struct MonsterGlowPulse: View {
+    let isActive: Bool
+    @State private var glowOpacity: Double = 0.4
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { ring in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.warmLavender.opacity(glowOpacity - Double(ring) * 0.1), Color.clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 60 + CGFloat(ring * 20)
+                        )
+                    )
+                    .scaleEffect(1 + glowOpacity * 0.15 * CGFloat(ring))
+            }
+        }
+        .opacity(isActive ? 1 : 0.2)
+        .onAppear {
+            guard isActive else { return }
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                glowOpacity = 0.7
+            }
+        }
+    }
+}
+
+// MARK: - 3D Rotation Card Effect (Premium KPI card tilt)
+
+struct Card3DRotationEffect: ViewModifier {
+    @State private var rotation: CGFloat = 0
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .rotation3DEffect(
+                .degrees(rotation),
+                axis: (x: 0, y: 1, z: 0),
+                perspective: 0.5
+            )
+            .onAppear {
+                guard isEnabled else { return }
+                withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                    rotation = 5
+                }
+            }
+    }
+}
+
+extension View {
+    func card3DRotation(isEnabled: Bool) -> some View {
+        modifier(Card3DRotationEffect(isEnabled: isEnabled))
     }
 }

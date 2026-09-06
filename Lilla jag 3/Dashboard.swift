@@ -34,6 +34,10 @@ struct Dashboard: View {
                 LoopingVideoBackground(videoName: "bloop", fileExtension: "mp4")
                     .ignoresSafeArea()
 
+                // Particle overlay för premium-effekter
+                ParticleCanvas(engine: particleEngine)
+                    .allowsHitTesting(false)
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.cardSpacing(for: geo.size.height)) {
                         header
@@ -134,29 +138,34 @@ struct Dashboard: View {
 private extension Dashboard {
 
     var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Lilla Jag")
-                    .font(.system(.title2, design: .rounded, weight: .black))
-                    .minimumScaleFactor(0.8)
-                    .foregroundStyle(.white)
-                    .tracking(-0.3)
-                Text(greetingText)
-                    .font(.system(.subheadline, design: .rounded))
-                    .minimumScaleFactor(0.8)
-                    .foregroundStyle(.white.opacity(0.6))
+        ZStack {
+            // Premium animated gradient mesh bakom headern
+            HeroGradientMesh()
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Lilla Jag")
+                        .font(.system(.title2, design: .rounded, weight: .black))
+                        .minimumScaleFactor(0.8)
+                        .foregroundStyle(.white)
+                        .tracking(-0.3)
+                    Text(greetingText)
+                        .font(.system(.subheadline, design: .rounded))
+                        .minimumScaleFactor(0.8)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Lilla Jag. \(greetingText)")
+                Spacer()
+                HStack(spacing: 8) {
+                    DashboardHeaderButton(icon: "bell.fill", label: "Påminnelser", action: { viewModel.showNotificationSettings = true })
+                    DashboardHeaderButton(icon: "cross.case.fill", label: "Krisplan", action: { viewModel.showCrisisPlan = true })
+                    DashboardHeaderButton(icon: "phone.fill", label: "Krisnummer", action: { viewModel.showNumbers = true })
+                }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Lilla Jag. \(greetingText)")
-            Spacer()
-            HStack(spacing: 8) {
-                DashboardHeaderButton(icon: "bell.fill", label: "Påminnelser", action: { viewModel.showNotificationSettings = true })
-                DashboardHeaderButton(icon: "cross.case.fill", label: "Krisplan", action: { viewModel.showCrisisPlan = true })
-                DashboardHeaderButton(icon: "phone.fill", label: "Krisnummer", action: { viewModel.showNumbers = true })
-            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
+        .frame(height: 64)
         .ljPremiumCard(radius: 18, accent: Color.warmLavender)
     }
 
@@ -287,6 +296,11 @@ private extension Dashboard {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(viewModel.currentStreak > 0 ? Color.warmGold : Color.white.opacity(0.25))
+                    // Premium fire particles overlay när streak är aktiv
+                    if viewModel.currentStreak > 0 {
+                        StreakFireView(isActive: viewModel.currentStreak > 0)
+                            .frame(width: 42, height: 42)
+                    }
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(viewModel.currentStreak)")
@@ -567,7 +581,11 @@ private extension Dashboard {
 
         return VStack(spacing: 12) {
             HStack(spacing: 12) {
-                LJIconCircle(icon: "pawprint.fill", color: Color.warmLavender, size: 44)
+                ZStack {
+                    // Premium glow pulse bakom ikonen
+                    MonsterGlowPulse(isActive: hasLog)
+                    LJIconCircle(icon: "pawprint.fill", color: Color.warmLavender, size: 44)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Ditt monster")
                         .font(.system(.headline, design: .rounded, weight: .bold))
