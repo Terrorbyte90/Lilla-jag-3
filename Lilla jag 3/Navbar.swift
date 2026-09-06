@@ -60,6 +60,61 @@ final class NavRouter {
     var current: NavDestination = .home
 }
 
+// MARK: - 3.5  Morphing Ring View
+struct MorphingRingView: View {
+    let isActive: Bool
+    let trigger: Bool
+    let gradient: LinearGradient
+
+    @State private var ringScale: CGFloat = 0.5
+    @State private var ringOpacity: Double = 0.0
+
+    var body: some View {
+        ZStack {
+            // Outer morphing ring
+            Circle()
+                .stroke(gradient, lineWidth: 2.5)
+                .frame(width: 56, height: 56)
+                .scaleEffect(ringScale)
+                .opacity(ringOpacity)
+
+            // Inner ripple
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(hex: 0xBB86FC).opacity(0.3), Color.clear],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 32
+                    )
+                )
+                .frame(width: 50, height: 50)
+                .scaleEffect(ringScale * 0.9)
+                .opacity(ringOpacity * 0.6)
+        }
+        .onChange(of: trigger) { _, newValue in
+            guard newValue else {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    ringScale = 0.5
+                    ringOpacity = 0
+                }
+                return
+            }
+            // Morph sequence: expand → ripple → fade
+            withAnimation(.easeOut(duration: 0.12)) {
+                ringScale = 1.4
+                ringOpacity = 0.8
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    ringScale = 1.7
+                    ringOpacity = 0.0
+                }
+            }
+        }
+    }
+}
+
 // MARK: - 3  Premium Navbar
 struct Navbar: View {
     @State private var router = NavRouter.shared
@@ -76,8 +131,6 @@ struct Navbar: View {
         endPoint: .bottomTrailing
     )
 
-    private var tabWidth: CGFloat { UIScreen.main.bounds.width / 5 }
-
     var body: some View {
         HStack(spacing: 0) {
             ForEach(NavDestination.allCases) { dest in
@@ -86,25 +139,22 @@ struct Navbar: View {
                     if router.current != dest {
                         previousTab = router.current
                         activeTabPulse = true
+                        LJHaptic.selection()
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72)) {
+                            router.current = dest
+                        }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             activeTabPulse = false
                         }
                     }
-                    LJHaptic.selection()
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.72)) {
-                        router.current = dest
-                    }
                 } label: {
                     ZStack {
-                        // Pulsande glow-ring vid tab-byte
-                        if isActive && activeTabPulse {
-                            Circle()
-                                .stroke(gradient, lineWidth: 2)
-                                .frame(width: 52, height: 52)
-                                .scaleEffect(activeTabPulse ? 1.3 : 1.0)
-                                .opacity(activeTabPulse ? 0.0 : 0.6)
-                                .animation(.easeOut(duration: 0.4), value: activeTabPulse)
-                        }
+                        // Morphing ring animation vid tab-byte
+                        MorphingRingView(
+                            isActive: isActive,
+                            trigger: activeTabPulse,
+                            gradient: gradient
+                        )
 
                         VStack(spacing: 3) {
                             Image(systemName: dest.icon)
