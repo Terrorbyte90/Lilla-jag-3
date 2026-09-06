@@ -360,6 +360,8 @@ struct Mood1View: View {
     @State private var store = MoodStore.shared
     @State private var viewModel = MoodViewModel(store: MoodStore.shared)
     @State private var heroAppeared = false
+    @State private var breathingScale: CGFloat = 1.0
+    @State private var breathingOpacity: Double = 0.6
 
     private var todayLogged: Bool {
         store.entries.contains { Calendar.current.isDateInToday($0.date) }
@@ -463,9 +465,23 @@ struct Mood1View: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.warmSage.opacity(0.2), lineWidth: 1))
     }
 
-    // MARK: - Hero Card
+    // MARK: - Hero Card (CP-4: Breathing glow animation)
     private var heroCard: some View {
         ZStack(alignment: .topTrailing) {
+            // Breathing glow effect behind card (CP-4)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(
+                    RadialGradient(
+                        colors: [Color.warmLavender.opacity(0.15), Color.clear],
+                        center: .center, startRadius: 0, endRadius: 160
+                    )
+                )
+                .frame(width: 200, height: 200)
+                .blur(radius: 40)
+                .scaleEffect(breathingScale)
+                .opacity(breathingOpacity)
+                .animation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true), value: breathingScale)
+
             // Bakgrundslager
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(
