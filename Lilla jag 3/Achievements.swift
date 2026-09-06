@@ -253,6 +253,77 @@ final class AchievementsStore {
     }
 }
 
+// MARK: - Premium Shimmer Progress Bar
+
+struct PremiumShimmerProgressBar: View {
+    let progress: Double
+    let color: Color
+
+    @State private var shimmerOffset: CGFloat = -1.0
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Background track
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(color.opacity(0.15))
+                    .frame(height: 10)
+
+                // Progress fill
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                color.opacity(0.7),
+                                color,
+                                color.opacity(0.85)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(
+                        width: max(10, geometry.size.width * min(1.0, max(0.0, progress))),
+                        height: 10
+                    )
+                    .shadow(color: color.opacity(0.4), radius: 4, x: 0, y: 2)
+
+                // Shimmer sweep overlay
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: .clear, location: 0.0),
+                                .init(color: .white.opacity(0.0), location: max(0, shimmerOffset - 0.2)),
+                                .init(color: .white.opacity(0.35), location: shimmerOffset),
+                                .init(color: .white.opacity(0.0), location: min(1.0, shimmerOffset + 0.2)),
+                                .init(color: .clear, location: 1.0)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geometry.size.width * 0.6, height: 10)
+                    .offset(x: geometry.size.width * shimmerOffset - geometry.size.width * 0.3)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+        }
+        .frame(height: 10)
+        .onAppear {
+            startShimmerAnimation()
+        }
+    }
+
+    private func startShimmerAnimation() {
+        withAnimation(
+            .linear(duration: 2.0)
+            .repeatForever(autoreverses: false)
+        ) {
+            shimmerOffset = 1.3
+        }
+    }
+}
+
 // MARK: - AchievementBadgeView
 
 struct AchievementBadgeView: View {
@@ -355,16 +426,15 @@ struct AchievementsGridView: View {
                                 .foregroundColor(Color(hex: 0xFFD166))
                                 .symbolRenderingMode(.hierarchical)
 
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text("\(store.unlockedCount) av \(store.achievements.count) upplåsta")
                                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                                     .foregroundColor(.primary)
 
-                                ProgressView(
-                                    value: Double(store.unlockedCount),
-                                    total: Double(store.achievements.count)
+                                PremiumShimmerProgressBar(
+                                    progress: Double(store.unlockedCount) / Double(store.achievements.count),
+                                    color: Color(hex: 0xFFD166)
                                 )
-                                .tint(Color(hex: 0xFFD166))
                                 .frame(maxWidth: .infinity)
                             }
                         }
