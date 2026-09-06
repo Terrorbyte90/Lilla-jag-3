@@ -17,6 +17,7 @@ struct ForumPost: Identifiable, Codable {
     var comments: Int
     var isLiked: Bool = false
     var date: Date = .now
+    var externalURL: String? = nil
 
     var tagColor: Color { Color(hex: tagColorHex) }
 }
@@ -69,16 +70,19 @@ final class ForumStore {
         posts = [
             ForumPost(author: "Anonym björn", title: "Vad hjälper er mot ångest på natten?",
                       content: "Jag vaknar ofta klockan 3-4 med stark ångest. Har testat andningsövningar men det hjälper inte alltid. Delar gärna tips med varandra!",
-                      timeAgo: "2 tim", tag: "Ångest", tagColorHex: 0xBB86FC, likes: 34, comments: 12),
+                      timeAgo: "2 tim", tag: "Ångest", tagColorHex: 0xBB86FC, likes: 34, comments: 12,
+                      externalURL: "https://www.1177.se/Sjukdomar--besvar/ Psykisk-ohalsa/Stress/hantera-stress/"),
             ForumPost(author: "Anonym sol", title: "Idag hade jag en bra dag – och det känns konstigt",
                       content: "Har kämpat med depression i månader. Idag mådde jag faktiskt bra på riktigt. Men sen kom skulden och oron att det ska gå tillbaka. Någon mer som känner igen sig?",
                       timeAgo: "5 tim", tag: "Depression", tagColorHex: 0x6B8DD6, likes: 67, comments: 23),
             ForumPost(author: "Anonym stjärna", title: "Tips för att inte jämföra sig med andra",
                       content: "Social media förstärker min ångest enormt. Har börjat använda tider på telefonen men det räcker inte. Vad gör ni?",
-                      timeAgo: "1 dag", tag: "Tips", tagColorHex: 0x7EC8A4, likes: 45, comments: 18),
+                      timeAgo: "1 dag", tag: "Tips", tagColorHex: 0x7EC8A4, likes: 45, comments: 18,
+                      externalURL: "https://www.internetmuseum.se/"),
             ForumPost(author: "Anonym regn", title: "KBT hjälpte mig – min berättelse",
                       content: "För sex månader sedan kunde jag knappt lämna lägenheten. Nu är jag tillbaka på deltid. KBT är svårt men det funkar. Vill bara dela hoppet med er.",
-                      timeAgo: "2 dag", tag: "Återhämtning", tagColorHex: 0xFFD166, likes: 112, comments: 41),
+                      timeAgo: "2 dag", tag: "Återhämtning", tagColorHex: 0xFFD166, likes: 112, comments: 41,
+                      externalURL: "https://www.1177.se/behandling--hjalpmedel/behandlingsmetoder/kognitiv-beteendeterapi-kbt/"),
             ForumPost(author: "Anonym måne", title: "Hur pratar ni med familjen om er psykiska hälsa?",
                       content: "Min familj förstår inte riktigt vad jag går igenom. De säger att jag ska 'ta mig samman'. Hur har ni hanterat det?",
                       timeAgo: "3 dag", tag: "Relationer", tagColorHex: 0xFF6B8A, likes: 89, comments: 37),
@@ -279,6 +283,10 @@ struct ForumCard: View {
                 .buttonStyle(.plain)
             }
 
+            if let externalURL = post.externalURL {
+                ExternalLinkCard(url: externalURL, tagColor: post.tagColor)
+            }
+
             HStack(spacing: 16) {
                 Button {
                     withAnimation(.spring(response: 0.3)) {
@@ -345,6 +353,90 @@ struct TagBadge: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(color.opacity(0.15), in: Capsule())
+    }
+}
+
+// MARK: - External Link Card with Arrow Pulse
+
+struct ExternalLinkCard: View {
+    let url: String
+    let tagColor: Color
+    @State private var isPressed = false
+    @State private var arrowPhase: Double = 0
+
+    private var displayURL: String {
+        url.replacingOccurrences(of: "https://", with: "")
+            .replacingOccurrences(of: "http://", with: "")
+            .components(separatedBy: "/").first ?? url
+    }
+
+    var body: some View {
+        Button {
+            if let linkURL = URL(string: url) {
+                UIApplication.shared.open(linkURL)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(tagColor.opacity(0.15))
+                        .frame(width: 36, height: 36)
+
+                    Image(systemName: "link")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(tagColor)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Läs mer")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(.white)
+
+                    Text(displayURL)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .stroke(tagColor.opacity(0.3), lineWidth: 1.5)
+                        .frame(width: 28, height: 28)
+
+                    Circle()
+                        .fill(tagColor.opacity(0.2 + arrowPhase * 0.3))
+                        .frame(width: 28, height: 28)
+
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(tagColor)
+                        .offset(x: arrowPhase * 3, y: -arrowPhase * 3)
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(tagColor.opacity(isPressed ? 0.6 : 0.25), lineWidth: isPressed ? 1.5 : 1)
+            )
+            .scaleEffect(isPressed ? 0.97 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                arrowPhase = 1.0
+            }
+        }
     }
 }
 
