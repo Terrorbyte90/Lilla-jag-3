@@ -228,6 +228,10 @@ final class AchievementsStore {
 
         // Trigger popup for the most recently unlocked achievement
         newlyUnlocked = achievements[index]
+
+        // Trigger confetti celebration
+        triggerConfetti()
+
         return true
     }
 
@@ -239,6 +243,13 @@ final class AchievementsStore {
 
     var unlockedCount: Int {
         achievements.filter { $0.isUnlocked }.count
+    }
+
+    // Confetti trigger for unlock celebration
+    var confettiTrigger: Int = 0
+
+    func triggerConfetti() {
+        confettiTrigger += 1
     }
 }
 
@@ -373,6 +384,10 @@ struct AchievementsGridView: View {
             }
             .navigationTitle("Dina prestationer")
             .navigationBarTitleDisplayMode(.large)
+            .overlay {
+                ConfettiView(trigger: store.confettiTrigger)
+                    .allowsHitTesting(false)
+            }
             .overlay(alignment: .bottom) {
                 if showPopup, let achievement = store.newlyUnlocked {
                     AchievementUnlockPopup(achievement: achievement)
