@@ -15,7 +15,7 @@ import SwiftUI
 import AVKit
 import Combine
 
-// MARK: - Dashboard
+// MARK: - Dashboard (Premium Grafik Update)
 
 struct Dashboard: View {
     @State private var viewModel = DashboardViewModel()
@@ -25,6 +25,8 @@ struct Dashboard: View {
     @State private var affirmationIsFavorite: Bool = false
     /// Visar en kort "sparat!"-feedback när användaren sparar en favorit
     @State private var showFavoriteFeedback: Bool = false
+    /// Confetti particle engine för celebration
+    @StateObject private var particleEngine = ParticleEngine()
 
     var body: some View {
         GeometryReader { geo in
@@ -370,6 +372,57 @@ private extension Dashboard {
         }
     }
 
+    // MARK: - Breathing Circle View (Premium Animated)
+
+    struct BreathingCircleView: View {
+        let color: Color
+        @State private var scale: CGFloat = 1.0
+        @State private var isBreathing = false
+
+        var body: some View {
+            ZStack {
+                // Outer glow rings
+                ForEach(0..<3, id: \.self) { ring in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [color.opacity(0.08 - Double(ring) * 0.02), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 40 + CGFloat(ring * 15)
+                            )
+                        )
+                        .frame(width: 52 + CGFloat(ring * 30), height: 52 + CGFloat(ring * 30))
+                        .scaleEffect(scale * (1.0 + CGFloat(ring) * 0.05))
+                        .opacity(isBreathing ? 1.0 : 0.3)
+                }
+
+                // Core circle
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [color.opacity(0.3), color.opacity(0.06)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 26
+                        )
+                    )
+                    .frame(width: 52, height: 52)
+
+                // Icon
+                Image(systemName: "wind")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(color)
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                    scale = 1.15
+                    isBreathing = true
+                }
+            }
+        }
+    }
+
     // MARK: - Breathing Quick Access (som Calm/Headspace)
 
     var breathingQuickAccess: some View {
@@ -378,20 +431,9 @@ private extension Dashboard {
             LJHaptic.soft()
         } label: {
             HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color(hex: 0x6ECFF6).opacity(0.3), Color(hex: 0x6ECFF6).opacity(0.06)],
-                                center: .center, startRadius: 0, endRadius: 26
-                            )
-                        )
-                        .frame(width: 52, height: 52)
-                        .overlay(Circle().stroke(Color(hex: 0x6ECFF6).opacity(0.2), lineWidth: 1))
-                    Image(systemName: "wind")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundStyle(Color(hex: 0x6ECFF6))
-                }
+                // Premium animated breathing circle
+                BreathingCircleView(color: Color(hex: 0x6ECFF6))
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Andas lugnt")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
@@ -408,8 +450,8 @@ private extension Dashboard {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .ljPremiumCard(radius: 20, accent: Color(hex: 0x6ECFF6))
-            .shadow(color: Color(hex: 0x6ECFF6).opacity(0.1), radius: 12, y: 4)
+            .ljMetallicCard(radius: 20, accent: Color(hex: 0x6ECFF6))
+            .shadow(color: Color(hex: 0x6ECFF6).opacity(0.15), radius: 12, y: 4)
         }
         .buttonStyle(LJPressableButtonStyle())
         .accessibilityLabel("Starta andningsövning. 1 minut snabb avslappning.")
