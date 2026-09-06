@@ -227,6 +227,7 @@ struct ForumCard: View {
     let post: ForumPost
     let onToggleLike: () -> Void
     @State private var isExpanded = false
+    @State private var isPressed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -287,7 +288,29 @@ struct ForumCard: View {
         }
         .padding(14)
         .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    isPressed ? post.tagColor.opacity(0.5) : Color.white.opacity(0.08),
+                    lineWidth: isPressed ? 1.5 : 1
+                )
+        )
+        .shadow(
+            color: isPressed ? post.tagColor.opacity(0.3) : Color.black.opacity(0.2),
+            radius: isPressed ? 12 : 6,
+            x: 0,
+            y: isPressed ? 6 : 3
+        )
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .onChange(of: isExpanded) { _, _ in
+            if !isExpanded { isPressed = false }
+        }
     }
 }
 
