@@ -508,6 +508,22 @@ struct Mood1View: View {
                     lineWidth: 1
                 )
 
+            // Premium check-in progress ring: gör dagens status läsbar utan att
+            // konkurrera med humörvalen i kortet.
+            Circle()
+                .trim(from: 0, to: todayLogged ? 1 : 0.68)
+                .stroke(
+                    AngularGradient(
+                        colors: [Color.warmLavender, Color.warmRose, Color.warmGold, Color.warmLavender],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .frame(width: 52, height: 52)
+                .rotationEffect(.degrees(-90))
+                .opacity(0.9)
+                .animation(.easeInOut(duration: 0.8), value: todayLogged)
+
             VStack(spacing: 20) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 5) {
