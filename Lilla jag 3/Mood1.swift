@@ -1418,6 +1418,10 @@ struct MoodLogFlowView: View {
     let store: MoodStore
     let onSave: (MoodEntry) -> Void
 
+    // CP-5-5e: Step-by-step particle trail state
+    @State private var particleTrail: [Particle] = []
+    @State private var lastStepWidth: CGFloat = 0
+
     // selections
     @State private var generalMood = ""
     @State private var hadAnxiety = ""
@@ -1455,11 +1459,36 @@ struct MoodLogFlowView: View {
             AppBackground()
 
             VStack(spacing: 0) {
-                // Progress pill
+                // Progress pill with particle trail
                 if step < 12 {
-                    progressPill
-                        .padding(.top, 16)
-                        .padding(.horizontal, 20)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            // Bakgrund med particle trail (CP-5-5e)
+                            ParticleTrailView(particles: particleTrail)
+                                .frame(height: 52)
+                                .onChange(of: geo.size.width) { oldVal, newVal in
+                                    if oldVal != lastStepWidth && lastStepWidth > 0 {
+                                        // Nytt steg - uppdatera trail
+                                        let progress = CGFloat(step + 1) / CGFloat(totalSteps)
+                                        particleTrail = generateParticleTrail(progress: progress, width: newVal)
+                                        // Emit burst particles
+                                        emitStepParticles(in: geo.size)
+                                    }
+                                    lastStepWidth = newVal
+                                }
+                                .onAppear {
+                                    lastStepWidth = geo.size.width
+                                    let progress = CGFloat(step + 1) / CGFloat(totalSteps)
+                                    particleTrail = generateParticleTrail(progress: progress, width: geo.size.width)
+                                }
+
+                            // Progress pill ovanpå
+                            progressPill
+                        }
+                    }
+                    .frame(height: 52)
+                    .padding(.top, 16)
+                    .padding(.horizontal, 20)
                 }
 
                 ScrollView {
@@ -2121,6 +2150,111 @@ struct MoodLogFlowView: View {
         entry.wished = wishedSel
     }
     private func scale(_ dict: [String:Double], key: String) -> Double { dict[key] ?? 0.5 }
+}
+
+// MARK: - Particle Model for Step Trail
+struct Particle: Identifiable {
+    let id = UUID()
+    var x: CGFloat
+    var y: CGFloat
+    var opacity: Double
+    var scale: CGFloat
+    var color: Color
+}
+
+// MARK: - Particle Trail View (CP-5-5e)
+struct ParticleTrailView: View {
+    let particles: [Particle]
+
+    var body: some View {
+        Canvas { context, size in
+            for particle in particles {
+                let rect = CGRect(
+                    x: particle.x - 4 * particle.scale,
+                    y: particle.y - 4 * particle.scale,
+                    width: 8 * particle.scale,
+                    height: 8 * particle.scale
+                )
+                context.opacity = particle.opacity
+                context.fill(
+                    Circle().path(in: rect),
+                    with: .color(particle.color)
+                )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Humörlogg (MoodLogFlowView) Particle Helpers
+extension MoodLogFlowView {
+    // Genererar partikel-trail baserat på progress
+    private func generateParticleTrail(progress: CGFloat, width: CGFloat) -> [Particle] {
+        var particles: [Particle] = []
+        let trailY = 28.0 // Centrerad på progress bar
+        let baseX = 16.0 // Start från vänster (motsvarar padding)
+        let trailWidth = width - 32 // Bredd minus padding
+
+        // Skapa partiklar längs progress-baren med varierande opacity och storlek
+        for i in 0..<20 {
+            let progressPoint = CGFloat(i) / 19.0 // 0.0 till 1.0
+            let x = baseX + trailWidth * progressPoint
+
+            // Partiklar visas bara upp till nuvarande progress
+            guard progressPoint <= progress else { break }
+
+            // Beräkna opacity: högst närmast "kanten" av det fyllda
+            let distFromEdge = progress - progressPoint
+            let opacity = min(1.0, max(0.1, distFromEdge * 4 + 0.2))
+
+            // Beräkna scale: varierar längs trailen för naturligt utseende
+            let scale = 0.5 + 0.5 * sin(progressPoint * .pi * 3)
+
+            // Färg: gradient längs trailen (lavender → rose → gold)
+            let color: Color
+            if progressPoint < 0.5 {
+                color = Color.warmLavender
+            } else if progressPoint < 0.8 {
+                color = Color.warmRose
+            } else {
+                color = Color.warmGold
+            }
+
+            // Y-position: micro-variation för organic feel
+            let yVariation = sin(progressPoint * .pi * 7) * 3
+            let y = trailY + yVariation
+
+            particles.append(Particle(x: x, y: y, opacity: opacity, scale: scale, color: color))
+        }
+
+        return particles
+    }
+
+    // Lägger till burst-partiklar vid steg-byte
+    private func emitStepParticles(in size: CGSize) {
+        let currentProgress = CGFloat(step + 1) / CGFloat(totalSteps)
+        let baseX = 16.0 + (size.width - 32) * currentProgress
+        let trailY = 28.0
+
+        // Skapa 8-12 burst-partiklar som sprids från övergångspunkten
+        let burstColors: [Color] = [.warmLavender, .warmRose, .warmGold, .white]
+
+        for i in 0..<10 {
+            let angle = (CGFloat(i) / 10.0) * .pi * 2
+            let distance: CGFloat = 15 + CGFloat.random(in: 0...20)
+            let burstX = baseX + cos(angle) * distance
+            let burstY = trailY + sin(angle) * distance
+            let color = burstColors[i % burstColors.count]
+
+            particleTrail.append(Particle(
+                x: burstX,
+                y: burstY,
+                opacity: 0.9,
+                scale: CGFloat.random(in: 0.3...0.8),
+                color: color
+            ))
+        }
+    }
 }
 
 // MARK: - Log Card Modifier
