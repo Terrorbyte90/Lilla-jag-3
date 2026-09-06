@@ -328,11 +328,19 @@ struct PremiumShimmerProgressBar: View {
 
 struct AchievementBadgeView: View {
     let achievement: Achievement
+    var staggerIndex: Int = 0
+    var staggerPhase: Int = 0
 
     @State private var appeared = false
     @State private var lockedPulse = false
+    @State private var animateIn = false
 
     private var isLocked: Bool { !achievement.isUnlocked }
+
+    // Stagger animation delay: 0.05s between each badge
+    private var staggerDelay: Double {
+        Double(min(staggerIndex, 30)) * 0.05
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -448,12 +456,14 @@ struct AchievementBadgeView: View {
                 }
             }
             .frame(width: 72, height: 72)
-            .scaleEffect(appeared ? 1.0 : 0.85)
+            .scaleEffect(animateIn ? 1.0 : 0.3)
+            .opacity(animateIn ? 1.0 : 0.0)
+            .offset(y: animateIn ? 0 : 16)
             .animation(
                 achievement.isUnlocked
-                    ? .spring(response: 0.45, dampingFraction: 0.55)
+                    ? .spring(response: 0.5, dampingFraction: 0.7).delay(staggerDelay)
                     : .none,
-                value: appeared
+                value: animateIn
             )
 
             Text(achievement.title)
@@ -462,18 +472,39 @@ struct AchievementBadgeView: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .frame(maxWidth: 80)
+                .opacity(animateIn ? 1.0 : 0.0)
+                .animation(
+                    .easeOut(duration: 0.3).delay(staggerDelay + 0.1),
+                    value: animateIn
+                )
         }
         .frame(width: 80, height: 90)
         .onAppear {
-            if achievement.isUnlocked {
-                appeared = true
-            } else {
-                lockedPulse = true
+            // Trigger stagger animation when phase changes
+            DispatchQueue.main.asyncAfter(deadline: .now() + staggerDelay) {
+                if achievement.isUnlocked {
+                    animateIn = true
+                } else {
+                    lockedPulse = true
+                }
+            }
+        }
+        .onChange(of: staggerPhase) { _, _ in
+            // Re-trigger animation when phase changes (e.g., view re-appears)
+            animateIn = false
+            lockedPulse = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + staggerDelay) {
+                if achievement.isUnlocked {
+                    animateIn = true
+                } else {
+                    lockedPulse = true
+                }
             }
         }
         .onChange(of: achievement.isUnlocked) { _, newValue in
             if newValue {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
+                    animateIn = true
                     appeared = true
                 }
                 lockedPulse = false
@@ -487,12 +518,18 @@ struct AchievementBadgeView: View {
 struct AchievementsGridView: View {
     @State private var store = AchievementsStore.shared
     @State private var showPopup = false
+    @State private var staggerPhase: Int = 0
 
     private let columns = [
         GridItem(.flexible(), spacing: 16),
         GridItem(.flexible(), spacing: 16),
         GridItem(.flexible(), spacing: 16)
     ]
+
+    // Stagger animation delay: 0.05s between each badge, max 1.5s total
+    private func staggerDelay(for index: Int) -> Double {
+        Double(min(index, 30)) * 0.05
+    }
 
     var body: some View {
         NavigationStack {
@@ -524,10 +561,14 @@ struct AchievementsGridView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
 
-                        // Grid
+                        // Staggered grid
                         LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(store.achievements) { achievement in
-                                AchievementBadgeView(achievement: achievement)
+                            ForEach(Array(store.achievements.enumerated()), id: \.element.id) { index, achievement in
+                                AchievementBadgeView(
+                                    achievement: achievement,
+                                    staggerIndex: index,
+                                    staggerPhase: staggerPhase
+                                )
                             }
                         }
                         .padding(.horizontal, 20)
@@ -563,6 +604,10 @@ struct AchievementsGridView: View {
                         showPopup = false
                     }
                 }
+            }
+            .onAppear {
+                // Trigger stagger animation on appear
+                staggerPhase += 1
             }
         }
     }
