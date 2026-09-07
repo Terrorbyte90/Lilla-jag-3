@@ -106,6 +106,15 @@ struct DesignSystem {
         static let gentle = SwiftUI.Animation.easeInOut(duration: 0.45)
         // Overlay/dismiss
         static let overlay = SwiftUI.Animation.easeOut(duration: 0.3)
+        
+        // Premium Fable-5 animations
+        static let premium    = SwiftUI.Animation.spring(response: 0.5, dampingFraction: 0.75)
+        static let hero       = SwiftUI.Animation.spring(response: 0.6, dampingFraction: 0.8)
+        static let cardAppear = SwiftUI.Animation.spring(response: 0.35, dampingFraction: 0.68)
+        static let tabSwitch  = SwiftUI.Animation.spring(response: 0.25, dampingFraction: 0.88)
+        static let ripple     = SwiftUI.Animation.easeOut(duration: 0.4)
+        static let fadeIn     = SwiftUI.Animation.easeIn(duration: 0.3)
+        static let fadeOut    = SwiftUI.Animation.easeOut(duration: 0.25)
     }
 }
 
@@ -364,6 +373,90 @@ struct LJSkeletonRow: View {
             .fill(Color.white.opacity(0.08))
             .frame(maxWidth: width == .infinity ? .infinity : width, minHeight: height, maxHeight: height)
             .ljShimmer()
+    }
+}
+
+// MARK: - Premium Fable-5 Visual Effects
+
+struct LJPremiumGlow: ViewModifier {
+    let color: Color
+    var radius: CGFloat = 20
+    var opacity: CGFloat = 0.4
+    
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: color.opacity(opacity), radius: radius)
+            .shadow(color: color.opacity(opacity * 0.5), radius: radius * 0.5)
+    }
+}
+
+struct LJPulseRing: ViewModifier {
+    @State private var isPulsing = false
+    let color: Color
+    var scale: CGFloat = 1.0
+    var duration: Double = 1.5
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                Circle()
+                    .stroke(color, lineWidth: 2)
+                    .scaleEffect(isPulsing ? scale : 1.0)
+                    .opacity(isPulsing ? 0 : 0.6)
+                    .animation(
+                        .easeOut(duration: duration).repeatForever(autoreverses: false),
+                        value: isPulsing
+                    )
+            )
+            .onAppear { isPulsing = true }
+    }
+}
+
+struct LJGradientBorder: ViewModifier {
+    var width: CGFloat = 2
+    var cornerRadius: CGFloat = 12
+    var gradient: LinearGradient = .ljAccentGradient
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(gradient, lineWidth: width)
+            )
+    }
+}
+
+struct LJStaggerAppear: ViewModifier {
+    let index: Int
+    @State private var isVisible = false
+    
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 20)
+            .onAppear {
+                withAnimation(DesignSystem.Animation.cardAppear.delay(Double(index) * 0.08)) {
+                    isVisible = true
+                }
+            }
+    }
+}
+
+extension View {
+    func ljPremiumGlow(color: Color = .warmLavender, radius: CGFloat = 20, opacity: CGFloat = 0.4) -> some View {
+        modifier(LJPremiumGlow(color: color, radius: radius, opacity: opacity))
+    }
+    
+    func ljPulse(color: Color = .warmLavender, scale: CGFloat = 1.3, duration: Double = 1.5) -> some View {
+        modifier(LJPulseRing(color: color, scale: scale, duration: duration))
+    }
+    
+    func ljGradientBorder(width: CGFloat = 2, cornerRadius: CGFloat = 12, gradient: LinearGradient = .ljAccentGradient) -> some View {
+        modifier(LJGradientBorder(width: width, cornerRadius: cornerRadius, gradient: gradient))
+    }
+    
+    func ljStaggerAppear(index: Int) -> some View {
+        modifier(LJStaggerAppear(index: index))
     }
 }
 
