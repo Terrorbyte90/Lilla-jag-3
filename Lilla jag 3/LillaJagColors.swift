@@ -24,4 +24,37 @@ extension Color {
     static let warmSage     = Color(hex: 0x7EC8A4)  // natur, framsteg
     static let warmGold     = Color(hex: 0xFFD166)  // energi, belöning
     static let warmCoral    = Color(hex: 0xFF8C69)  // aktivitet, handling
+    
+    // Premium Fable-5 färger
+    static let ljAccentPurple = Color(hex: 0xC084FC)  // starkare lavendel
+    static let ljAccentPink   = Color(hex: 0xF472B6)  // starkare ros
+    static let ljDeepPurple   = Color(hex: 0x7C3AED)  // djup lila
+    static let ljNightBlue    = Color(hex: 0x3B82F6)  // nattlig blå
+    static let ljAuroraCyan   = Color(hex: 0x22D3EE)  // aurora cyan
+    static let ljSunsetOrange = Color(hex: 0xFB923C)  // solnedgång orange
+    
+    // Premium gradients för Fable-5
+    static var ljAuroraGradient: LinearGradient {
+        LinearGradient(
+            colors: [warmLavender, warmRose, warmGold],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    static var ljNightGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(hex: 0x1A1025), Color(hex: 0x2D1F4E)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+    
+    static var ljAccentGradient: LinearGradient {
+        LinearGradient(
+            colors: [warmLavender, ljAccentPurple],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
