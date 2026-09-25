@@ -391,6 +391,7 @@ struct LJPremiumGlow: ViewModifier {
 }
 
 struct LJPulseRing: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPulsing = false
     let color: Color
     var scale: CGFloat = 1.0
@@ -404,18 +405,24 @@ struct LJPulseRing: ViewModifier {
                     .scaleEffect(isPulsing ? scale : 1.0)
                     .opacity(isPulsing ? 0 : 0.6)
                     .animation(
-                        .easeOut(duration: duration).repeatForever(autoreverses: false),
+                        reduceMotion
+                            ? nil
+                            : .easeOut(duration: duration).repeatForever(autoreverses: false),
                         value: isPulsing
                     )
             )
-            .onAppear { isPulsing = true }
+            .onAppear {
+                // Respektera Reduce Motion – statisk ring i stället för animation
+                guard !reduceMotion else { return }
+                isPulsing = true
+            }
     }
 }
 
 struct LJGradientBorder: ViewModifier {
     var width: CGFloat = 2
     var cornerRadius: CGFloat = 12
-    var gradient: LinearGradient = .ljAccentGradient
+    var gradient: LinearGradient = Color.ljAccentGradient
     
     func body(content: Content) -> some View {
         content
@@ -451,7 +458,17 @@ extension View {
         modifier(LJPulseRing(color: color, scale: scale, duration: duration))
     }
     
-    func ljGradientBorder(width: CGFloat = 2, cornerRadius: CGFloat = 12, gradient: LinearGradient = .ljAccentGradient) -> some View {
+    /// Pulse-ring som bara appliceras när `condition` är sann (t.ex. streak > 0)
+    @ViewBuilder
+    func ljPulse(if condition: Bool, color: Color = .warmLavender, scale: CGFloat = 1.3, duration: Double = 1.5) -> some View {
+        if condition {
+            modifier(LJPulseRing(color: color, scale: scale, duration: duration))
+        } else {
+            self
+        }
+    }
+    
+    func ljGradientBorder(width: CGFloat = 2, cornerRadius: CGFloat = 12, gradient: LinearGradient = Color.ljAccentGradient) -> some View {
         modifier(LJGradientBorder(width: width, cornerRadius: cornerRadius, gradient: gradient))
     }
     

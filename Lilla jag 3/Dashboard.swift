@@ -137,7 +137,7 @@ private extension Dashboard {
                 Text("Lilla Jag")
                     .font(.system(.title2, design: .rounded, weight: .black))
                     .minimumScaleFactor(0.8)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.ljAuroraGradient)
                     .tracking(-0.3)
                 Text(greetingText)
                     .font(.system(.subheadline, design: .rounded))
@@ -286,6 +286,7 @@ private extension Dashboard {
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(viewModel.currentStreak > 0 ? Color.warmGold : Color.white.opacity(0.25))
                 }
+                .ljPulse(if: viewModel.currentStreak > 0, color: .warmGold, scale: 1.35, duration: 2.4)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(viewModel.currentStreak)")
                         .font(.system(.title2, design: .rounded, weight: .black))
