@@ -34,6 +34,7 @@ final class DashboardViewModel {
     private var cancellables = Set<AnyCancellable>()
     private let timer = Timer.publish(every: 120, on: .main, in: .common).autoconnect()
     private let streakKey = "lj_streak_dates"
+    private let moodKey = "lj_last_checkin_mood"
 
     init() {
         timer
@@ -74,6 +75,10 @@ final class DashboardViewModel {
             dates.append(today)
             saveStreakDates(dates)
         }
+        // Spara dagens humörval så kortet inte blir tomt vid nästa start
+        if let mood = selectedQuickMood {
+            UserDefaults.standard.set(mood.rawValue, forKey: moodKey)
+        }
         loadStreak()
         checkAchievements()
 
@@ -96,6 +101,13 @@ final class DashboardViewModel {
         let today = cal.startOfDay(for: .now)
 
         hasCheckedInToday = dates.contains(today)
+
+        // Återställ dagens humörval om vi redan har checkat in idag
+        if hasCheckedInToday,
+           let raw = UserDefaults.standard.string(forKey: moodKey),
+           let mood = QuickMood(rawValue: raw) {
+            selectedQuickMood = mood
+        }
 
         var streak = 0
         var checkDate = today
