@@ -48,10 +48,7 @@ struct OnboardingView: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack {
-                WarmBackground()
-
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
                     // Top bar: dots + skip
                     HStack {
                         // Page indicator dots
@@ -129,8 +126,9 @@ struct OnboardingView: View {
                     .accessibilityLabel(currentPage < pages.count - 1 ? "Nästa sida" : "Kom igång med appen")
                     .padding(.horizontal, 28)
                     .padding(.bottom, max(24, geo.size.height * 0.06))
-                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(WarmBackground())
         }
         .preferredColorScheme(.dark)
         .task {
@@ -187,21 +185,27 @@ struct OnboardingView: View {
 
 struct WarmBackground: View {
     var body: some View {
-        ZStack {
-            Color(hex: 0x1A1025).ignoresSafeArea()
-            Circle()
-                .fill(LinearGradient(colors: [Color(hex: 0x8B2FC9).opacity(0.4), Color(hex: 0xFF6B6B).opacity(0.25)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 500, height: 500)
-                .blur(radius: 120)
-                .offset(x: 100, y: -180)
-            Circle()
-                .fill(LinearGradient(colors: [Color(hex: 0x4A90D9).opacity(0.25), Color(hex: 0x9B59B6).opacity(0.3)],
-                                     startPoint: .bottomLeading, endPoint: .topTrailing))
-                .frame(width: 400, height: 400)
-                .blur(radius: 130)
-                .offset(x: -120, y: 220)
+        // Viktigt: cirklarna placeras med .position (inte .offset) så att deras
+        // stora fasta storlek aldrig sväller upp layouten till 500 pt och
+        // förskjuter/klipper innehållet i högerkanten (fix 2026-09-26).
+        GeometryReader { geo in
+            ZStack {
+                Color(hex: 0x1A1025)
+                Circle()
+                    .fill(LinearGradient(colors: [Color(hex: 0x8B2FC9).opacity(0.4), Color(hex: 0xFF6B6B).opacity(0.25)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 500, height: 500)
+                    .blur(radius: 120)
+                    .position(x: geo.size.width / 2 + 100, y: geo.size.height / 2 - 180)
+                Circle()
+                    .fill(LinearGradient(colors: [Color(hex: 0x4A90D9).opacity(0.25), Color(hex: 0x9B59B6).opacity(0.3)],
+                                         startPoint: .bottomLeading, endPoint: .topTrailing))
+                    .frame(width: 400, height: 400)
+                    .blur(radius: 130)
+                    .position(x: geo.size.width / 2 - 120, y: geo.size.height / 2 + 220)
+            }
         }
+        .ignoresSafeArea()
     }
 }
 
