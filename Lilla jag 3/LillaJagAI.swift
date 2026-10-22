@@ -90,6 +90,11 @@ final class LillaJagAIService {
         currentEmotion = emotion
         sessionSentiment = sessionSentiment * 0.7 + sentiment * 0.3 // exponentiellt glidande medelvärde
 
+        // Krisläge går alltid före AI – svaret får aldrig bero på modellen.
+        if CrisisDetector.isCrisis(userMessage) {
+            return CrisisDetector.response
+        }
+
         // Försök med Qwen om modell finns.
         // Bygg historiken från alla meddelanden UTOM det sista (som redan är userMessage).
         let qwen = QwenEngine.shared
@@ -147,7 +152,11 @@ final class LillaJagAIService {
         let sentiment = await LillaJagMLEngine.shared.analyzeSentiment(entryDescription)
 
         try? await Task.sleep(nanoseconds: 400_000_000)
-        return KBTFallback.moodInsights(for: entryDescription, emotion: emotion, sentiment: sentiment)
+        var result = KBTFallback.moodInsights(for: entryDescription, emotion: emotion, sentiment: sentiment)
+        if CrisisDetector.isCrisis(entryDescription) {
+            result.advice.insert("Om du har tankar på att skada dig själv: ring Självmordslinjen 90101 (dygnet runt) eller 112 vid akut fara.", at: 0)
+        }
+        return result
     }
 
     // MARK: - Veckorapport
@@ -228,6 +237,10 @@ final class LillaJagAIService {
         isThinking = true
         defer { isThinking = false }
 
+        if CrisisDetector.isCrisis(abcEntry) {
+            return CrisisDetector.response
+        }
+
         let emotion = await LillaJagMLEngine.shared.analyzeEmotion(abcEntry)
 
         let qwen = QwenEngine.shared
@@ -305,9 +318,8 @@ private enum KBTFallback {
         let lower = input.lowercased()
 
         // Krisläge – alltid prioritet
-        if containsAny(lower, ["suicid", "ta livet", "dö", "döda mig",
-                               "inte leva", "hopplöst", "orkar inte mer"]) {
-            return "Det låter som du har det väldigt tungt just nu, och jag vill att du vet att du inte är ensam. Ring Självmordslinjen på 90101 – de finns dygnet runt och lyssnar utan att döma. Kan du ringa dem nu?"
+        if CrisisDetector.isCrisis(lower) {
+            return CrisisDetector.response
         }
 
         let topic = detectTopic(lower, emotion: emotion)

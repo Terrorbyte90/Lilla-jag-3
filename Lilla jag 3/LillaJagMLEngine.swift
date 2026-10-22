@@ -136,7 +136,7 @@ final class LillaJagMLEngine {
 
     private func loadBertVocab() async {
         guard let url = Bundle.main.url(forResource: "bert_vocab", withExtension: "txt"),
-              let content = try? String(contentsOf: url) else { return }
+              let content = try? String(contentsOf: url, encoding: .utf8) else { return }
         var vocab: [String: Int] = [:]
         for (i, line) in content.components(separatedBy: "\n").enumerated() {
             let token = line.trimmingCharacters(in: .whitespaces)
