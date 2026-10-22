@@ -805,3 +805,27 @@ final class DailyLogMonsterStateTests: XCTestCase {
         XCTAssertEqual(makeLog(sleep: 3, meals: 3, outdoor: 3, exercise: 3, social: 3).monsterState, .superHappy)
     }
 }
+
+// MARK: - CrisisDetector
+
+final class CrisisDetectorTests: XCTestCase {
+
+    func testDetectsSuicidalPhrases() {
+        for text in ["Jag vill dö", "jag orkar inte mer", "Jag tänker på självmord",
+                     "jag vill skada mig själv", "Allt känns hopplöst", "Jag vill bara försvinna"] {
+            XCTAssertTrue(CrisisDetector.isCrisis(text), text)
+        }
+    }
+
+    func testIgnoresHarmlessWordsContainingDo() {
+        for text in ["Jag stängde dörren", "Mina döttrar är hemma", "Vi åt dörsnack",
+                     "Jag mår bra idag", "Jobbet var stressigt"] {
+            XCTAssertFalse(CrisisDetector.isCrisis(text), text)
+        }
+    }
+
+    func testCrisisResponseReferencesHelplines() {
+        XCTAssertTrue(CrisisDetector.response.contains("90101"))
+        XCTAssertTrue(CrisisDetector.response.contains("112"))
+    }
+}
